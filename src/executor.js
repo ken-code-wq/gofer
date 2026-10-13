@@ -222,7 +222,15 @@ async function runCheck(action, browser, page, label) {
     if (isWait) await page.waitForTimeout(300);
   } while (Date.now() < end);
 
-  const why = isWait ? `timed out after ${Math.round((action.timeoutMs || 15000) / 1000)}s: ${label}` : `check failed: ${label}`;
+  const secs = Math.round((action.timeoutMs || 15000) / 1000);
+  const why = {
+    wait_text: `"${want}" didn't appear within ${secs} s`,
+    wait_text_gone: `"${want}" was still on the page after ${secs} s`,
+    wait_url: `The address didn't change to include "${want}" within ${secs} s`,
+    assert_text: `The page doesn't say "${want}"`,
+    assert_no_text: `The page says "${want}"`,
+    assert_url: `The address doesn't include "${want}"`,
+  }[action.type] || label;
   const screenshot = await saveFailureShot(page);
   await browser.overlay("toast", `✗ ${why}`, 5000);
   return { ok: false, detail: why, screenshot, url: page.url() };

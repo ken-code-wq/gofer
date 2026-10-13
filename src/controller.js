@@ -57,7 +57,7 @@ export class Controller extends EventEmitter {
 
   async start() {
     await this.refreshSnapshot();
-    this._log("info", `ready — model ${MODEL}, ${this.snapshot.elements.length} elements on ${this.snapshot.url}`);
+    this._log("info", `ready: model ${MODEL}, ${this.snapshot.elements.length} elements on ${this.snapshot.url}`);
   }
 
   _log(level, msg, extra = {}) {
@@ -159,9 +159,9 @@ export class Controller extends EventEmitter {
     const c = this.chain;
     if (!c) return;
     this.chain = null;
-    this._log(status === "done" ? "act" : "warn", `chain ${status}${reason ? ` — ${reason}` : ""}`);
+    this._log(status === "done" ? "act" : "warn", `chain ${status}${reason ? `: ${reason}` : ""}`);
     this.emit("chain", { status, reason, steps: c.steps, index: Math.min(c.i, c.steps.length - 1), text: c.text, ...extra });
-    this._note(c.thread, `${status === "done" ? "completed" : status} steps: ${c.steps.slice(0, c.i + 1).join("; ")}${reason ? ` — ${reason}` : ""}`);
+    this._note(c.thread, `${status === "done" ? "completed" : status} steps: ${c.steps.slice(0, c.i + 1).join("; ")}${reason ? `: ${reason}` : ""}`);
   }
 
   _emitChain(status) {
@@ -304,7 +304,7 @@ export class Controller extends EventEmitter {
     g.cancelled = true;
     if (this.goal === g) this.goal = null;
     for (const s of g.steps) if (s.status === "running" || s.status === "awaiting") s.status = status === "done" ? "ok" : "ignored";
-    this._log(status === "done" ? "act" : "warn", `goal ${status}${summary ? ` — ${summary}` : ""}`);
+    this._log(status === "done" ? "act" : "warn", `goal ${status}${summary ? `: ${summary}` : ""}`);
     // what was done, with the values used, so a follow-up can refer to "them" / "the first 2"
     const did = g.steps.filter((s) => s.status === "ok").map((s) => (s.detail && !/^localhost|^[\w.-]+\.\w+\//.test(s.detail) ? `${s.text} [${s.detail}]` : s.text));
     this._note(g.thread, `goal ${status}: ${summary}${did.length ? ` (steps: ${did.join("; ")})` : ""}`);
@@ -325,7 +325,7 @@ export class Controller extends EventEmitter {
       const { step } = r;
       if (step.status === "done" && g.unsavedForm && (g.unsavedChecks = (g.unsavedChecks || 0) + 1) <= 2) {
         // it filled a form and never saved it: not done yet
-        note = "You filled a form but have not clicked its save/submit button since. The goal is not complete until it is saved — save it, then check the page.";
+        note = "You filled a form but have not clicked its save/submit button since. The goal is not complete until it is saved: save it, then check the page.";
         continue;
       }
       if (step.status === "done") {
@@ -335,7 +335,7 @@ export class Controller extends EventEmitter {
         if (!v.complete) {
           this._log("info", `goal not finished yet: ${v.missing}`);
           if ((g.rejections = (g.rejections || 0) + 1) > 3) return this._endGoal(g, "failed", `Not finished: ${v.missing}`);
-          note = `IMPORTANT: the goal is NOT complete yet — ${v.missing}. Do not answer 'done'. Choose the next action that makes progress.`;
+          note = `IMPORTANT: the goal is NOT complete yet: ${v.missing}. Do not answer 'done'. Choose the next action that makes progress.`;
           continue;
         }
         return this._endGoal(g, "done", step.summary);
@@ -359,7 +359,7 @@ export class Controller extends EventEmitter {
           entry.status = ok.length ? "ok" : "fail";
           g.unsavedForm = ok.length > 0;
           entry.detail = ok.map((f) => `${f.label}: ${f.value}`).join(" · ").slice(0, 160);
-          g.done.push({ description: entry.text, outcome: `filled ${ok.length} field(s): ${entry.detail}${r2.missing.length ? `; no field for ${r2.missing.join(", ")}` : ""} — NOT submitted yet` });
+          g.done.push({ description: entry.text, outcome: `filled ${ok.length} field(s): ${entry.detail}${r2.missing.length ? `; no field for ${r2.missing.join(", ")}` : ""}. NOT submitted yet` });
         } catch (err) {
           entry.status = "fail";
           entry.detail = String(err.message || err);
@@ -468,7 +468,7 @@ export class Controller extends EventEmitter {
       if (n) {
         const c = this.candidates.list[n - 1];
         this._consume(this.utterance, clean);
-        this._log("info", `picked candidate ${n} (${c.label}) by number — no model call`);
+        this._log("info", `picked candidate ${n} (${c.label}) by number (no model call)`);
         const action = { ...this.candidates.intent, targetId: c.id, label: c.label };
         this.candidates = null;
         this._runAction(action, { via: "candidate-pick" });
@@ -622,7 +622,7 @@ export class Controller extends EventEmitter {
         // A finished (final / typed) command that stays unclear won't get clearer by asking again.
         if (utt.final && !stale && (utt.finalWaits = (utt.finalWaits || 0) + 1) >= MAX_FINAL_WAITS) {
           utt.actedOn = true;
-          this._log("warn", `couldn't understand "${textAtRequest}" (${policy.summary}) — try rephrasing`);
+          this._log("warn", `couldn't understand "${textAtRequest}" (${policy.summary}); try rephrasing`);
           this.emit("gaveup", { transcript: textAtRequest, summary: policy.summary });
           if (this._isChainStep(utt)) this._endChain("failed", `step ${this.chain.i + 1} not understood: ${textAtRequest}`);
           break;
@@ -676,12 +676,12 @@ export class Controller extends EventEmitter {
         via: meta.via || "jev",
         screenshot: res.screenshot || null,
       };
-      this._log(res.ok ? "act" : "warn", `${res.ok ? "✓" : "✗"} ${describe(action)} — decided ${decisionMs ?? "?"}ms after last word, executed in ${took}ms ${res.detail || ""}`);
+      this._log(res.ok ? "act" : "warn", `${res.ok ? "✓" : "✗"} ${describe(action)}: decided ${decisionMs ?? "?"}ms after last word, executed in ${took}ms ${res.detail || ""}`);
       this.emit("action", entry);
       // single commands (not chain/goal steps) are recorded in their thread
       if (!this.chain && meta.via !== "goal") this._note(this.thread, `${res.ok ? "did" : "failed"}: ${describe(action)}${res.detail && !String(res.detail).startsWith("http") ? ` (${res.detail})` : ""}`);
     } catch (err) {
-      this._log("error", `action failed: ${describe(action)} — ${err.message || err}`);
+      this._log("error", `action failed: ${describe(action)}: ${err.message || err}`);
       res = { detail: String(err.message || err) };
       this.emit("action", { action, ok: false, detail: res.detail });
     } finally {
@@ -716,6 +716,21 @@ export class Controller extends EventEmitter {
       at: Date.now(),
     });
     if (this.context.recentActions.length > MAX_CONTEXT_ACTIONS) this.context.recentActions.shift();
+  }
+
+  /** Stop whatever is running (Esc / Stop in the bar): goal, chain, pending confirmation, open requests. */
+  stop() {
+    if (this.goal) this._endGoal(this.goal, "cancelled", "Stopped");
+    if (this.chain) this._endChain("cancelled", "Stopped");
+    this.pending = null;
+    this.candidates = null;
+    if (this.utterance) this.utterance.actedOn = true;
+    clearTimeout(this.debounceTimer);
+    clearTimeout(this.silenceTimer);
+    for (const r of this.inflight) r.ac.abort();
+    this.inflight = [];
+    this._log("warn", "stopped by the user");
+    this.emit("stopped", {});
   }
 
   /** "Undo" = go back in history. */

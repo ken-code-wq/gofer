@@ -74,7 +74,7 @@ export async function startServer(opts = {}) {
   controller.on("chain", (p) => broadcast("chain", p));
   controller.on("gaveup", (p) => broadcast("gaveup", p));
   controller.on("expanded", (p) => broadcast("expanded", p));
-  for (const ev of ["goal", "goal-confirm", "answer", "fill", "smart-error", "tab-switched", "tab-error", "resolved"]) controller.on(ev, (p) => broadcast(ev, p));
+  for (const ev of ["goal", "goal-confirm", "answer", "fill", "smart-error", "tab-switched", "tab-error", "resolved", "stopped"]) controller.on(ev, (p) => broadcast(ev, p));
 
   wss.on("connection", (ws) => {
     const reply = (type, payload) => ws.readyState === 1 && ws.send(JSON.stringify({ type, payload }));
@@ -96,6 +96,9 @@ export async function startServer(opts = {}) {
           break;
         case "tabs:list":
           reply("tab-list", await controller.browser.tabList().catch(() => []));
+          break;
+        case "stop":
+          controller.stop();
           break;
         case "goal:answer":
           controller.goalAnswer(Boolean(msg.ok), Boolean(msg.all));
@@ -146,7 +149,7 @@ export async function startServer(opts = {}) {
   await new Promise((resolve) => server.listen(opts.port, host, resolve));
   const url = `http://localhost:${opts.port}`;
   if (host !== "127.0.0.1" && host !== "localhost") {
-    console.warn(`WARNING: listening on ${host} — anyone who can reach this port can control the browser and spend API credits.`);
+    console.warn(`WARNING: listening on ${host}. Anyone who can reach this port can control the browser and spend API credits.`);
   }
   console.log(`\nvoice-browser ready → open ${url} in Chrome (mic needs Chrome/Edge)`);
   console.log(`${PROVIDER.name} · model ${MODEL} · controlled window: ${opts.cdp ? "attached via CDP" : opts.headless ? "headless" : "headed Chromium"}\n`);

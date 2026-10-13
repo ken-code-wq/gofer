@@ -5,628 +5,796 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src ws://127.0.0.1:*; img-src 'self' data:" />
 <title>Voice Browser</title>
 <style>
+  /*
+   * Voice Browser command bar.
+   * Restrained: cool-tinted neutrals, one accent (the user's macOS accent colour) for focus, caret,
+   * primary action and selection only. Status colours always come with an icon or a word.
+   * Type: SF Pro, 11 / 12 / 13 / 15 / 20. Radii: 6 small, 8 controls, 10 popovers.
+   */
   :root {
     color-scheme: light dark;
-    --text: rgba(0, 0, 0, .86);
-    --text-2: rgba(0, 0, 0, .55);
-    --text-3: rgba(0, 0, 0, .34);
-    --hair: rgba(0, 0, 0, .09);
-    --hover: rgba(0, 0, 0, .05);
-    --press: rgba(0, 0, 0, .09);
-    --accent: #0a7aff;
-    --ok: #1f9d4c;
-    --warn: #c27400;
-    --err: #d93a30;
-    --kbd-bg: rgba(0, 0, 0, .06);
+    --surface: rgb(247 247 249 / .96);
+    --raised: #ffffff;
+    --sunken: rgb(18 20 28 / .045);
+    --text: #1b1c20;
+    --text-2: #4f525a;      /* 7.6:1 on surface */
+    --text-3: #676a72;      /* 5.2:1 on surface */
+    --hair: rgb(18 20 28 / .09);
+    --hover: rgb(18 20 28 / .05);
+    --press: rgb(18 20 28 / .09);
+    --ok: #17773d;
+    --warn: #8f5400;
+    --err: #b8322a;
+    --accent: #0a63d6;
+    --accent-fill: #0a63d6;
+    --on-accent: #ffffff;
+    --shadow: 0 1px 2px rgb(18 20 40 / .06), 0 10px 28px rgb(18 20 40 / .14);
+    --ease: cubic-bezier(.25, 1, .5, 1); /* ease-out-quart */
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --text: rgba(255, 255, 255, .92);
-      --text-2: rgba(255, 255, 255, .58);
-      --text-3: rgba(255, 255, 255, .34);
-      --hair: rgba(255, 255, 255, .09);
-      --hover: rgba(255, 255, 255, .06);
-      --press: rgba(255, 255, 255, .1);
-      --accent: #3d9bff;
-      --ok: #3fcf6e;
-      --warn: #f2a83b;
-      --err: #ff6a5e;
-      --kbd-bg: rgba(255, 255, 255, .08);
+      --surface: rgb(29 30 33 / .96);
+      --raised: #2a2b30;
+      --sunken: rgb(255 255 255 / .045);
+      --text: #ececef;
+      --text-2: #b9bac0;    /* 9.3:1 on surface */
+      --text-3: #9a9ca3;    /* 6.4:1 on surface */
+      --hair: rgb(255 255 255 / .08);
+      --hover: rgb(255 255 255 / .06);
+      --press: rgb(255 255 255 / .1);
+      --ok: #5fd28b;
+      --warn: #f2b45a;
+      --err: #ff8478;
+      --accent: #4c9dff;
+      --accent-fill: #1f6fd6;  /* white text 4.9:1 */
+      --on-accent: #ffffff;
+      --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 12px 32px rgb(0 0 0 / .42);
     }
   }
-  * { box-sizing: border-box; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; overflow: hidden; }
-  /* A near-opaque neutral surface: the window's vibrancy otherwise tints everything with the wallpaper. */
-  html { background: rgba(248, 248, 250, .94); }
-  @media (prefers-color-scheme: dark) { html { background: rgba(28, 28, 31, .94); } }
+  html { background: var(--surface); }
   body {
-    font: 13px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-    color: var(--text);
-    -webkit-font-smoothing: antialiased;
-    user-select: none;
-    display: flex;
-    flex-direction: column;
+    display: flex; flex-direction: column;
+    font: 13px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    color: var(--text); -webkit-font-smoothing: antialiased; user-select: none;
   }
   button { font: inherit; color: inherit; background: none; border: 0; cursor: default; }
-  svg { display: block; }
+  ol, ul { list-style: none; }
+  svg { display: block; flex: none; }
+  :focus { outline: none; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  kbd {
+    display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px;
+    font: 500 11px/1 -apple-system, system-ui, sans-serif; color: var(--text-2);
+    background: var(--sunken); border-radius: 5px; box-shadow: inset 0 0 0 1px var(--hair);
+  }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
-  /* ── title bar (drag handle) ─────────────────────────────── */
-  .bar {
-    -webkit-app-region: drag;
-    display: flex; align-items: center; gap: 8px;
-    height: 34px; padding: 0 8px 0 14px; flex: none;
-  }
-  .conn { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--text-2); min-width: 0; }
-  .conn b { font-weight: 600; color: var(--text); letter-spacing: -.01em; }
-  .conn .model { color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); flex: none; transition: background .2s; }
-  .dot.on { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 18%, transparent); }
-  .dot.err { background: var(--err); }
-  .dot.busy { background: var(--warn); animation: pulse 1.2s ease-in-out infinite; }
-  @keyframes pulse { 50% { opacity: .35; } }
+  /* ── header (drag handle) ─────────────────────────────── */
+  .top { -webkit-app-region: drag; display: flex; align-items: center; gap: 6px; height: 38px; padding: 0 8px 0 16px; flex: none; }
+  .brand { font-size: 12px; font-weight: 500; color: var(--text-3); letter-spacing: -.005em; }
   .spacer { flex: 1; }
-  .browser {
-    -webkit-app-region: no-drag;
-    display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 6px 0 7px; margin-right: 4px;
-    border-radius: 7px; font-size: 11.5px; color: var(--text-2); background: var(--hover); transition: background .12s, color .12s;
-    max-width: 190px;
+  .pill, .icon { -webkit-app-region: no-drag; transition: background .15s var(--ease), color .15s var(--ease); }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; height: 26px; max-width: 200px; padding: 0 7px 0 6px;
+    border-radius: 8px; font-size: 12px; font-weight: 500; color: var(--text-2);
   }
-  .browser:hover { background: var(--press); color: var(--text); }
-  .browser svg { width: 13px; height: 13px; flex: none; }
-  .browser .caret { width: 11px; height: 11px; opacity: .7; }
-  .browser .b-ic { display: grid; place-items: center; width: 16px; height: 16px; flex: none; }
-  .browser .b-ic img { width: 16px; height: 16px; display: block; }
-  .browser.busy .b-ic { opacity: .5; }
-  .browser span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .browser.busy { color: var(--warn); }
-  .icon {
-    -webkit-app-region: no-drag;
-    width: 26px; height: 24px; border-radius: 6px; display: grid; place-items: center;
-    color: var(--text-2); transition: background .12s, color .12s;
-  }
+  .pill:hover { background: var(--hover); color: var(--text); }
+  .pill:active { background: var(--press); }
+  .pill .b-ic { width: 16px; height: 16px; display: grid; place-items: center; color: var(--text-3); }
+  .pill .b-ic img { width: 16px; height: 16px; }
+  .pill .b-ic svg { width: 15px; height: 15px; }
+  .pill .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pill .caret { width: 11px; height: 11px; color: var(--text-3); }
+  .pill[data-state="off"] .name { color: var(--warn); }
+  .icon { width: 28px; height: 26px; border-radius: 8px; display: grid; place-items: center; color: var(--text-2); }
   .icon:hover { background: var(--hover); color: var(--text); }
   .icon:active { background: var(--press); }
-  .icon svg { width: 15px; height: 15px; }
+  .icon svg { width: 16px; height: 16px; }
 
-  /* ── prompt ─────────────────────────────────────────────── */
-  .prompt {
-    display: flex; align-items: center; gap: 10px;
-    padding: 4px 14px 12px 16px; flex: none;
-    border-bottom: 1px solid var(--hair);
-  }
-  .prompt .chev { width: 18px; height: 18px; color: var(--accent); flex: none; }
-  /* composer: a one-line editor that holds text and tab chips */
+  /* ── prompt ─────────────────────────────────────────── */
+  .prompt { display: flex; align-items: flex-start; gap: 10px; padding: 2px 12px 12px 16px; flex: none; }
+  .lead { height: 32px; display: grid; place-items: center; color: var(--text-3); }
+  .lead svg { width: 18px; height: 18px; }
+  .lead[hidden] { display: none; }
   .composer {
-    -webkit-app-region: no-drag;
-    flex: 1; min-width: 0; height: 36px; line-height: 36px; white-space: nowrap; overflow-x: auto; overflow-y: hidden;
-    font: 400 20px/36px -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
-    letter-spacing: -.012em; color: var(--text); outline: none; user-select: text; cursor: text; caret-color: var(--accent);
-    scrollbar-width: none;
+    -webkit-app-region: no-drag; flex: 1; min-width: 0; max-height: 96px; overflow-y: auto; scrollbar-width: none;
+    padding: 2px 0; font: 400 20px/28px -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    letter-spacing: -.012em; color: var(--text); white-space: pre-wrap; word-break: break-word;
+    outline: none; user-select: text; cursor: text; caret-color: var(--accent);
   }
   .composer::-webkit-scrollbar { display: none; }
   .composer:empty::before { content: attr(data-placeholder); color: var(--text-3); pointer-events: none; }
-  .composer.off { opacity: .45; cursor: default; }
+  .composer.off { opacity: .5; cursor: default; }
+  .go {
+    -webkit-app-region: no-drag; height: 32px; min-width: 32px; padding: 0 8px; border-radius: 8px;
+    display: grid; place-items: center; color: var(--text-3); transition: background .15s var(--ease), color .15s var(--ease), transform .1s var(--ease);
+  }
+  .go svg { width: 16px; height: 16px; }
+  .go.ready { color: var(--accent); background: var(--hover); box-shadow: inset 0 0 0 1px var(--hair); }
+  .go.ready:hover { background: var(--press); }
+  .go:active { transform: scale(.96); }
+  .go[disabled] { opacity: 0; pointer-events: none; }
 
-  /* tab chip: favicon + title, used in the composer, history and the follow-up bar */
+  /* follow-up context, inline before the composer */
+  .reply {
+    -webkit-app-region: no-drag; display: none; align-items: center; gap: 6px; flex: none; max-width: 42%;
+    height: 28px; margin-top: 2px; padding: 0 4px 0 8px; border-radius: 8px;
+    font-size: 12px; color: var(--text-2); background: var(--sunken); box-shadow: inset 0 0 0 1px var(--hair);
+    animation: pop .16s var(--ease);
+  }
+  .reply.on { display: inline-flex; }
+  .reply > svg { width: 14px; height: 14px; color: var(--text-3); }
+  .reply .what { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .reply .x { width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; color: var(--text-3); }
+  .reply .x:hover { background: var(--hover); color: var(--text); }
+  .reply .x svg { width: 11px; height: 11px; }
+
+  /* ── tab chips: favicon + short title, tinted with the site's own colour ── */
   .chip {
-    display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; position: relative; top: -1px;
-    height: 28px; max-width: 260px; padding: 0 9px 0 6px; margin: 0 3px; border-radius: 8px;
-    font: 500 14px/1 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; letter-spacing: 0; color: var(--text);
-    background: rgb(var(--chip-rgb, 61 155 255) / .16);
-    box-shadow: inset 0 0 0 1px rgb(var(--chip-rgb, 61 155 255) / .42);
-    user-select: none; cursor: default; white-space: nowrap; transition: background .2s, box-shadow .2s;
+    display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; position: relative; top: -2px;
+    height: 26px; max-width: 240px; padding: 0 9px 0 6px; margin: 0 2px; border-radius: 8px;
+    font: 500 15px/1 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; letter-spacing: -.005em; color: var(--text);
+    background: rgb(var(--chip, 120 124 134) / .13); box-shadow: inset 0 0 0 1px rgb(var(--chip, 120 124 134) / .30);
+    user-select: none; white-space: nowrap; animation: pop .14s var(--ease);
   }
-  @media (prefers-color-scheme: dark) { .chip[data-darkicon] img { background: #ececf0; border-radius: 4px; padding: 1px; } }
-  .chip .chip-letter {
-    width: 16px; height: 16px; flex: none; border-radius: 4px; display: grid; place-items: center;
-    font: 700 10px/1 -apple-system, system-ui, sans-serif; color: #fff; background: rgb(var(--chip-rgb, 61 155 255));
-  }
-  .row .chip .chip-letter, .replying .chip .chip-letter { width: 13px; height: 13px; font-size: 8.5px; border-radius: 3px; }
-  .chip img, .chip .chip-ic { width: 16px; height: 16px; flex: none; border-radius: 4px; object-fit: contain; }
-  .chip .chip-ic { color: rgb(var(--chip-rgb, 61 155 255)); display: grid; place-items: center; }
-  .chip .chip-ic svg { width: 14px; height: 14px; }
-  .chip .chip-t { overflow: hidden; text-overflow: ellipsis; }
-  .chip .chip-x {
-    display: grid; place-items: center; width: 16px; height: 16px; margin: 0 -3px 0 -1px; border-radius: 50%;
-    color: var(--text-2); background: transparent; opacity: 0; transition: opacity .12s, background .12s;
-  }
-  .chip:hover .chip-x { opacity: 1; }
-  .chip .chip-x:hover { background: var(--press); color: var(--text); }
-  .chip .chip-x svg { width: 9px; height: 9px; }
-  .row .chip, .replying .chip { height: 20px; padding: 0 7px 0 4px; margin: 0 2px; gap: 5px; border-radius: 6px; font-size: 12px; top: -1px; max-width: 180px; }
-  .row .chip img, .row .chip .chip-ic, .replying .chip img, .replying .chip .chip-ic { width: 13px; height: 13px; border-radius: 3px; }
+  .chip img, .chip .letter { width: 16px; height: 16px; flex: none; border-radius: 4px; object-fit: contain; }
+  .chip .letter { display: grid; place-items: center; font: 700 10px/1 -apple-system, system-ui, sans-serif; color: #fff; background: rgb(var(--chip, 120 124 134)); }
+  .chip .t { overflow: hidden; text-overflow: ellipsis; }
+  .chip .x { display: grid; place-items: center; width: 16px; height: 16px; margin: 0 -4px 0 -2px; border-radius: 50%; color: var(--text-2); opacity: 0; transition: opacity .12s var(--ease); }
+  .chip:hover .x { opacity: 1; }
+  .chip .x:hover { background: var(--press); }
+  .chip .x svg { width: 9px; height: 9px; }
+  @media (prefers-color-scheme: dark) { .chip[data-dark] img { background: #ececf0; padding: 1px; } }
+  /* chips in lists are smaller */
+  .row .chip, .reply .chip, .ask .chip { height: 20px; max-width: 170px; padding: 0 7px 0 4px; gap: 5px; border-radius: 6px; font-size: 12px; top: -1px; animation: none; }
+  .row .chip img, .row .chip .letter, .reply .chip img, .reply .chip .letter { width: 13px; height: 13px; border-radius: 3px; font-size: 8.5px; }
 
-  /* follow-up bar above the composer */
-  .replying {
-    display: flex; align-items: center; gap: 7px; margin: 0 12px 0 14px; padding: 5px 6px 5px 10px; flex: none; min-width: 0;
-    border-radius: 9px; font-size: 12px; color: var(--text-2);
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
-  }
-  .replying[hidden] { display: none; }
-  .replying .ri { width: 14px; height: 14px; color: var(--accent); flex: none; transform: scaleY(-1); }
-  .replying .lbl { flex: none; }
-  .replying .what { min-width: 0; color: var(--text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .replying .rx { -webkit-app-region: no-drag; margin-left: auto; flex: none; width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; color: var(--text-2); }
-  .replying .rx:hover { background: var(--press); color: var(--text); }
-  .replying .rx svg { width: 10px; height: 10px; }
-
-  /* threads: follow-ups stack under the command they continue */
-  .turns { grid-column: 2 / 4; display: flex; flex-direction: column; gap: 8px; margin: 8px 0 2px; padding-left: 12px; border-left: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); }
-  .turn { display: grid; grid-template-columns: 16px 1fr auto; gap: 2px 8px; align-items: start; }
-  .turn .text { font-size: 12.5px; }
-  .turn .detail, .turn .steps { grid-column: 2 / 4; }
-  .row.replying-to { background: color-mix(in srgb, var(--accent) 8%, transparent); box-shadow: inset 2px 0 0 var(--accent); }
-  .status .choice svg { width: 13px; height: 13px; }
-  .status .fu {
-    -webkit-app-region: no-drag; display: inline-flex; align-items: center; gap: 5px; flex: none;
-    font-size: 12px; font-weight: 500; color: var(--accent); padding: 3px 7px; border-radius: 6px;
-  }
-  .status .fu:hover { background: var(--hover); }
-  .status .fu svg { width: 12px; height: 12px; }
-  kbd {
-    font: 500 11px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--text-2);
-    background: var(--kbd-bg); border-radius: 5px; padding: 4px 6px; flex: none;
-  }
-
-  /* ── live status / choices ──────────────────────────────── */
+  /* ── status: only present when something is happening ── */
   .status {
-    display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 16px; flex: none;
-    color: var(--text-2); font-size: 12.5px;
+    display: none; align-items: center; gap: 8px; min-height: 36px; padding: 6px 12px 6px 16px; flex: none;
+    font-size: 12px; color: var(--text-2); border-top: 1px solid var(--hair);
   }
-  .status .msg { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .status.act { color: var(--ok); } .status.warn { color: var(--warn); } .status.err { color: var(--err); }
-  .choices { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; min-width: 0; }
-  .choice {
-    display: inline-flex; align-items: center; gap: 6px; flex: none; max-width: 220px;
-    height: 24px; padding: 0 9px 0 4px; border-radius: 7px;
-    background: var(--hover); color: var(--text); font-size: 12px; transition: background .12s;
-  }
-  .choice:hover { background: var(--press); }
-  .choice .n {
-    display: grid; place-items: center; min-width: 17px; height: 17px; border-radius: 5px;
-    font: 600 10.5px/1 ui-monospace, "SF Mono", monospace; background: var(--accent); color: #fff;
-  }
-  .choice span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .choice.primary { background: var(--accent); color: #fff; padding: 0 12px; }
+  .status.on { display: flex; animation: drop .16s var(--ease); }
+  .status .ic { width: 15px; height: 15px; display: grid; place-items: center; }
+  .status .ic svg { width: 15px; height: 15px; }
+  .status.ok .ic { color: var(--ok); } .status.warn .ic { color: var(--warn); } .status.err .ic { color: var(--err); }
+  .status.err .msg { color: var(--text); }
+  .status .msg { min-width: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .status .acts { display: flex; gap: 6px; flex: none; }
+  .spin { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--hair); border-top-color: var(--text-2); animation: spin .8s linear infinite; }
 
-  /* ── activity ───────────────────────────────────────────── */
-  .activity { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 8px 8px; border-top: 1px solid var(--hair); }
-  .activity::-webkit-scrollbar { width: 8px; }
-  .activity::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 4px; }
-  .section { font-size: 11px; font-weight: 600; color: var(--text-3); padding: 10px 8px 4px; letter-spacing: .02em; }
-  .empty { padding: 18px 8px; color: var(--text-3); font-size: 12.5px; line-height: 1.6; }
-  .empty code { font: 12px ui-monospace, "SF Mono", monospace; color: var(--text-2); background: var(--kbd-bg); padding: 1px 5px; border-radius: 4px; }
-  .row { border-radius: 8px; padding: 7px 8px; display: grid; grid-template-columns: 18px 1fr auto; gap: 2px 10px; align-items: start; }
-  .row:hover { background: var(--hover); }
-  .row .mark { margin-top: 1px; }
-  .row .text { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .row .time { font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; padding-top: 1px; }
-  .row .detail { grid-column: 2 / 4; font-size: 11.5px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .row.fail .detail { color: var(--err); }
-  .row .detail.long { white-space: normal; color: var(--text); font-size: 12.5px; line-height: 1.45; user-select: text; }
-  .mark.awaiting { color: var(--warn); }
-  .detail.resolved { color: var(--accent); white-space: normal; }
-  .steps { grid-column: 2 / 4; display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
-  .step { display: grid; grid-template-columns: 16px 1fr; gap: 8px; align-items: center; font-size: 12px; color: var(--text-2); }
-  .step.pending { color: var(--text-3); }
-  .step.running { color: var(--text); }
-  .step .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .step .t small { color: var(--text-3); font-size: 11px; margin-left: 6px; }
-  .mark { width: 16px; height: 16px; display: grid; place-items: center; }
-  .mark svg { width: 14px; height: 14px; }
-  .mark.ok { color: var(--ok); } .mark.fail { color: var(--err); } .mark.ignored { color: var(--warn); }
-  .mark.pending::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--text-3); }
-  .spin { width: 12px; height: 12px; border-radius: 50%; border: 1.6px solid var(--hair); border-top-color: var(--accent); animation: spin .7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .foot {
-    display: flex; gap: 14px; align-items: center; flex: none;
-    height: 30px; padding: 0 16px; border-top: 1px solid var(--hair);
-    font-size: 11px; color: var(--text-3);
+  /* buttons used in prompts and forms */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 8px;
+    font-size: 12px; font-weight: 500; color: var(--text); background: var(--hover); box-shadow: inset 0 0 0 1px var(--hair);
+    white-space: nowrap; transition: background .15s var(--ease), transform .1s var(--ease);
   }
-  .foot span { display: inline-flex; gap: 5px; align-items: center; }
-  .foot kbd { padding: 2px 5px; font-size: 10px; }
-  .hotkey { display: inline-flex; gap: 5px; align-items: center; font-size: 11px; color: var(--text-3); border-radius: 6px; padding: 2px 4px; margin: 0 -4px; }
-  .hotkey:hover { background: var(--hover); color: var(--text-2); }
-  .hotkey.recording kbd { background: var(--accent); color: #fff; }
+  .btn:hover { background: var(--press); }
+  .btn:active { transform: scale(.97); }
+  .btn.primary { color: var(--on-accent); background: var(--accent-fill); box-shadow: none; }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .btn kbd { height: 16px; min-width: 16px; font-size: 10px; background: transparent; box-shadow: inset 0 0 0 1px currentColor; color: inherit; opacity: .7; }
+  .btn .n { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text-2); }
+  .btn svg { width: 13px; height: 13px; }
+  .link svg { width: 13px; height: 13px; }
+  .link { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; color: var(--text-2); padding: 3px 6px; border-radius: 6px; text-decoration: underline; text-decoration-color: var(--hair); text-underline-offset: 3px; }
+  .link:hover { color: var(--text); background: var(--hover); }
 
-  /* ── @tab autocomplete ── */
+  /* ── @ tab picker ───────────────────────────────────── */
   .mentions {
-    position: fixed; left: 40px; right: 16px; z-index: 10; max-height: 236px; overflow-y: auto; padding: 5px;
-    border-radius: 10px; border: 1px solid var(--hair); background: var(--menu-bg, #fff);
-    box-shadow: 0 12px 32px rgba(0,0,0,.28), 0 2px 6px rgba(0,0,0,.12);
+    position: fixed; left: 40px; right: 16px; z-index: 10; max-height: 252px; overflow-y: auto; padding: 5px;
+    border-radius: 10px; background: var(--raised); box-shadow: var(--shadow), inset 0 0 0 1px var(--hair);
+    transform-origin: top; animation: menu .14s var(--ease);
   }
-  @media (prefers-color-scheme: dark) { .mentions { --menu-bg: #2b2b30; } }
-  .mention { display: grid; grid-template-columns: 16px 1fr; gap: 1px 9px; align-items: center; padding: 6px 8px; border-radius: 7px; cursor: default; }
+  .mention { display: grid; grid-template-columns: 16px 1fr; gap: 1px 10px; align-items: center; padding: 6px 9px; border-radius: 7px; }
   .mention .ic { grid-row: 1 / 3; width: 16px; height: 16px; color: var(--text-3); }
-  .mention .ic svg { width: 15px; height: 15px; }
-  .mention .ic .chip-letter { width: 16px; height: 16px; border-radius: 4px; display: grid; place-items: center; font: 700 10px/1 -apple-system, system-ui, sans-serif; color: #fff; background: rgb(var(--chip-rgb)); }
-  .mention.on .ic .chip-letter { box-shadow: 0 0 0 1.5px #fff; }
-  .mention .ic img { width: 16px; height: 16px; border-radius: 3px; object-fit: contain; display: block; }
-  .mention.on .ic img { background: #fff; box-shadow: 0 0 0 1.5px #fff; }
+  .mention .ic img, .mention .ic .letter { width: 16px; height: 16px; border-radius: 4px; }
+  .mention .ic .letter { display: grid; place-items: center; font: 700 10px/1 -apple-system, system-ui, sans-serif; color: #fff; background: rgb(var(--chip)); }
+  .mention .ic svg { width: 16px; height: 16px; }
   .mention .t { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mention .u { font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .mention.on { background: var(--accent); }
-  .mention.on .t, .mention.on .u, .mention.on .ic { color: #fff; }
-  .mention .cur { font-size: 10px; margin-left: 6px; opacity: .7; }
-  .mentions .none { padding: 8px 10px; font-size: 12px; color: var(--text-3); }
+  .mention .cur { font-size: 11px; margin-left: 8px; color: var(--text-3); }
+  .mention.on { background: var(--accent-fill); }
+  .mention.on .t, .mention.on .u, .mention.on .cur { color: var(--on-accent); }
+  .mentions .none { padding: 10px; font-size: 12px; color: var(--text-3); }
 
-  /* ── tabs ── */
-  .tabs { display: flex; align-items: center; gap: 2px; padding: 6px 10px 0; border-top: 1px solid var(--hair); flex: none; }
-  .tabs button { font-size: 12px; font-weight: 500; color: var(--text-3); padding: 4px 9px; border-radius: 6px; display: inline-flex; gap: 6px; align-items: center; }
+  /* ── tabs ───────────────────────────────────────────── */
+  .tabs { display: flex; align-items: center; gap: 2px; height: 36px; padding: 0 10px; border-top: 1px solid var(--hair); flex: none; }
+  .tabs button { height: 24px; padding: 0 9px; border-radius: 6px; font-size: 12px; font-weight: 500; color: var(--text-3); }
   .tabs button:hover { color: var(--text-2); background: var(--hover); }
-  .tabs button.on { color: var(--text); background: var(--hover); }
-  .tabs .count { font-size: 10.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-  .filter-note { font-size: 11px; color: var(--text-3); padding-right: 6px; }
-  .activity { border-top: 0; }
+  .tabs button[aria-selected="true"] { color: var(--text); background: var(--hover); }
+  .tabs .note { font-size: 11px; color: var(--text-3); padding-right: 6px; }
 
-  /* row actions appear on hover */
-  .row { position: relative; }
-  .row-acts { position: absolute; right: 6px; top: 5px; display: none; gap: 2px; }
-  .row:hover .row-acts { display: flex; }
-  .row:hover .time { visibility: hidden; }
-  .row-act { width: 24px; height: 22px; border-radius: 6px; display: grid; place-items: center; color: var(--text-2); }
-  .row-act:hover { background: var(--press); color: var(--text); }
-  .row-act svg { width: 14px; height: 14px; }
-  .row .name { font-weight: 600; }
-  .row .mark.saved, .row .mark.key { color: var(--accent); }
-  code.ph { font: 11.5px ui-monospace, "SF Mono", monospace; color: var(--text-2); background: var(--kbd-bg); padding: 1px 5px; border-radius: 4px; }
+  /* ── activity list ──────────────────────────────────── */
+  .activity { flex: 1; min-height: 0; overflow-y: auto; padding: 0 8px 10px; }
+  .activity::-webkit-scrollbar { width: 8px; }
+  .activity::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 4px; }
+  .row {
+    position: relative; display: grid; grid-template-columns: 16px 1fr; gap: 0 10px; align-items: start;
+    padding: 8px 10px; border-radius: 8px; transition: background .15s var(--ease);
+  }
+  .row:hover { background: var(--hover); }
+  .row:focus-visible { outline-offset: -2px; }
+  .row.reply-target { background: var(--sunken); }
+  .row[data-new] { animation: fade .2s var(--ease); }
+  .mark { width: 16px; height: 18px; display: grid; place-items: center; color: var(--text-3); }
+  .mark svg { width: 14px; height: 14px; }
+  .mark.ok { color: var(--ok); } .mark.fail { color: var(--err); } .mark.awaiting { color: var(--warn); }
+  .mark.pending::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--text-3); }
+  .main { min-width: 0; }
+  .line { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .cmd { min-width: 0; flex: 1; font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row.open > .main > .line .cmd { white-space: normal; color: var(--text-2); font-weight: 500; }
+  .sum { min-width: 0; flex: 0 1 45%; font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+  .time { flex: none; font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .understood { margin-top: 6px; font-size: 12px; color: var(--text-2); }
+  .understood b { font-weight: 500; color: var(--text-3); margin-right: 6px; }
+  .steps-toggle { margin-top: 6px; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-3); padding: 2px 6px 2px 2px; border-radius: 6px; }
+  .steps-toggle:hover { color: var(--text-2); background: var(--hover); }
+  .steps-toggle svg { width: 11px; height: 11px; transition: transform .15s var(--ease); }
+  .steps-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+  .row[data-i="0"] > .main > .result { font-size: 15px; }
+  .result { margin-top: 4px; font-size: 14px; line-height: 1.45; color: var(--text); white-space: pre-wrap; user-select: text; }
+  .row.fail .result { color: var(--text-2); }
+  .steps { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
+  .step { display: grid; grid-template-columns: 16px 1fr; gap: 8px; align-items: start; font-size: 12px; color: var(--text-2); }
+  .step .mark { height: 16px; }
+  .step .mark svg { width: 12px; height: 12px; }
+  .step.running { color: var(--text); }
+  .step.pending { color: var(--text-3); }
+  .step .t { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .step small { margin-left: 8px; font-size: 11px; color: var(--text-3); }
+  .turn { margin-top: 10px; display: grid; grid-template-columns: 16px 1fr; gap: 0 10px; }
+  .turn .rp { display: inline-block; margin-right: 6px; color: var(--text-3); vertical-align: -2px; }
+  .turn .rp svg { display: inline-block; width: 13px; height: 13px; transform: scaleY(-1); }
+  .turn .cmd { white-space: normal; color: var(--text-2); font-weight: 500; }
 
-  /* inline forms (save-as, add password) */
-  .inline { display: flex; gap: 6px; align-items: center; min-width: 0; flex: 1; }
+  /* row actions: on hover or keyboard focus */
+  .acts-row { position: absolute; top: 5px; right: 6px; display: none; gap: 2px; padding-left: 12px; background: linear-gradient(90deg, transparent, var(--surface) 10px); }
+  .row:hover > .acts-row, .row:focus-within > .acts-row { display: flex; }
+  .row:hover > .main > .line > .time, .row:focus-within > .main > .line > .time { visibility: hidden; }
+  .act { width: 26px; height: 24px; border-radius: 6px; display: grid; place-items: center; color: var(--text-2); background: var(--surface); }
+  .act:hover { background: var(--press); color: var(--text); }
+  .act svg { width: 15px; height: 15px; }
+
+  /* consent / choice, inline under the step it's about */
+  .ask {
+    margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--raised);
+    box-shadow: inset 0 0 0 1px var(--hair), 0 1px 2px rgb(0 0 0 / .05); animation: drop .18s var(--ease);
+  }
+  .ask p { font-size: 13px; color: var(--text); }
+  .ask .acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+
+  /* empty states and lists in Saved / Passwords */
+  .empty { padding: 18px 10px 8px; }
+  .empty p { font-size: 13px; color: var(--text-2); margin-bottom: 8px; }
+  .example { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--text); text-align: left; }
+  .example:hover, .example:focus-visible { background: var(--hover); }
+  .example svg { width: 14px; height: 14px; color: var(--text-3); }
+  .name { font-weight: 600; }
+  .sub { margin-top: 2px; font-size: 12px; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .tag { display: inline-block; margin-right: 6px; padding: 1px 6px; border-radius: 5px; font-size: 11px; font-weight: 600; color: var(--text-2); background: var(--sunken); box-shadow: inset 0 0 0 1px var(--hair); vertical-align: 1px; }
+  .token { font: 500 12px/1.4 ui-monospace, "SF Mono", Menlo, monospace; color: var(--text); }
+  .listhead { display: flex; align-items: center; gap: 12px; padding: 12px 10px 8px; }
+  .listhead p { flex: 1; font-size: 12px; color: var(--text-2); }
+  .form { display: flex; gap: 6px; padding: 0 10px 10px; animation: drop .16s var(--ease); }
   .field {
-    -webkit-app-region: no-drag; user-select: text;
-    height: 26px; min-width: 0; flex: 1; padding: 0 9px; border-radius: 7px; outline: none;
-    font: 12.5px -apple-system, system-ui, sans-serif; color: var(--text);
-    background: var(--field-bg, var(--hover)); border: 1px solid var(--hair);
+    -webkit-app-region: no-drag; user-select: text; height: 28px; min-width: 0; flex: 1; padding: 0 10px; border-radius: 8px;
+    font: 13px -apple-system, system-ui, sans-serif; color: var(--text); background: var(--raised);
+    border: 1px solid var(--hair); outline: none;
   }
-  .field:focus { border-color: var(--accent); }
-  .secret-form { display: flex; gap: 6px; padding: 10px 8px 6px; }
-  .secret-form .choice { height: 26px; }
-  .note { padding: 6px 8px 10px; font-size: 11.5px; color: var(--text-3); line-height: 1.5; }
+  .field::placeholder { color: var(--text-3); }
+  .field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 
-  /* Narrow windows: tighter type and spacing, fewer hints. */
+  /* ── footer ─────────────────────────────────────────── */
+  .foot { display: flex; align-items: center; gap: 14px; height: 32px; padding: 0 12px 0 16px; border-top: 1px solid var(--hair); flex: none; font-size: 11px; color: var(--text-3); }
+  .foot .hint { display: inline-flex; align-items: center; gap: 6px; }
+  .hotkey { -webkit-app-region: no-drag; display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 6px; border-radius: 6px; font-size: 11px; color: var(--text-3); }
+  .hotkey:hover { background: var(--hover); color: var(--text-2); }
+  .hotkey.recording kbd { color: var(--on-accent); background: var(--accent-fill); box-shadow: none; }
+
+  /* ── motion: state changes only ─────────────────────── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes drop { from { opacity: 0; transform: translateY(-3px); } }
+  @keyframes fade { from { opacity: 0; } }
+  @keyframes pop { from { opacity: 0; transform: scale(.96); } }
+  @keyframes menu { from { opacity: 0; transform: translateY(-4px) scale(.99); } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before { animation: none !important; transition: none !important; }
+    .spin { border-top-color: var(--text-3); border-style: dotted; }
+  }
+
+  /* narrow windows */
   @media (max-width: 620px) {
-    .composer { font-size: 17px; }
-    .chip { height: 24px; font-size: 13px; max-width: 200px; }
-    .conn .model { display: none; }
-    .prompt { padding: 2px 12px 10px 14px; }
-    .foot span:not(.spacer):nth-of-type(n+3) { display: none; }
-    .replying .lbl { display: none; }
-    .row { padding: 6px 6px; }
-    .row .detail.long { font-size: 12px; }
+    .composer { font-size: 17px; line-height: 26px; }
+    .chip { height: 24px; font-size: 13px; max-width: 180px; }
+    .reply { max-width: 34%; }
+    .foot .hint.extra { display: none; }
+    .sum { display: none; }
   }
-
-  /* Compact window: prompt + status only. */
+  /* compact window: just the prompt, and status when something is happening */
   @media (max-height: 190px) {
-    .activity, .foot, .tabs { display: none; }
+    .tabs, .activity, .foot { display: none; }
   }
 </style>
 </head>
 <body>
-  <header class="bar">
-    <div class="conn"><span class="dot" id="dot"></span><b>Voice Browser</b><span class="model" id="model">starting…</span></div>
+  <header class="top">
+    <span class="brand">Voice Browser</span>
     <span class="spacer"></span>
-    <button class="browser" id="browser" title="Choose which browser to control">
-      <span class="b-ic" id="browser-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span>
-      <span id="browser-name">Built-in</span>
-      <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg>
+    <button class="pill" id="browser" data-state="off" title="Choose the browser to control" aria-haspopup="menu">
+      <span class="b-ic" id="browser-ic"></span><span class="name" id="browser-name">Connecting…</span><span class="caret" id="caret"></span>
     </button>
-    <button class="icon" id="undo" title="Undo last action">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
-    </button>
-    <button class="icon" id="details" title="Open the full control page (live probabilities)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16v-3M12 16V8M17 16v-6"/></svg>
-    </button>
-    <button class="icon" id="size" title="Compact / expanded">
-      <svg id="size-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
-    </button>
-    <button class="icon" id="hide" title="Hide (Esc)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg>
-    </button>
-    <button class="icon" id="quit" title="Quit and close the controlled browser">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.4 6.4a8 8 0 1 0 11.2 0"/></svg>
-    </button>
+    <button class="icon" id="more" title="More" aria-haspopup="menu" aria-label="More"></button>
   </header>
 
-  <div class="replying" id="replying" hidden>
-    <svg class="ri" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v6"/></svg>
-    <span class="lbl">Following up on</span>
-    <span class="what" id="reply-what"></span>
-    <button class="rx" id="reply-x" type="button" title="Stop following up (Esc)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-  </div>
   <form class="prompt" id="form">
-    <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
-    <div id="cmd" class="composer off" contenteditable="false" role="textbox" aria-label="Command" spellcheck="false" data-placeholder="Tell the browser what to do…   @ to pick a tab"></div>
-    <kbd>↵</kbd>
+    <span class="lead" id="lead" aria-hidden="true"></span>
+    <div class="reply" id="reply"><span id="reply-ic"></span><span class="what" id="reply-what"></span><button class="x" id="reply-x" type="button" title="Stop following up (Esc)" aria-label="Stop following up"></button></div>
+    <div id="cmd" class="composer off" contenteditable="false" role="textbox" aria-label="Command" aria-multiline="true" spellcheck="false" data-placeholder="Type or dictate what to do"></div>
+    <button class="go" id="go" type="submit" title="Run (Enter)" aria-label="Run" disabled></button>
   </form>
 
-  <div class="mentions" id="mentions" hidden></div>
+  <div class="mentions" id="mentions" role="listbox" aria-label="Open tabs" hidden></div>
+  <div class="status" id="status" role="status" aria-live="polite"></div>
 
-  <div class="status" id="status"><span class="msg" id="msg">Starting the browser…</span></div>
-
-  <nav class="tabs" id="tabs">
-    <button data-tab="recent" class="on">Recent</button>
-    <button data-tab="saved">Saved<span class="count" id="saved-count"></span></button>
-    <button data-tab="secrets">Passwords<span class="count" id="secrets-count"></span></button>
+  <nav class="tabs" role="tablist" aria-label="Views">
+    <button role="tab" data-tab="recent" aria-selected="true" title="Recent (⌘1)">Recent</button>
+    <button role="tab" data-tab="saved" aria-selected="false" title="Saved (⌘2)">Saved</button>
+    <button role="tab" data-tab="secrets" aria-selected="false" title="Passwords (⌘3)">Passwords</button>
     <span class="spacer"></span>
-    <span class="filter-note" id="filter-note"></span>
+    <span class="note" id="filter-note"></span>
   </nav>
-  <main class="activity" id="activity"></main>
+  <main class="activity" id="activity" role="list" aria-label="Recent commands"></main>
 
   <footer class="foot">
-    <button class="hotkey" id="hotkey" title="Click to change the shortcut"><kbd id="hotkey-keys">⌘⇧Space</kbd> show</button>
-    <span><kbd>esc</kbd> hide</span>
-    <span><kbd>↑</kbd> history</span>
-    <span><kbd>fn fn</kbd> dictate</span>
+    <span class="hint"><kbd>↵</kbd>run</span>
+    <span class="hint"><kbd>@</kbd>tab</span>
+    <span class="hint extra"><kbd>↑</kbd>history</span>
+    <span class="hint extra" id="esc-hint"><kbd>esc</kbd>hide</span>
+    <span class="hint extra" title="macOS Dictation: speak instead of typing"><kbd>fn fn</kbd>dictate</span>
     <span class="spacer"></span>
-    <span><kbd>@</kbd> pick a tab</span>
+    <button class="hotkey" id="hotkey" title="Change the shortcut"><kbd id="hotkey-keys">⌘⇧Space</kbd></button>
   </footer>
 
 <script>
   const $ = (id) => document.getElementById(id);
-  const params = new URLSearchParams(location.search);
-  const wsUrl = params.get("ws");
-  const ICON = {
-    ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
-    fail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
-    ignored: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 7v6M12 17h.01"/></svg>',
-    awaiting: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 7v6M12 17h.01"/></svg>',
-  };
+  const ICON = {"reply":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M232,200a8,8,0,0,1-16,0,88.1,88.1,0,0,0-88-88H51.31l34.35,34.34a8,8,0,0,1-11.32,11.32l-48-48a8,8,0,0,1,0-11.32l48-48A8,8,0,0,1,85.66,61.66L51.31,96H128A104.11,104.11,0,0,1,232,200Z\"/></svg>","undo":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L44.59,96H72a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V56a8,8,0,0,1,16,0V85.8L60.25,60A96,96,0,0,1,224,128Z\"/></svg>","more":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z\"/></svg>","check":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z\"/></svg>","x":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z\"/></svg>","skip":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M176,128a8,8,0,0,1-8,8H88a8,8,0,0,1,0-16h80A8,8,0,0,1,176,128Zm56,0A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z\"/></svg>","hand":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M188,88a27.75,27.75,0,0,0-12,2.71V60a28,28,0,0,0-41.36-24.6A28,28,0,0,0,80,44v6.71A27.75,27.75,0,0,0,68,48,28,28,0,0,0,40,76v76a88,88,0,0,0,176,0V116A28,28,0,0,0,188,88Zm12,64a72,72,0,0,1-144,0V76a12,12,0,0,1,24,0v44a8,8,0,0,0,16,0V44a12,12,0,0,1,24,0v68a8,8,0,0,0,16,0V60a12,12,0,0,1,24,0v68.67A48.08,48.08,0,0,0,120,176a8,8,0,0,0,16,0,32,32,0,0,1,32-32,8,8,0,0,0,8-8V116a12,12,0,0,1,24,0Z\"/></svg>","bookmark":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M184,32H72A16,16,0,0,0,56,48V224a8,8,0,0,0,12.24,6.78L128,193.43l59.77,37.35A8,8,0,0,0,200,224V48A16,16,0,0,0,184,32Zm0,177.57-51.77-32.35a8,8,0,0,0-8.48,0L72,209.57V48H184Z\"/></svg>","star":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M239.18,97.26A16.38,16.38,0,0,0,224.92,86l-59-4.76L143.14,26.15a16.36,16.36,0,0,0-30.27,0L90.11,81.23,31.08,86a16.46,16.46,0,0,0-9.37,28.86l45,38.83L53,211.75a16.38,16.38,0,0,0,24.5,17.82L128,198.49l50.53,31.08A16.4,16.4,0,0,0,203,211.75l-13.76-58.07,45-38.83A16.43,16.43,0,0,0,239.18,97.26Zm-15.34,5.47-48.7,42a8,8,0,0,0-2.56,7.91l14.88,62.8a.37.37,0,0,1-.17.48c-.18.14-.23.11-.38,0l-54.72-33.65a8,8,0,0,0-8.38,0L69.09,215.94c-.15.09-.19.12-.38,0a.37.37,0,0,1-.17-.48l14.88-62.8a8,8,0,0,0-2.56-7.91l-48.7-42c-.12-.1-.23-.19-.13-.5s.18-.27.33-.29l63.92-5.16A8,8,0,0,0,103,91.86l24.62-59.61c.08-.17.11-.25.35-.25s.27.08.35.25L153,91.86a8,8,0,0,0,6.75,4.92l63.92,5.16c.15,0,.24,0,.33.29S224,102.63,223.84,102.73Z\"/></svg>","trash":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z\"/></svg>","play":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M232.4,114.49,88.32,26.35a16,16,0,0,0-16.2-.3A15.86,15.86,0,0,0,64,39.87V216.13A15.94,15.94,0,0,0,80,232a16.07,16.07,0,0,0,8.36-2.35L232.4,141.51a15.81,15.81,0,0,0,0-27ZM80,215.94V40l143.83,88Z\"/></svg>","key":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M216.57,39.43A80,80,0,0,0,83.91,120.78L28.69,176A15.86,15.86,0,0,0,24,187.31V216a16,16,0,0,0,16,16H72a8,8,0,0,0,8-8V208H96a8,8,0,0,0,8-8V184h16a8,8,0,0,0,5.66-2.34l9.56-9.57A79.73,79.73,0,0,0,160,176h.1A80,80,0,0,0,216.57,39.43ZM224,98.1c-1.09,34.09-29.75,61.86-63.89,61.9H160a63.7,63.7,0,0,1-23.65-4.51,8,8,0,0,0-8.84,1.68L116.69,168H96a8,8,0,0,0-8,8v16H72a8,8,0,0,0-8,8v16H40V187.31l58.83-58.82a8,8,0,0,0,1.68-8.84A63.72,63.72,0,0,1,96,95.92c0-34.14,27.81-62.8,61.9-63.89A64,64,0,0,1,224,98.1ZM192,76a12,12,0,1,1-12-12A12,12,0,0,1,192,76Z\"/></svg>","caretDown":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z\"/></svg>","globe":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M128,24h0A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm87.62,96H175.79C174,83.49,159.94,57.67,148.41,42.4A88.19,88.19,0,0,1,215.63,120ZM96.23,136h63.54c-2.31,41.61-22.23,67.11-31.77,77C118.45,203.1,98.54,177.6,96.23,136Zm0-16C98.54,78.39,118.46,52.89,128,43c9.55,9.93,29.46,35.43,31.77,77Zm11.36-77.6C96.06,57.67,82,83.49,80.21,120H40.37A88.19,88.19,0,0,1,107.59,42.4ZM40.37,136H80.21c1.82,36.51,15.85,62.33,27.38,77.6A88.19,88.19,0,0,1,40.37,136Zm108,77.6c11.53-15.27,25.56-41.09,27.38-77.6h39.84A88.19,88.19,0,0,1,148.41,213.6Z\"/></svg>","tab":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V88H40V56Zm0,144H40V104H216v96Z\"/></svg>","enter":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M200,32V176a8,8,0,0,1-8,8H67.31l34.35,34.34a8,8,0,0,1-11.32,11.32l-48-48a8,8,0,0,1,0-11.32l48-48a8,8,0,0,1,11.32,11.32L67.31,168H184V32a8,8,0,0,1,16,0Z\"/></svg>","stop":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M200,40H56A16,16,0,0,0,40,56V200a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,160H56V56H200V200Z\"/></svg>","warn":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm-8-80V80a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,172Z\"/></svg>","retry":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M240,56v48a8,8,0,0,1-8,8H184a8,8,0,0,1,0-16H211.4L184.81,71.64l-.25-.24a80,80,0,1,0-1.67,114.78,8,8,0,0,1,11,11.63A95.44,95.44,0,0,1,128,224h-1.32A96,96,0,1,1,195.75,60L224,85.8V56a8,8,0,1,1,16,0Z\"/></svg>","image":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V158.75l-26.07-26.06a16,16,0,0,0-22.63,0l-20,20-44-44a16,16,0,0,0-22.62,0L40,149.37V56ZM40,172l52-52,80,80H40Zm176,28H194.63l-36-36,20-20L216,181.38V200ZM144,100a12,12,0,1,1,12,12A12,12,0,0,1,144,100Z\"/></svg>","plus":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z\"/></svg>","chevron":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z\"/></svg>","arrow":"<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"/></svg>"}; // Phosphor (regular), MIT
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-
-  let ws = null;
-  let browserBusy = false; // switching browsers: the server restarts, so disconnects are expected
+  const wsUrl = new URLSearchParams(location.search).get("ws");
   const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-  // History survives restarts (Electron keeps localStorage in the app's data folder).
+
+  $("lead").innerHTML = ICON.chevron;
+  $("go").innerHTML = ICON.enter;
+  $("more").innerHTML = ICON.more;
+  $("caret").innerHTML = ICON.caretDown;
+  $("browser-ic").innerHTML = ICON.globe;
+  $("reply-ic").innerHTML = ICON.reply;
+  $("reply-x").innerHTML = ICON.x;
+
+  // ── state ───────────────────────────────────────────────
+  let ws = null;
+  let model = "";
+  let browserBusy = false; // switching browsers: the server restarts, so disconnects are expected
+  let tab = "recent";
+  let replyTo = null; // history entry the next command follows up on
+  let current = null; // the command (or follow-up turn) awaiting a result
+  let currentRoot = null; // the history entry it belongs to
+  let busy = false; // a command is running
+  let lastText = ""; // for Retry
+  let saved = [];
+  let secrets = [];
+  let addingSecret = false;
+  let recall = -1;
+  let prompt = null; // keyboard shortcuts for the visible prompt: { primary, cancel, numbered: [fn] }
+
   const HISTORY_KEY = "vb.history.v1";
   const history = (() => {
     try {
       const h = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
       for (const e of h) {
-        if (e.status === "running") { e.status = "ignored"; e.detail = "interrupted"; }
         e.id ||= uid();
-        for (const t of e.turns || []) if (t.status === "running") { t.status = "ignored"; t.detail = "interrupted"; }
+        delete e.ask; delete e.open;
+        if (e.status === "running") { e.status = "ignored"; e.detail = "Interrupted"; }
+        for (const t of e.turns || []) { delete t.ask; if (t.status === "running") { t.status = "ignored"; t.detail = "Interrupted"; } }
       }
       return Array.isArray(h) ? h : [];
     } catch { return []; }
-  })(); // newest first: { text, status, detail, at, steps?: [{ text, status, detail }] }
+  })();
   let saveTimer = null;
-  const persistHistory = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 100))), 200); };
-  let tab = "recent";
-  let replyTo = null; // history entry the next command follows up on
-  let currentRoot = null; // entry (thread) the running command belongs to
-  let saved = []; // [{ name, text }]
-  let secrets = []; // names only
-  let current = null; // entry awaiting a result
-  let recall = -1; // ↑/↓ position in history
+  const persist = () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 100), (k, v) => (k === "ask" ? undefined : v))), 200);
+  };
+  const send = (obj) => ws && ws.readyState === 1 && (ws.send(JSON.stringify(obj)), true);
 
-  // ── status line ───────────────────────────────────────────
-  function setStatus(text, cls = "") {
-    $("status").className = `status ${cls}`;
-    $("status").innerHTML = `<span class="msg">${esc(text)}</span>`;
+  // ── accent: the user's macOS accent colour ──────────────
+  function applyAccent(hex) {
+    if (!/^#[0-9a-f]{6}$/i.test(hex || "")) return;
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    const lin = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    document.documentElement.style.setProperty("--accent", hex);
+    // Buttons and selections keep white text (native look): darken the fill until white passes AA (4.5:1).
+    let k = 1, fill = [r, g, b];
+    const lum = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+    while (1.05 / (lum(fill) + 0.05) < 4.5 && k > 0.4) { k -= 0.03; fill = [r * k, g * k, b * k]; }
+    const toHex = (c) => "#" + c.map((v) => Math.round(v * 255).toString(16).padStart(2, "0")).join("");
+    document.documentElement.style.setProperty("--accent-fill", toHex(fill));
+    document.documentElement.style.setProperty("--on-accent", "#ffffff");
   }
-  function showChoices(text, items, cls = "warn") {
-    $("status").className = `status ${cls}`;
-    $("status").innerHTML = `<span class="msg">${esc(text)}</span><div class="choices"></div>`;
-    const box = $("status").querySelector(".choices");
-    for (const it of items) {
-      const b = document.createElement("button");
-      b.className = `choice${it.primary ? " primary" : ""}`;
-      b.innerHTML = it.n ? `<span class="n">${it.n}</span><span>${esc(it.label)}</span>` : `<span>${esc(it.label)}</span>`;
-      b.onclick = () => (it.action ? it.action() : run(it.say, { reply: true }));
-      box.appendChild(b);
+  window.bar.getAccent?.().then(applyAccent).catch(() => {});
+
+  // ── status line ─────────────────────────────────────────
+  // kinds: busy (spinner + Stop), ok, warn, err, info. Hidden when idle.
+  let statusTimer = null;
+  function setStatus(text, kind = "info", actions = []) {
+    clearTimeout(statusTimer);
+    const s = $("status");
+    const ic = kind === "busy" ? '<span class="spin"></span>' : kind === "ok" ? ICON.check : kind === "warn" || kind === "err" ? ICON.warn : "";
+    s.className = `status on ${kind}`;
+    s.innerHTML = `${ic ? `<span class="ic">${ic}</span>` : ""}<span class="msg">${esc(text)}</span><span class="acts"></span>`;
+    for (const a of actions) s.querySelector(".acts").appendChild(button(a));
+    if (busy && !prompt && kind !== "busy" && kind !== "err") addStop();
+    if (kind === "ok" || kind === "info") statusTimer = setTimeout(() => !busy && clearStatus(), 5000);
+  }
+  function clearStatus() { $("status").className = "status"; $("status").innerHTML = ""; }
+  function addStop() {
+    const acts = $("status").querySelector(".acts");
+    if (acts && !acts.querySelector("[data-stop]")) {
+      const b = button({ label: "Stop", kbd: "esc", action: stopAll });
+      b.dataset.stop = "1";
+      acts.appendChild(b);
     }
   }
-  function setConn(state, model) {
-    $("dot").className = `dot ${state}`;
-    if (model) $("model").textContent = model;
+  function setProgress(text) {
+    setStatus(text, "busy");
+    if (!prompt) addStop();
+  }
+  /** { label, kbd, primary, n, link, icon, action } -> <button> */
+  function button(a) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = a.link ? "link" : `btn${a.primary ? " primary" : ""}`;
+    b.innerHTML = `${a.icon ? ICON[a.icon] : ""}${a.n ? `<span class="n">${a.n}</span>` : ""}<span>${esc(a.label)}</span>${a.kbd ? `<kbd>${esc(a.kbd)}</kbd>` : ""}`;
+    b.onclick = (e) => { e.stopPropagation(); a.action(); };
+    return b;
   }
 
-  // ── activity list ─────────────────────────────────────────
+  // ── prompts: confirm / allow / which one, inline under the running command ──
+  function ask(text, choices, { numbered = false } = {}) {
+    const target = current || currentRoot;
+    if (!target) { setStatus(text, "warn", choices); return; }
+    target.ask = { text, choices };
+    prompt = {
+      primary: choices.find((c) => c.primary)?.action || null,
+      cancel: choices.find((c) => c.cancel)?.action || null,
+      numbered: numbered ? choices.map((c) => c.action) : null,
+    };
+    setStatus(numbered ? "Waiting for you to choose" : "Waiting for your OK", "warn");
+    render();
+  }
+  function closeAsk() {
+    for (const e of [current, currentRoot]) if (e) delete e.ask;
+    prompt = null;
+    render();
+  }
+  const answer = (fn) => () => { closeAsk(); fn(); };
+
+  // ── list rendering ──────────────────────────────────────
   const shortUrl = (u) => {
     try { const x = new URL(u); return (x.host.replace(/^www\./, "") + decodeURIComponent(x.pathname + x.search)).replace(/\/$/, "").slice(0, 90); }
     catch { return String(u || "").slice(0, 90); }
   };
   const ago = (t) => {
     const s = Math.round((Date.now() - t) / 1000);
-    return s < 5 ? "now" : s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m` : `${Math.floor(s / 3600)}h`;
+    return s < 10 ? "now" : s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h` : `${Math.floor(s / 86400)}d`;
   };
-  const mark = (status) => status === "running" ? '<span class="mark"><span class="spin"></span></span>' : `<span class="mark ${status}">${ICON[status] || ""}</span>`;
+  const MARK = { ok: "check", fail: "x", ignored: "skip", awaiting: "hand" };
+  const LABEL = { ok: "Done", fail: "Failed", ignored: "Skipped", awaiting: "Waiting for you", running: "Running", pending: "Not started" };
+  const mark = (status) =>
+    status === "running"
+      ? `<span class="mark" title="Running"><span class="spin"></span></span>`
+      : `<span class="mark ${status}" title="${LABEL[status] || ""}">${MARK[status] ? ICON[MARK[status]] : ""}<span class="sr">${LABEL[status] || ""}</span></span>`;
 
-  const SVG = {
-    star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',
-    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
-    play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
-    bookmark: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 3.5h12v17l-6-4-6 4z"/></svg>',
-    reply: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform:scaleY(-1)"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v6"/></svg>',
-    key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="15" r="4"/><path d="m11 12 8-8M16 7l2 2M14 9l2 2"/></svg>',
-  };
-  // no filtering while following up: the conversation you're replying to stays visible
-  const query = () => (replyTo ? "" : cmdText().toLowerCase());
+  // Typing a command never hides history. Start with "/" to search it instead: "/bills".
+  const query = () => { const t = cmdText(); return !replyTo && t.startsWith("/") ? t.slice(1).trim().toLowerCase() : ""; };
   const matches = (...fields) => !query() || fields.some((f) => String(f || "").toLowerCase().includes(query()));
+  const openIds = new Set(); // entries the user expanded or collapsed (toggled from the default)
+  // newest, running, or waiting-for-you entries start open; a click flips that
+  const isOpen = (h, i) => {
+    const def = i === 0 || h.status === "running" || Boolean(h.ask) || (h.turns || []).some((t) => t.ask || t.status === "running");
+    return openIds.has(h.id) ? !def : def;
+  };
 
   function render() {
-    persistHistory();
-    $("saved-count").textContent = saved.length || "";
-    $("secrets-count").textContent = secrets.length || "";
-    document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
-    $("filter-note").textContent = query() && tab !== "secrets" ? "filtered by what you're typing" : "";
-    if (tab === "saved") return renderSaved();
-    if (tab === "secrets") return renderSecrets();
-    renderRecent();
+    persist();
+    document.querySelectorAll(".tabs [role=tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+    $("filter-note").textContent = query() && tab !== "secrets" ? "Searching history" : "";
+    $("esc-hint").innerHTML = `<kbd>esc</kbd>${busy ? "stop" : replyTo ? "cancel follow-up" : "hide"}`;
+    if (tab === "saved") renderSaved();
+    else if (tab === "secrets") renderSecrets();
+    else renderRecent();
+    paintChips($("activity"));
   }
 
-  function renderSaved() {
-    const a = $("activity");
-    const rows = saved.filter((c) => matches(c.name, c.text));
-    if (!saved.length) {
-      a.innerHTML = `<div class="empty">No saved commands yet. Hover a command under <b>Recent</b> and click ☆ to save it under a name — then just type the name (e.g. <code>login-dev</code>) to run it.</div>`;
-      return;
-    }
-    a.innerHTML = rows.map((c) => `
-      <div class="row" data-run="${esc(c.name)}" title="Click to run">
-        <span class="mark saved">${SVG.bookmark}</span>
-        <span class="text name">${esc(c.name)}</span>
-        <span class="time"></span>
-        <span class="detail">${esc(c.text)}</span>
-        <div class="row-acts">
-          <button class="row-act" data-act="run" data-name="${esc(c.name)}" title="Run">${SVG.play}</button>
-          <button class="row-act" data-act="delete-cmd" data-name="${esc(c.name)}" title="Delete">${SVG.trash}</button>
-        </div>
-      </div>`).join("") || `<div class="empty">Nothing matches “${esc(cmdText())}”.</div>`;
-  }
-
-  function renderSecrets() {
-    $("activity").innerHTML = `
-      <form class="secret-form" id="secret-form">
-        <input class="field" id="secret-name" placeholder="name, e.g. dev-password" autocomplete="off" spellcheck="false" />
-        <input class="field" id="secret-value" type="password" placeholder="password" autocomplete="new-password" />
-        <button class="choice primary" type="submit">Save</button>
-      </form>
-      <div class="note">Stored in your macOS Keychain. Write <code class="ph">{{name}}</code> in a command — e.g. <code class="ph">type {{dev-password}} into the password field</code> — and the real value is typed into the page only at that moment. The AI model, history and logs only ever see <code class="ph">{{name}}</code>.</div>
-      ${secrets.map((n) => `
-        <div class="row">
-          <span class="mark key">${SVG.key}</span>
-          <span class="text"><code class="ph">{{${esc(n)}}}</code></span>
-          <span class="time"></span>
-          <div class="row-acts"><button class="row-act" data-act="delete-secret" data-name="${esc(n)}" title="Delete from Keychain">${SVG.trash}</button></div>
-        </div>`).join("")}`;
-    $("secret-form").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const name = $("secret-name").value.trim(), value = $("secret-value").value;
-      if (!name || !value) return setStatus("Give the password a name and a value", "warn");
-      send({ type: "secrets:set", name, value });
-      $("secret-value").value = "";
-      setStatus(`Saved {{${name}}} to your Keychain`, "act");
-    });
-  }
-
+  const EXAMPLES = [
+    "go to wikipedia and search for alan turing",
+    "what is this page about?",
+    "fill the form with name Alex Ward, role editor",
+    "help me approve every pending request under $500",
+  ];
   function renderRecent() {
     const a = $("activity");
     if (!history.length) {
-      a.innerHTML = `<div class="empty">Try <code>go to wikipedia</code>, <code>search youtube for lofi beats</code>, or chain steps:<br><code>open youtube, theo t3.gg's channel</code><br><br>Add checks to chains: <code>wait until "Dashboard" appears</code>, <code>check that the page says "Approved"</code><br><br>Smart (Gemini): ask <code>how many requests are pending?</code>, give a <code>goal: approve all pending requests under $500</code>, or <code>fill the form with name Alex, role admin</code></div>`;
+      a.innerHTML = `<div class="empty"><p>Type what you want the browser to do, or start from an example.</p>
+        ${EXAMPLES.map((x) => `<button class="example" data-example="${esc(x)}">${ICON.chevron}<span>${esc(x)}</span></button>`).join("")}</div>`;
       return;
     }
     const rows = history.map((h, i) => [h, i]).filter(([h]) => matches(h.text, h.detail, ...(h.turns || []).map((t) => t.text)));
-    if (!rows.length) { a.innerHTML = `<div class="empty">Nothing in your history matches “${esc(cmdText())}”.</div>`; return; }
-    const body = (h) => `
-        ${h.resolved ? `<span class="detail resolved">→ ${esc(h.resolved)}</span>` : ""}
-        ${h.detail ? `<span class="detail${h.long ? " long" : ""}">${esc(h.detail)}</span>` : ""}
-        ${h.steps ? `<div class="steps">${h.steps.map((s) => `
-          <div class="step ${s.status}">${mark(s.status)}<span class="t">${esc(s.text)}${s.detail ? `<small>${esc(s.detail)}</small>` : ""}</span></div>`).join("")}</div>` : ""}`;
-    a.innerHTML = rows.map(([h, i]) => `
-      <div class="row ${h.status}${h === replyTo ? " replying-to" : ""}" data-i="${i}" title="Click to run again">
-        ${mark(h.status)}
-        <span class="text">${richText(h.text, h.icons)}</span>
-        <span class="time">${ago(h.at)}</span>
-        <div class="row-acts">
-          ${h.status !== "running" ? `<button class="row-act" data-act="reply" data-i="${i}" title="Follow up on this">${SVG.reply}</button>` : ""}
-          <button class="row-act" data-act="save" data-i="${i}" title="Save as a named command">${SVG.star}</button>
-        </div>
-        ${body(h)}
-        ${h.turns?.length ? `<div class="turns">${h.turns.map((t) => `
-          <div class="turn ${t.status}">${mark(t.status)}<span class="text">${richText(t.text, t.icons || h.icons)}</span><span class="time">${ago(t.at)}</span>${body(t)}</div>`).join("")}</div>` : ""}
-      </div>`).join("");
-    paintChips(a);
+    if (!rows.length) { a.innerHTML = `<div class="empty"><p>Nothing in your history matches “${esc(cmdText())}”.</p></div>`; return; }
+    a.innerHTML = rows.map(([h, i]) => entryHTML(h, i)).join("");
   }
+
+  function bodyHTML(e) {
+    return `${e.resolved ? `<div class="understood"><b>Understood as</b>${esc(e.resolved)}</div>` : ""}
+      ${e.detail ? `<p class="result">${esc(e.detail)}</p>` : ""}
+      ${e.steps?.length && !(e.status === "running" || e.ask || e.showSteps) ? `<button class="steps-toggle" type="button" data-steps aria-expanded="false">${ICON.chevron}${e.steps.length} step${e.steps.length === 1 ? "" : "s"}</button>` : ""}
+      ${e.steps?.length && (e.status === "running" || e.ask || e.showSteps) ? `${e.showSteps && e.status !== "running" && !e.ask ? `<button class="steps-toggle" type="button" data-steps aria-expanded="true">${ICON.chevron}${e.steps.length} step${e.steps.length === 1 ? "" : "s"}</button>` : ""}<ol class="steps">${e.steps.map((s) => `<li class="step ${s.status}">${mark(s.status)}<span class="t">${esc(s.text)}${s.detail ? `<small>${esc(s.detail)}</small>` : ""}</span></li>`).join("")}</ol>` : ""}
+      ${e.ask ? `<div class="ask"><p>${esc(e.ask.text)}</p><div class="acts" data-ask></div></div>` : ""}`;
+  }
+  function entryHTML(h, i) {
+    const open = isOpen(h, i);
+    const summary = !open && (h.turns?.length ? h.turns.at(-1).detail || h.turns.at(-1).text : h.detail);
+    return `<div class="row ${h.status}${open ? " open" : ""}${h === replyTo ? " reply-target" : ""}" role="listitem" tabindex="0" data-i="${i}" ${h === current ? "data-new" : ""}
+        aria-expanded="${open}" title="${open ? "Collapse" : "Expand"} (Space). Enter puts it in the prompt.">
+      ${mark(h.status)}
+      <div class="main">
+        <div class="line"><span class="cmd">${richText(h.text, h.icons)}</span>${summary ? `<span class="sum">${esc(summary)}</span>` : ""}<span class="time">${ago(h.at)}</span></div>
+        ${open ? bodyHTML(h) : ""}
+        ${open ? (h.turns || []).map((t) => `
+          <div class="turn">${mark(t.status)}<div class="main">
+            <div class="line"><span class="cmd"><span class="rp" title="Follow-up">${ICON.reply}</span>${richText(t.text, t.icons || h.icons)}</span><span class="time">${ago(t.at)}</span></div>
+            ${bodyHTML(t)}</div></div>`).join("") : ""}
+      </div>
+      <div class="acts-row">
+        ${h.status !== "running" ? `<button class="act" data-act="reply" title="Follow up (R)" aria-label="Follow up">${ICON.reply}</button>` : ""}
+        <button class="act" data-act="load" title="Put in the prompt (Enter)" aria-label="Put in the prompt">${ICON.enter}</button>
+        <button class="act" data-act="save" title="Save as a named command" aria-label="Save">${ICON.bookmark}</button>
+      </div>
+    </div>`;
+  }
+  // attach prompt buttons after rendering (they hold closures)
+  const _renderRecent = renderRecent;
+  renderRecent = function () {
+    _renderRecent();
+    for (const el of $("activity").querySelectorAll("[data-ask]")) {
+      const row = el.closest(".row");
+      const h = history[Number(row.dataset.i)];
+      const e = h?.ask ? h : (h?.turns || []).find((t) => t.ask);
+      for (const c of e?.ask?.choices || []) el.appendChild(button(c));
+    }
+  };
+
+  function renderSaved() {
+    const a = $("activity");
+    if (!saved.length) {
+      a.innerHTML = `<div class="empty"><p>No saved commands yet. Use the star on a command in Recent, then run it by typing its name.</p></div>`;
+      return;
+    }
+    const rows = saved.filter((c) => matches(c.name, c.text));
+    a.innerHTML = rows.map((c) => `
+      <div class="row" role="listitem" tabindex="0" data-saved="${esc(c.name)}" title="Enter puts it in the prompt">
+        <span class="mark">${ICON.bookmark}</span>
+        <div class="main"><div class="line"><span class="cmd name">${esc(c.name)}</span><span class="time">Type “${esc(c.name)}” to run</span></div><div class="sub">${esc(c.text)}</div></div>
+        <div class="acts-row">
+          <button class="act" data-act="run-saved" data-name="${esc(c.name)}" title="Run" aria-label="Run">${ICON.play}</button>
+          <button class="act" data-act="delete-cmd" data-name="${esc(c.name)}" title="Delete" aria-label="Delete">${ICON.trash}</button>
+        </div>
+      </div>`).join("") || `<div class="empty"><p>Nothing matches “${esc(cmdText())}”.</p></div>`;
+  }
+
+  function renderSecrets() {
+    const a = $("activity");
+    a.innerHTML = `
+      <div class="listhead"><p>Use <span class="token">{{name}}</span> in a command. The value is typed into the page and never sent to the AI.</p>
+        <button class="btn" id="add-secret" type="button">${ICON.plus}<span>Add</span></button></div>
+      ${addingSecret ? `<form class="form" id="secret-form">
+        <input class="field" id="secret-name" placeholder="Name, e.g. dev-password" aria-label="Name" autocomplete="off" spellcheck="false" />
+        <input class="field" id="secret-value" type="password" placeholder="Password" aria-label="Password" autocomplete="new-password" />
+        <button class="btn primary" type="submit">Save</button></form>` : ""}
+      ${secrets.map((n) => `
+        <div class="row" role="listitem" tabindex="0">
+          <span class="mark">${ICON.key}</span>
+          <div class="main"><div class="line"><span class="cmd token">{{${esc(n)}}}</span><span class="time">In Keychain</span></div></div>
+          <div class="acts-row"><button class="act" data-act="delete-secret" data-name="${esc(n)}" title="Delete from Keychain" aria-label="Delete">${ICON.trash}</button></div>
+        </div>`).join("")}
+      ${!secrets.length && !addingSecret ? `<div class="empty"><p>No passwords yet.</p></div>` : ""}`;
+    $("add-secret").onclick = () => { addingSecret = !addingSecret; render(); if (addingSecret) $("secret-name").focus(); };
+    $("secret-form")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = $("secret-name").value.trim(), value = $("secret-value").value;
+      if (!name || !value) return setStatus("Give the password a name and a value.", "warn");
+      send({ type: "secrets:set", name, value });
+      addingSecret = false;
+      setStatus(`Saved {{${name}}} to your Keychain.`, "ok");
+    });
+  }
+
   $("activity").addEventListener("click", (e) => {
-    const act = e.target.closest(".row-act");
+    const ex = e.target.closest("[data-example]");
+    if (ex) return setCmd(ex.dataset.example);
+    const act = e.target.closest(".act");
+    const row = e.target.closest(".row");
     if (act) {
       e.stopPropagation();
       const name = act.dataset.name;
-      if (act.dataset.act === "save") askSaveAs(history[Number(act.dataset.i)].text);
-      else if (act.dataset.act === "reply") setReply(history[Number(act.dataset.i)]);
-      else if (act.dataset.act === "run") run(name);
-      else if (act.dataset.act === "delete-cmd") { send({ type: "commands:delete", name }); setStatus(`Deleted “${name}”`); }
-      else if (act.dataset.act === "delete-secret") { send({ type: "secrets:delete", name }); setStatus(`Removed {{${name}}} from your Keychain`); }
+      const h = row?.dataset.i !== undefined ? history[Number(row.dataset.i)] : null;
+      if (act.dataset.act === "reply" && h) setReply(h);
+      else if (act.dataset.act === "load" && h) setCmd(h.text);
+      else if (act.dataset.act === "save" && h) askSaveAs(h.text);
+      else if (act.dataset.act === "run-saved") run(name);
+      else if (act.dataset.act === "delete-cmd") { send({ type: "commands:delete", name }); setStatus(`Deleted “${name}”.`, "ok"); }
+      else if (act.dataset.act === "delete-secret") { send({ type: "secrets:delete", name }); setStatus(`Removed {{${name}}} from your Keychain.`, "ok"); }
       return;
     }
-    const row = e.target.closest(".row");
-    if (!row || e.target.closest(".turns")) return;
-    if (row.dataset.run) run(row.dataset.run);
-    else if (row.dataset.i !== undefined) run(history[Number(row.dataset.i)].text);
+    const st = e.target.closest("[data-steps]");
+    if (st && row?.dataset.i !== undefined) {
+      const h = history[Number(row.dataset.i)];
+      const turnEl = st.closest(".turn");
+      const target = turnEl ? h.turns[[...row.querySelectorAll(".turn")].indexOf(turnEl)] : h;
+      target.showSteps = !target.showSteps;
+      return render();
+    }
+    if (!row || e.target.closest("button, .ask, a")) return;
+    if (row.dataset.saved) return setCmd(row.dataset.saved);
+    if (row.dataset.i !== undefined) toggle(Number(row.dataset.i));
   });
-  document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => {
-    tab = b.dataset.tab;
+  function toggle(i) {
+    const h = history[i];
+    openIds.has(h.id) ? openIds.delete(h.id) : openIds.add(h.id);
+    render();
+    $("activity").querySelector(`.row[data-i="${i}"]`)?.focus();
+  }
+  // keyboard in the list
+  $("activity").addEventListener("keydown", (e) => {
+    const row = e.target.closest?.(".row");
+    if (!row || e.target !== row) return;
+    const rows = [...$("activity").querySelectorAll(".row")];
+    const k = rows.indexOf(row);
+    if (e.key === "ArrowDown") { e.preventDefault(); rows[k + 1]?.focus(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); k ? rows[k - 1].focus() : caretToEnd(); }
+    else if (e.key === "Enter") {
+      e.preventDefault();
+      if (row.dataset.saved) setCmd(row.dataset.saved);
+      else if (row.dataset.i !== undefined) setCmd(history[Number(row.dataset.i)].text);
+    } else if ((e.key === " " || e.key === "ArrowRight" || e.key === "ArrowLeft") && row.dataset.i !== undefined) { e.preventDefault(); toggle(Number(row.dataset.i)); }
+    else if (e.key.toLowerCase() === "r" && row.dataset.i !== undefined) { e.preventDefault(); setReply(history[Number(row.dataset.i)]); }
+  });
+
+  document.querySelectorAll(".tabs [role=tab]").forEach((b) => (b.onclick = () => selectTab(b.dataset.tab)));
+  function selectTab(t) {
+    tab = t;
     if (tab === "secrets") send({ type: "secrets:list" });
     render();
-  }));
-  $("cmd").addEventListener("input", () => tab !== "secrets" && render());
+  }
 
-  // ── follow-ups ────────────────────────────────────────────
+  // ── follow-ups ──────────────────────────────────────────
   function setReply(entry) {
     replyTo = entry;
     $("reply-what").innerHTML = richText(entry.text, entry.icons);
     paintChips($("reply-what"));
-    $("replying").hidden = false;
-    $("cmd").dataset.placeholder = "Follow up…  e.g. now delete the first 10";
+    $("reply").classList.add("on");
+    $("lead").hidden = true;
+    cmd.dataset.placeholder = "Follow up, e.g. now delete the first 2";
     tab = "recent";
     render();
     caretToEnd();
   }
   function clearReply() {
     replyTo = null;
-    $("replying").hidden = true;
-    $("cmd").dataset.placeholder = "Tell the browser what to do…   @ to pick a tab";
+    $("reply").classList.remove("on");
+    $("lead").hidden = false;
+    cmd.dataset.placeholder = "Type or dictate what to do";
     render();
   }
   $("reply-x").onclick = () => { clearReply(); caretToEnd(); };
-  /** After a command finishes: a "Follow up" button next to the result. */
-  function offerFollowUp(root) {
-    if (!root || replyTo === root || $("status").querySelector(".fu")) return;
-    const b = document.createElement("button");
-    b.className = "fu";
-    b.innerHTML = `${SVG.reply}<span>Follow up</span>`;
-    b.onclick = () => setReply(root);
-    $("status").appendChild(b);
-  }
 
-  const send = (obj) => ws && ws.readyState === 1 && (ws.send(JSON.stringify(obj)), true);
-
-  /** Inline "Save as" in the status line. */
   function askSaveAs(text) {
     const suggestion = (text.match(/(?:localhost|[\w-]+\.\w+)[^\s,]*/)?.[0] || text).split(/[/:,\s]/)[0].slice(0, 20).toLowerCase();
-    $("status").className = "status";
-    $("status").innerHTML = `<form class="inline" id="save-form"><span class="msg">Save as</span>
-      <input class="field" id="save-name" placeholder="name, e.g. login-dev" value="${esc(suggestion)}" spellcheck="false" />
-      <button class="choice primary" type="submit">Save</button><button class="choice" type="button" id="save-cancel">Cancel</button></form>`;
+    const s = $("status");
+    s.className = "status on";
+    s.innerHTML = `<form class="form" id="save-form" style="flex:1;padding:0">
+      <input class="field" id="save-name" placeholder="Name, e.g. login-dev" aria-label="Name" value="${esc(suggestion)}" spellcheck="false" />
+      <button class="btn primary" type="submit">Save</button><button class="btn" type="button" id="save-cancel">Cancel</button></form>`;
     $("save-name").select();
-    $("save-cancel").onclick = () => setStatus("Not saved");
+    $("save-cancel").onclick = () => { clearStatus(); caretToEnd(); };
     $("save-form").onsubmit = (e) => {
       e.preventDefault();
       const name = $("save-name").value.trim();
       if (!name) return;
       send({ type: "commands:save", name, text });
-      setStatus(`Saved — type “${name.toLowerCase().replace(/\s+/g, "-")}” to run it`, "act");
+      setStatus(`Saved. Type “${name.toLowerCase().replace(/\s+/g, "-")}” to run it.`, "ok");
       tab = "saved";
       render();
+      caretToEnd();
     };
   }
-  setInterval(render, 15000); // keep "2m ago" fresh
+  setInterval(() => !document.activeElement?.closest?.(".row, .form") && render(), 30000); // keep "2m" fresh
 
+  // ── running a command ───────────────────────────────────
+  /** reply: an answer to a prompt ("confirm", "2"): same thread, no new row. */
+  function run(text, { reply = false, icons = null } = {}) {
+    const followUp = !reply && Boolean(replyTo);
+    const threadId = reply ? currentRoot?.id : followUp ? replyTo.id : uid();
+    if (!send({ type: "command", text, thread: threadId, followUp })) return setStatus("Not connected to the browser service yet.", "err");
+    if (!reply) {
+      if (current && current.status === "running") { current.status = "ignored"; current.detail = "Replaced by a new command"; }
+      lastText = text;
+      const extra = icons && Object.keys(icons).length ? { icons } : {};
+      if (followUp) {
+        current = { text, status: "running", at: Date.now(), ...extra };
+        (replyTo.turns ||= []).push(current);
+        replyTo.at = Date.now();
+        history.splice(history.indexOf(replyTo), 1);
+        history.unshift(replyTo);
+        currentRoot = replyTo;
+      } else {
+        current = { id: threadId, text, status: "running", at: Date.now(), ...extra };
+        history.unshift(current);
+        history.splice(100);
+        currentRoot = current;
+      }
+      tab = "recent";
+      busy = true;
+    }
+    setProgress("Working on it");
+    render();
+  }
   function finish(status, detail) {
-    if (!current) return;
-    current.status = status;
-    if (detail !== undefined) current.detail = detail;
+    if (current) {
+      current.status = status;
+      if (detail !== undefined && detail !== null) current.detail = detail;
+      delete current.ask;
+    }
+    if (currentRoot) delete currentRoot.ask;
+    prompt = null;
     current = null;
+    busy = false;
     render();
     offerFollowUp(currentRoot);
   }
+  function offerFollowUp(root) {
+    if (!root || replyTo === root) return;
+    const acts = $("status").querySelector(".acts");
+    if (acts && $("status").classList.contains("on") && !acts.querySelector("[data-fu]")) {
+      const b = button({ label: "Follow up", icon: "reply", link: true, action: () => setReply(root) });
+      b.dataset.fu = "1";
+      acts.appendChild(b);
+    }
+  }
+  function stopAll() {
+    send({ type: "stop" });
+    closeAsk();
+    if (current?.status === "running") finish("ignored", "Stopped");
+    setStatus("Stopped.", "info");
+    caretToEnd();
+  }
 
-  // ── server connection ─────────────────────────────────────
+  // ── server connection ───────────────────────────────────
   function connect() {
     ws = new WebSocket(wsUrl);
     ws.onopen = () => {
-      setConn("on"); setEnabled(true); caretToEnd();
+      setEnabled(true);
+      caretToEnd();
       send({ type: "secrets:list" });
-      if (/Disconnected|Starting|Reconnecting/.test($("status").textContent)) setStatus("Ready");
+      if (/Reconnecting|Can't reach/.test($("status").textContent)) clearStatus();
     };
     ws.onclose = () => {
       setEnabled(false);
-      if (browserBusy) setStatus("Reconnecting…");
-      else { setConn("err"); setStatus("Disconnected — reconnecting…", "err"); }
+      if (!browserBusy) setStatus("Can't reach the browser service. Reconnecting…", "err");
       setTimeout(connect, 800);
     };
     ws.onmessage = (ev) => handle(JSON.parse(ev.data));
@@ -634,31 +802,30 @@
 
   function handle({ type, payload }) {
     switch (type) {
-      case "hello": setConn("on", payload.model); break;
+      case "hello": model = payload.model || ""; break;
       case "tab-list": tabList = payload || []; renderMentions(); break;
-      case "tab-switched":
-        if (current && !payload.rest) { setStatus(`Switched to “${payload.title}”`, "act"); finish("ok", payload.url); }
-        else setStatus(`In “${payload.title}” — ${payload.rest}`);
-        break;
-      case "resolved":
-        if (current) { current.resolved = payload.goal; render(); }
-        setStatus(`Understood as: ${payload.goal}`);
-        break;
-      case "tab-error":
-        setStatus(payload.error, "err");
-        if (current) finish("fail", payload.error);
-        break;
       case "commands": saved = payload || []; render(); break;
       case "secrets": secrets = payload || []; render(); break;
       case "store-error": setStatus(payload, "err"); break;
+      case "stopped": break;
+      case "tab-switched":
+        if (current && !payload.rest) { finish("ok", `Switched to ${payload.title}`); setStatus(`Switched to “${payload.title}”.`, "ok"); }
+        else setProgress(`In “${payload.title}”`);
+        break;
+      case "tab-error":
+        if (current) finish("fail", payload.error);
+        setStatus(payload.error, "err");
+        break;
+      case "resolved":
+        if (current) { current.resolved = payload.goal; render(); }
+        break;
       case "expanded":
-        if (current && !current.steps) { current.detail = `→ ${payload.text}`; render(); }
+        if (current && !current.steps) { current.resolved = payload.text; render(); }
         break;
       case "decision": {
         const p = payload.policy;
-        if (p.decision === "act") setStatus(p.summary);
-        else if (p.decision === "wait") setStatus("Thinking…");
-        else if (p.decision === "ignore" && current && !current.steps) { setStatus("That doesn't sound like a browser command", "warn"); finish("ignored", "not a browser command"); }
+        if (p.decision === "act") setProgress(capital(p.summary));
+        else if (p.decision === "ignore" && current && !current.steps) { finish("ignored", "That didn't sound like a browser command."); setStatus("That didn't sound like a browser command.", "warn"); }
         break;
       }
       case "action": {
@@ -667,10 +834,12 @@
         if (current?.steps) {
           const s = current.steps.find((x) => x.status === "running");
           if (s) { s.detail = detail; render(); }
-        } else {
-          if (!ok && payload.screenshot) showChoices(`Failed: ${payload.detail}`, [{ label: "Open screenshot", action: () => window.bar.openPath(payload.screenshot) }], "err");
-          else setStatus(ok ? (payload.action?.type?.startsWith("assert_") || payload.action?.type?.startsWith("wait_") ? payload.detail : "Done") : `Failed: ${payload.detail}`, ok ? "act" : "err");
-          finish(ok ? "ok" : "fail", detail);
+        } else if (current) {
+          const check = /^(assert|wait)_/.test(payload.action?.type || "");
+          finish(ok ? "ok" : "fail", ok ? (check ? payload.detail.replace(/^✓ /, "") : detail) : payload.detail);
+          if (!ok && payload.screenshot) setStatus("That didn't work. The reason is below.", "err", [{ label: "Screenshot", icon: "image", action: () => window.bar.openPath(payload.screenshot) }]);
+          else setStatus(ok ? "Done." : "That didn't work. The reason is below.", ok ? "ok" : "err", ok ? [] : [{ label: "Retry", icon: "retry", action: retry }]);
+          offerFollowUp(currentRoot);
         }
         break;
       }
@@ -682,111 +851,87 @@
           else if (i === payload.index) s.status = payload.status === "failed" ? "fail" : payload.status === "done" ? "ok" : payload.status === "cancelled" ? "ignored" : "running";
         });
         const n = payload.steps.length;
-        if (payload.status === "running") setStatus(`Step ${payload.index + 1} of ${n}`);
-        else if (payload.status === "done") { setStatus(`Done — ${n} steps`, "act"); finish("ok", null); }
+        if (payload.status === "running") { setProgress(`Step ${payload.index + 1} of ${n}: ${payload.steps[payload.index]}`); render(); }
+        else if (payload.status === "done") { finish("ok", null); setStatus(`Done. ${n} steps.`, "ok"); offerFollowUp(currentRoot); }
         else if (payload.status === "failed") {
-          if (payload.screenshot) showChoices(payload.reason, [{ label: "Open screenshot", action: () => window.bar.openPath(payload.screenshot) }], "err");
-          else setStatus(payload.reason, "err");
-          finish("fail", payload.reason);
-        }
-        else if (payload.status === "cancelled") finish("ignored", "cancelled");
-        render();
+          finish("fail", capital(payload.reason));
+          setStatus("A step didn't work. The reason is below.", "err", payload.screenshot ? [{ label: "Screenshot", icon: "image", action: () => window.bar.openPath(payload.screenshot) }] : [{ label: "Retry", icon: "retry", action: retry }]);
+        } else if (payload.status === "cancelled") finish("ignored", "Stopped");
         break;
       }
       case "pending":
-        if (payload) showChoices(`Confirm: ${payload.summary}?`, [{ label: "Confirm", say: "confirm", primary: true }, { label: "Cancel", say: "cancel" }]);
+        if (payload) ask(`${capital(payload.summary)}?`, [
+          { label: "Confirm", kbd: "↵", primary: true, action: answer(() => run("confirm", { reply: true })) },
+          { label: "Cancel", kbd: "esc", cancel: true, action: answer(() => run("cancel", { reply: true })) },
+        ]);
         break;
       case "candidates":
-        if (payload?.length) showChoices("Which one?", payload.map((c) => ({ n: c.n, label: c.label.replace(/^\w+ "?|"$/g, ""), say: String(c.n) })));
+        if (payload?.length) ask("Which one did you mean?", payload.map((c) => ({ n: c.n, label: c.label.replace(/^\w+ "?|"$/g, ""), action: answer(() => run(String(c.n), { reply: true })) })), { numbered: true });
         break;
       case "gaveup":
-        showChoices(`Couldn't understand “${payload.transcript}”`, [{ label: "Try it as a goal", primary: true, action: () => run(`goal: ${payload.transcript}`) }], "err");
-        if (current && !current.steps) finish("fail", "couldn't understand — try rephrasing, or run it as a goal");
+        if (current && !current.steps) finish("fail", "Couldn't work out what to do. Try rephrasing, or run it as a goal.");
+        setStatus(`Couldn't work out “${payload.transcript}”.`, "warn", [{ label: "Try as a goal", primary: true, action: () => run(`goal: ${payload.transcript}`) }]);
         break;
-      // ── smart (brain) results ──
       case "answer":
-        setStatus(`Answered in ${(payload.ms / 1000).toFixed(1)}s`, "act");
-        if (current) { current.long = true; finish("ok", payload.answer); }
+        if (current) finish("ok", payload.answer);
+        setStatus(`Answered in ${(payload.ms / 1000).toFixed(1)} s.`, "ok");
+        offerFollowUp(currentRoot);
         break;
       case "fill": {
         const ok = payload.filled.filter((f) => !f.error);
-        const parts = ok.map((f) => `${f.label}: ${f.value}`);
         const bad = payload.filled.filter((f) => f.error).map((f) => f.label);
-        let msg = `Filled ${ok.length} field${ok.length === 1 ? "" : "s"} — ${parts.join(" · ")}`;
-        if (bad.length) msg += ` · couldn't fill: ${bad.join(", ")}`;
-        if (payload.missing?.length) msg += ` · no field for: ${payload.missing.join(", ")}`;
-        setStatus(`Filled ${ok.length} field${ok.length === 1 ? "" : "s"} — not submitted`, payload.missing?.length || bad.length ? "warn" : "act");
-        if (current) { current.long = true; finish(ok.length ? "ok" : "fail", msg); }
+        let msg = `Filled ${ok.length} field${ok.length === 1 ? "" : "s"}: ${ok.map((f) => `${f.label} ${f.value}`).join(", ")}.`;
+        if (bad.length) msg += ` Couldn't fill ${bad.join(", ")}.`;
+        if (payload.missing?.length) msg += ` No field for ${payload.missing.join(", ")}.`;
+        msg += " Not submitted.";
+        if (current) finish(ok.length ? "ok" : "fail", msg);
+        setStatus(`Filled ${ok.length} field${ok.length === 1 ? "" : "s"}. Review it, then submit.`, payload.missing?.length || bad.length ? "warn" : "ok");
+        offerFollowUp(currentRoot);
         break;
       }
       case "goal": {
         if (!current) break;
         current.steps = payload.steps.map((s) => ({ text: s.text, status: s.status, detail: s.detail }));
-        if (payload.status === "running") setStatus(payload.steps.length ? `Step ${payload.steps.length}: ${payload.steps.at(-1).text}` : "Looking at the page…");
-        else if (payload.status === "done") { setStatus("Goal done", "act"); current.long = true; finish("ok", payload.summary); }
-        else if (payload.status === "failed") { setStatus(payload.summary, "err"); current.long = true; finish("fail", payload.summary); }
-        else if (payload.status === "cancelled") finish("ignored", payload.summary);
-        render();
+        if (payload.status === "running") { setProgress(payload.steps.length ? `Step ${payload.steps.length}: ${payload.steps.at(-1).text}` : "Looking at the page"); render(); }
+        else if (payload.status === "done") { finish("ok", payload.summary); setStatus("Goal done.", "ok"); offerFollowUp(currentRoot); }
+        else if (payload.status === "failed") { finish("fail", payload.summary); setStatus("The goal didn't finish. The reason is below.", "err", [{ label: "Retry", icon: "retry", action: retry }]); }
+        else if (payload.status === "cancelled") finish("ignored", payload.summary || "Stopped");
         break;
       }
       case "goal-confirm":
-        showChoices(`Allow: ${payload.description}?`, [
-          { label: "Allow", primary: true, action: () => { send({ type: "goal:answer", ok: true }); setStatus("Continuing…"); } },
-          { label: "Allow all", action: () => { send({ type: "goal:answer", ok: true, all: true }); setStatus("Continuing — won't ask again for this goal"); } },
-          { label: "Stop", action: () => send({ type: "goal:answer", ok: false }) },
+        ask(`Allow this step? ${capital(payload.description)}.`, [
+          { label: "Allow", kbd: "↵", primary: true, action: answer(() => { send({ type: "goal:answer", ok: true }); setProgress("Continuing"); }) },
+          { label: "Stop", kbd: "esc", cancel: true, action: answer(() => send({ type: "goal:answer", ok: false })) },
+          { label: "Allow the rest of this goal", link: true, action: answer(() => { send({ type: "goal:answer", ok: true, all: true }); setProgress("Continuing without asking again"); }) },
         ]);
         break;
       case "smart-error":
-        setStatus(payload.error, "err");
-        if (current && current.status === "running") finish("fail", payload.error);
+        { const hadRow = current && current.status === "running";
+          if (hadRow) finish("fail", payload.error);
+          setStatus(hadRow ? "That didn't work. The reason is below." : payload.error, "err", [{ label: "Retry", icon: "retry", action: retry }]); }
         break;
       case "log":
-        if (payload.level === "error") setStatus(payload.msg, "err");
+        if (payload.level === "error" && busy) setStatus(capital(payload.msg), "err");
         break;
     }
   }
-
-  /**
-   * reply: an answer to a prompt in the status line ("confirm", "2") — same thread, no new row.
-   * Otherwise a new command, or a follow-up when the "Following up on" bar is showing.
-   */
-  function run(text, { reply = false, icons = null } = {}) {
-    const followUp = !reply && Boolean(replyTo);
-    const threadId = reply ? currentRoot?.id : followUp ? replyTo.id : uid();
-    if (!send({ type: "command", text, thread: threadId, followUp })) return setStatus("Not connected", "err");
-    if (!reply) {
-      if (current && current.status === "running") { current.status = "ignored"; current.detail = "replaced"; }
-      if (followUp) {
-        current = { text, status: "running", at: Date.now(), ...(icons && Object.keys(icons).length ? { icons } : {}) };
-        (replyTo.turns ||= []).push(current);
-        replyTo.at = Date.now();
-        history.splice(history.indexOf(replyTo), 1);
-        history.unshift(replyTo); // the active conversation stays on top
-        currentRoot = replyTo;
-      } else {
-        current = { id: threadId, text, status: "running", at: Date.now(), ...(icons && Object.keys(icons).length ? { icons } : {}) };
-        history.unshift(current);
-        history.splice(100);
-        currentRoot = current;
-      }
-      tab = "recent";
-    }
-    setStatus("Thinking…");
-    render();
+  // Retrying something that changes data puts it back in the prompt instead of running it again.
+  const RISKY = /\b(delete|remove|approve|reject|pay|submit|send|archive|cancel|purchase|buy|order|transfer|publish|merge|deploy)\b/i;
+  function retry() {
+    if (RISKY.test(lastText)) { setCmd(lastText); setStatus("Check it, then press Enter to run it again.", "info"); }
+    else run(lastText);
   }
+  const capital = (s) => (s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : "");
 
-  // ── composer: text + inline tab chips ─────────────────────
+  // ── composer: text + inline tab chips ───────────────────
   // The command is plain text where "@[Tab title]" marks a tab; in the editor each mention is a
-  // chip (favicon + title) that behaves like one character: arrow past it, Backspace removes it.
+  // chip (favicon + title) that behaves like one character.
   const cmd = $("cmd");
-  const TAB_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 9h18"/></svg>';
-  const X_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
   let tabList = [];
   let tabListAt = 0;
-  let mention = null; // { node, start, query } while the caret is in an "@..." token
+  let mention = null;
   let mentionSel = 0;
 
-  // favicons of tabs you've mentioned, so chips in history keep their icon
   const ICONS_KEY = "vb.icons.v1";
   const iconCache = (() => { try { return JSON.parse(localStorage.getItem(ICONS_KEY) || "{}"); } catch { return {}; } })();
   function rememberIcon(title, icon) {
@@ -796,31 +941,22 @@
     for (const k of keys.slice(0, Math.max(0, keys.length - 40))) delete iconCache[k];
     try { localStorage.setItem(ICONS_KEY, JSON.stringify(iconCache)); } catch {}
   }
-  // Titles change ("(5834) Video - YouTube" -> "(5836) …"); match on the title without counters.
   const normTitle = (t) => String(t || "").replace(/^\(\d+\+?\)\s*/, "").replace(/\s+/g, " ").trim().toLowerCase();
   function iconFor(title, extra) {
     if (extra?.[title]) return extra[title];
     const n = normTitle(title);
-    return (
-      tabList.find((t) => t.title === title)?.icon ||
-      iconCache[title] ||
-      tabList.find((t) => t.icon && normTitle(t.title) === n)?.icon ||
-      Object.entries(iconCache).find(([k]) => normTitle(k) === n)?.[1] ||
-      null
-    );
+    return tabList.find((t) => t.title === title)?.icon || iconCache[title] || tabList.find((t) => t.icon && normTitle(t.title) === n)?.icon || Object.entries(iconCache).find(([k]) => normTitle(k) === n)?.[1] || null;
   }
   const urlFor = (title) => tabList.find((t) => t.title === title || normTitle(t.title) === normTitle(title))?.url || "";
-
-  // Chip colour: the dominant colour of the favicon, or a stable colour from the site when there's none.
-  const colorCache = new Map(); // icon data URL -> "r g b"
+  // a muted, stable colour for sites without a favicon
   function hashColor(s) {
     let h = 0;
     for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-    const hue = h % 360;
-    // HSL(hue, 55%, 52%) -> rgb
-    const a = 0.55 * Math.min(0.52, 0.48), f = (n) => { const k = (n + hue / 30) % 12; return Math.round(255 * (0.52 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); };
+    const hue = h % 360, sat = 0.32, l = 0.5;
+    const a = sat * Math.min(l, 1 - l), f = (n) => { const k = (n + hue / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); };
     return `${f(0)} ${f(8)} ${f(4)}`;
   }
+  const colorCache = new Map();
   function dominantColor(img) {
     try {
       const c = document.createElement("canvas");
@@ -829,13 +965,12 @@
       g.drawImage(img, 0, 0, 24, 24);
       const d = g.getImageData(0, 0, 24, 24).data;
       const buckets = new Map();
-      let greyN = 0, grey = [0, 0, 0];
+      let greyN = 0, grey = 0;
       for (let i = 0; i < d.length; i += 4) {
         const [r, gg, b, al] = [d[i], d[i + 1], d[i + 2], d[i + 3]];
         if (al < 140) continue;
         const max = Math.max(r, gg, b), min = Math.min(r, gg, b);
-        const sat = max === 0 ? 0 : (max - min) / max;
-        if (sat < 0.25 || max < 80) { greyN++; grey[0] += r; grey[1] += gg; grey[2] += b; continue; } // white / black / greys
+        if ((max === 0 ? 0 : (max - min) / max) < 0.25 || max < 80) { greyN++; grey += (r + gg + b) / 3; continue; }
         const key = `${r >> 5},${gg >> 5},${b >> 5}`;
         const e = buckets.get(key) || { n: 0, r: 0, g: 0, b: 0 };
         e.n++; e.r += r; e.g += gg; e.b += b;
@@ -843,53 +978,44 @@
       }
       const best = [...buckets.values()].sort((x, y) => y.n - x.n)[0];
       if (best && best.n >= 4) return `${Math.round(best.r / best.n)} ${Math.round(best.g / best.n)} ${Math.round(best.b / best.n)}`;
-      if (greyN) { // monochrome icon (GitHub): a neutral tint that works in light and dark
-        const v = Math.round((grey[0] + grey[1] + grey[2]) / 3 / greyN);
-        return v > 128 ? "150 150 160" : "120 120 135";
-      }
+      if (greyN) return grey / greyN > 128 ? "150 152 160" : "dark";
     } catch {}
     return null;
   }
-  /** Colour every chip under `root` once its icon has loaded. */
   function paintChips(root = document) {
-    for (const chip of root.querySelectorAll(".chip")) {
-      if (chip.dataset.painted) continue;
+    for (const chip of root.querySelectorAll(".chip:not([data-painted])")) {
       const img = chip.querySelector("img");
       if (!img) { chip.dataset.painted = "1"; continue; }
       const apply = () => {
         let rgb = colorCache.get(img.src);
         if (rgb === undefined) { rgb = dominantColor(img); colorCache.set(img.src, rgb); }
-        if (rgb) chip.style.setProperty("--chip-rgb", rgb);
-        if (rgb === "120 120 135") chip.dataset.darkicon = "1"; // black logo (GitHub): give it a light backing in dark mode
+        if (rgb === "dark") { chip.dataset.dark = "1"; rgb = "120 124 134"; }
+        if (rgb) chip.style.setProperty("--chip", rgb);
         chip.dataset.painted = "1";
       };
       if (img.complete && img.naturalWidth) apply();
       else img.addEventListener("load", apply, { once: true });
     }
   }
-
-  /** "(5836) 20 AI Concepts Explained - YouTube" -> "20 AI Concepts Explained" (full title on hover). */
   function chipLabel(title) {
     let t = String(title).replace(/^\(\d+\+?\)\s*/, "").trim();
     const m = t.match(/^(.{6,}?)\s+[-–—|·]\s+[^-–—|·]{2,30}$/);
-    if (m) t = m[1];
-    return t;
+    return m ? m[1] : t;
   }
-
   function chipHTML(title, removable = false, icons = null) {
     const icon = iconFor(title, icons);
     const letter = (title.replace(/^\(\d+\+?\)\s*/, "").match(/[\p{L}\p{N}]/u)?.[0] || "?").toUpperCase();
-    const fallbackRgb = hashColor(urlFor(title).replace(/^https?:\/\//, "").split("/")[0] || normTitle(title));
     const known = icon && colorCache.get(icon);
-    const style = icon ? (known ? ` style="--chip-rgb:${known}"` : "") : ` style="--chip-rgb:${fallbackRgb}"`;
-    const ic = icon
-      ? `<img src="${esc(icon)}" alt="" onerror="this.outerHTML='<span class=chip-letter>${esc(letter)}</span>'">`
-      : `<span class="chip-letter">${esc(letter)}</span>`;
-    return `<span class="chip" contenteditable="false" data-title="${esc(title)}" title="${esc(title)}"${style}${icon && known ? ' data-painted="1"' : ""}>${ic}<span class="chip-t">${esc(chipLabel(title))}</span>${removable ? `<button class="chip-x" tabindex="-1" title="Remove">${X_ICON}</button>` : ""}</span>`;
+    const style = icon ? (known && known !== "dark" ? ` style="--chip:${known}"` : "") : ` style="--chip:${hashColor(urlFor(title).replace(/^https?:\/\//, "").split("/")[0] || normTitle(title))}"`;
+    const ic = icon ? `<img src="${esc(icon)}" alt="" onerror="this.outerHTML='<span class=letter>${esc(letter)}</span>'">` : `<span class="letter">${esc(letter)}</span>`;
+    return `<span class="chip" contenteditable="false" data-title="${esc(title)}" title="${esc(title)}"${style}${icon && known ? ` data-painted="1"${known === "dark" ? " data-dark" : ""}` : ""}>${ic}<span class="t">${esc(chipLabel(title))}</span>${removable ? `<button class="x" tabindex="-1" type="button" aria-label="Remove">${ICON.x}</button>` : ""}</span>`;
   }
-  /** "@[Title]" in plain text -> chips (history rows, follow-up bar). `icons`: title -> icon saved with the command. */
-  const richText = (text, icons = null) => String(text ?? "").split(/@\[([^\]]+)\]/g).map((p, i) => (i % 2 ? chipHTML(p, false, icons) : esc(p))).join("");
-  /** Icons of the chips currently in the composer, saved with the command so history keeps them. */
+  // "goal: …" shows as a Goal tag in lists instead of command syntax
+  const richText = (text, icons = null) => {
+    const m = String(text ?? "").match(/^(goal|task|do)\s*:\s*/i);
+    const body = m ? String(text).slice(m[0].length) : String(text ?? "");
+    return (m ? '<span class="tag">Goal</span>' : "") + body.split(/@\[([^\]]+)\]/g).map((p, i) => (i % 2 ? chipHTML(p, false, icons) : esc(p))).join("");
+  };
   function composerIcons() {
     const out = {};
     for (const chip of cmd.querySelectorAll(".chip")) {
@@ -898,7 +1024,6 @@
     }
     return out;
   }
-
   function cmdText() {
     let out = "";
     for (const n of cmd.childNodes) {
@@ -906,7 +1031,7 @@
       else if (n.classList?.contains("chip")) out += ` @[${n.dataset.title}] `;
       else out += n.textContent || "";
     }
-    return out.replace(/\u00a0/g, " ").replace(/\s+/g, " ").replace(/\]\s+([,.;:!?])/g, "]$1").trim();
+    return out.replace(/ /g, " ").replace(/\s+/g, " ").replace(/\]\s+([,.;:!?])/g, "]$1").trim();
   }
   function caretToEnd() {
     if (cmd.contentEditable !== "true") return;
@@ -917,26 +1042,30 @@
     const sel = getSelection();
     sel.removeAllRanges();
     sel.addRange(r);
-    cmd.scrollLeft = cmd.scrollWidth;
   }
   function setCmd(text) {
     cmd.innerHTML = text ? String(text).split(/@\[([^\]]+)\]/g).map((p, i) => (i % 2 ? chipHTML(p, true) : esc(p))).join("") : "";
     paintChips(cmd);
     if (cmd.lastChild && cmd.lastChild.nodeType !== 3) cmd.appendChild(document.createTextNode(" "));
+    syncGo();
     caretToEnd();
   }
   function setEnabled(on) {
     cmd.contentEditable = on ? "true" : "false";
     cmd.classList.toggle("off", !on);
+    syncGo();
   }
-  // an emptied editor can keep a stray <br>; drop it so the placeholder shows
+  function syncGo() {
+    const has = Boolean(cmdText());
+    $("go").disabled = !has || cmd.contentEditable !== "true";
+    $("go").classList.toggle("ready", has);
+  }
   function tidy() {
     if (!cmd.querySelector(".chip") && !cmd.textContent.replace(/ /g, " ").trim()) cmd.innerHTML = "";
   }
-
   function submit() {
     const text = cmdText();
-    if (!text) return;
+    if (!text || text.startsWith("/")) return; // "/…" searches history, it doesn't run
     const icons = composerIcons();
     setCmd("");
     closeMentions();
@@ -945,7 +1074,7 @@
   }
   $("form").addEventListener("submit", (e) => { e.preventDefault(); submit(); });
 
-  // ── "@" opens a list of open tabs ─────────────────────────
+  // ── "@": open tabs ──────────────────────────────────────
   function mentionAtCursor() {
     const sel = getSelection();
     if (!sel.rangeCount || !sel.isCollapsed) return null;
@@ -966,10 +1095,14 @@
     if (!mention) return (box.hidden = true);
     const items = mentionMatches();
     mentionSel = Math.min(mentionSel, Math.max(0, items.length - 1));
-    box.style.top = `${$("form").getBoundingClientRect().bottom - 4}px`;
+    box.style.top = `${$("form").getBoundingClientRect().bottom - 6}px`;
     box.innerHTML = items.length
-      ? items.map((t, i) => `<div class="mention${i === mentionSel ? " on" : ""}" data-i="${i}"><span class="ic">${t.icon ? `<img src="${esc(t.icon)}" alt="" onerror="this.replaceWith(document.createRange().createContextualFragment(TAB_ICON))">` : `<span class="chip-letter" style="--chip-rgb:${hashColor(t.url.replace(/^https?:\/\//, "").split("/")[0] || t.title)}">${esc(((t.title || "").replace(/^\(\d+\+?\)\s*/, "").match(/[\p{L}\p{N}]/u)?.[0] || "?").toUpperCase())}</span>`}</span><span class="t">${esc(t.title || "(untitled)")}${t.active ? '<span class="cur">current</span>' : ""}</span><span class="u">${esc(shortUrl(t.url))}</span></div>`).join("")
-      : `<div class="none">${tabList.length ? "No open tab matches" : "No tabs open in the controlled browser"}</div>`;
+      ? items.map((t, i) => {
+          const letter = ((t.title || "").replace(/^\(\d+\+?\)\s*/, "").match(/[\p{L}\p{N}]/u)?.[0] || "?").toUpperCase();
+          const ic = t.icon ? `<img src="${esc(t.icon)}" alt="">` : `<span class="letter" style="--chip:${hashColor(t.url.replace(/^https?:\/\//, "").split("/")[0] || t.title)}">${esc(letter)}</span>`;
+          return `<div class="mention${i === mentionSel ? " on" : ""}" role="option" aria-selected="${i === mentionSel}" data-i="${i}"><span class="ic">${ic}</span><span class="t">${esc(t.title || "Untitled")}${t.active ? '<span class="cur">Current tab</span>' : ""}</span><span class="u">${esc(shortUrl(t.url))}</span></div>`;
+        }).join("")
+      : `<div class="none">${tabList.length ? "No open tab matches." : "No tabs are open in the controlled browser."}</div>`;
     box.hidden = false;
     box.querySelector(".mention.on")?.scrollIntoView({ block: "nearest" });
   }
@@ -989,7 +1122,6 @@
     const chip = tpl.content.firstChild;
     range.insertNode(chip);
     paintChips(cmd);
-    // a space after the chip, with the caret after it
     let after = chip.nextSibling;
     if (!after || after.nodeType !== 3) { after = document.createTextNode(" "); chip.after(after); }
     else if (!/^[\s ]/.test(after.nodeValue)) after.nodeValue = " " + after.nodeValue;
@@ -999,6 +1131,7 @@
     sel.removeAllRanges();
     sel.addRange(r);
     closeMentions();
+    syncGo();
     cmd.focus();
   }
   function updateMention() {
@@ -1007,12 +1140,11 @@
     if (Date.now() - tabListAt > 2000) { tabListAt = Date.now(); send({ type: "tabs:list" }); }
     renderMentions();
   }
-  cmd.addEventListener("input", () => { tidy(); updateMention(); });
+  cmd.addEventListener("input", () => { tidy(); syncGo(); updateMention(); if (tab !== "secrets") render(); });
   cmd.addEventListener("click", updateMention);
   cmd.addEventListener("blur", () => setTimeout(closeMentions, 150));
-  // chip ×: remove the chip (and the space after it)
   cmd.addEventListener("mousedown", (e) => {
-    const x = e.target.closest(".chip-x");
+    const x = e.target.closest(".chip .x");
     if (!x) return;
     e.preventDefault();
     const chip = x.closest(".chip");
@@ -1023,57 +1155,74 @@
     cmd.dispatchEvent(new Event("input"));
     cmd.focus();
   });
-  // paste as plain text (one line)
   cmd.addEventListener("paste", (e) => {
     e.preventDefault();
-    const t = (e.clipboardData?.getData("text/plain") || "").replace(/\s*\n\s*/g, " ");
-    document.execCommand("insertText", false, t);
+    document.execCommand("insertText", false, (e.clipboardData?.getData("text/plain") || "").replace(/\s*\n\s*/g, " "));
   });
   $("mentions").addEventListener("mousedown", (e) => {
     const it = e.target.closest(".mention");
     if (it) { e.preventDefault(); pickMention(Number(it.dataset.i)); }
   });
-  // Runs before the history / submit handlers while the list is open.
+  // the tab list, while open, owns the arrow keys / Enter / Tab / Esc
   cmd.addEventListener("keydown", (e) => {
     if ($("mentions").hidden || !mention) return;
     const n = mentionMatches().length;
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      mentionSel = n ? (mentionSel + (e.key === "ArrowDown" ? 1 : -1) + n) % n : 0;
-      renderMentions();
-    } else if ((e.key === "Enter" || e.key === "Tab") && n) pickMention(mentionSel);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { mentionSel = n ? (mentionSel + (e.key === "ArrowDown" ? 1 : -1) + n) % n : 0; renderMentions(); }
+    else if ((e.key === "Enter" || e.key === "Tab") && n) pickMention(mentionSel);
     else if (e.key === "Escape") closeMentions();
     else return;
     e.preventDefault();
     e.stopImmediatePropagation();
   }, true);
-
   cmd.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { e.preventDefault(); return submit(); }
+    const empty = !cmdText();
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (empty && prompt?.primary) return prompt.primary();
+      return submit();
+    }
+    if (empty && prompt?.numbered && /^[1-9]$/.test(e.key)) { e.preventDefault(); return prompt.numbered[Number(e.key) - 1]?.(); }
+    if (e.key === "ArrowDown" && cmdText().startsWith("/")) {
+      const first = $("activity").querySelector(".row");
+      if (first) { e.preventDefault(); first.focus(); }
+      return;
+    }
+    if (e.key === "ArrowDown" && recall < 0 && empty) {
+      const first = $("activity").querySelector(".row");
+      if (first) { e.preventDefault(); first.focus(); }
+      return;
+    }
     if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
     const texts = [...new Set(history.flatMap((h) => [...(h.turns || []).map((t) => t.text).reverse(), h.text]))];
-    if (!texts.length) return;
+    if (!texts.length || (!empty && recall < 0)) return;
     e.preventDefault();
     recall = e.key === "ArrowUp" ? Math.min(recall + 1, texts.length - 1) : Math.max(recall - 1, -1);
     setCmd(recall < 0 ? "" : texts[recall]);
   });
+
+  // global keys: Esc stops / cancels / hides; ⌘1-3 switch views
   document.addEventListener("keydown", (e) => {
-    if (e.key !== "Escape" || recording || e.defaultPrevented) return;
-    if (replyTo) return clearReply(); // first Esc stops following up, the next one hides the bar
+    if (recording) return;
+    if (e.metaKey && /^[123]$/.test(e.key)) { e.preventDefault(); return selectTab(["recent", "saved", "secrets"][Number(e.key) - 1]); }
+    if (e.key !== "Escape" || e.defaultPrevented) return;
+    e.preventDefault();
+    if (prompt?.cancel) return prompt.cancel();
+    if (busy) return stopAll();
+    if (document.activeElement?.closest?.(".row, .field")) return caretToEnd();
+    if (replyTo) return clearReply();
+    if ($("status").classList.contains("on")) return clearStatus();
     window.bar.hide();
   });
 
-  // ── global shortcut: click it in the footer, press new keys ──
+  // ── shortcut recording ──────────────────────────────────
   const SYM = { Command: "⌘", CommandOrControl: "⌘", Control: "⌃", Alt: "⌥", Shift: "⇧" };
-  const showHotkey = (accel) => {
-    $("hotkey-keys").textContent = (accel || "none").split("+").map((k) => SYM[k] || (k.length === 1 ? k.toUpperCase() : k)).join("");
-  };
+  const showHotkey = (accel) => { $("hotkey-keys").textContent = (accel || "None").split("+").map((k) => SYM[k] || (k.length === 1 ? k.toUpperCase() : k)).join(""); };
   function keyName(e) {
     const c = e.code;
     if (/^Key[A-Z]$/.test(c)) return c.slice(3);
     if (/^Digit\d$/.test(c)) return c.slice(5);
     if (/^F\d{1,2}$/.test(c)) return c;
-    const map = { Space: "Space", Enter: "Enter", Tab: "Tab", Backquote: "`", Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]",
-      Backslash: "\\", Semicolon: ";", Quote: "'", Comma: ",", Period: ".", Slash: "/", ArrowUp: "Up", ArrowDown: "Down", ArrowLeft: "Left", ArrowRight: "Right" };
+    const map = { Space: "Space", Enter: "Enter", Tab: "Tab", Backquote: "`", Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]", Backslash: "\\", Semicolon: ";", Quote: "'", Comma: ",", Period: ".", Slash: "/", ArrowUp: "Up", ArrowDown: "Down", ArrowLeft: "Left", ArrowRight: "Right" };
     return map[c] || null;
   }
   let recording = false;
@@ -1086,78 +1235,72 @@
   async function onRecordKey(e) {
     e.preventDefault();
     e.stopPropagation();
-    if (e.key === "Escape") { stopRecording(); showHotkey(await window.bar.getHotkey()); setStatus("Shortcut unchanged"); return; }
-    if (["Meta", "Control", "Alt", "Shift"].includes(e.key)) return; // wait for the real key
+    if (e.key === "Escape") { stopRecording(); showHotkey(await window.bar.getHotkey()); setStatus("Shortcut unchanged.", "info"); return; }
+    if (["Meta", "Control", "Alt", "Shift"].includes(e.key)) return;
     const key = keyName(e);
     const mods = [e.metaKey && "Command", e.ctrlKey && "Control", e.altKey && "Alt", e.shiftKey && "Shift"].filter(Boolean);
     if (!key || (!mods.length && !/^F\d/.test(key)) || (mods.length === 1 && mods[0] === "Shift")) {
-      setStatus("Use at least ⌘, ⌃ or ⌥ with a key — Esc to cancel", "warn");
+      setStatus("Use ⌘, ⌃ or ⌥ together with a key. Press Esc to cancel.", "warn");
       return;
     }
     stopRecording();
     const r = await window.bar.setHotkey([...mods, key].join("+"));
     showHotkey(r.hotkey);
-    setStatus(r.ok ? `Shortcut set to ${$("hotkey-keys").textContent}` : r.error, r.ok ? "act" : "err");
+    setStatus(r.ok ? `Shortcut set to ${$("hotkey-keys").textContent}.` : r.error, r.ok ? "ok" : "err");
   }
-  $("hotkey").onclick = () => {
+  function recordHotkey() {
     if (recording) return;
     recording = true;
     $("hotkey").classList.add("recording");
     $("hotkey-keys").textContent = "Press keys…";
-    setStatus("Press the new shortcut — Esc to cancel");
+    setStatus("Press the new shortcut. Esc cancels.", "info");
     window.bar.pauseHotkey(true);
     document.addEventListener("keydown", onRecordKey, true);
-  };
+  }
+  $("hotkey").onclick = recordHotkey;
   window.bar.getHotkey().then(showHotkey);
 
-  // ── which browser is controlled ───────────────────────────
-  const shortName = (b) => b.id === "builtin" ? "Built-in" : `${b.name.replace(/^Google |^Microsoft /, "")}${b.separate ? " · own profile" : ""}`;
-  const GLOBE = $("browser-ic").innerHTML;
+  // ── controlled browser ──────────────────────────────────
+  const shortName = (b) => (b.id === "builtin" ? "Built-in Chromium" : `${b.name.replace(/^Google |^Microsoft /, "")}${b.separate ? " (own profile)" : ""}`);
   function showBrowser(b) {
     browserBusy = Boolean(b.busy);
-    if (!b.busy) $("browser-ic").innerHTML = b.icon ? `<img src="${esc(b.icon)}" alt="">` : GLOBE;
+    if (!b.busy) $("browser-ic").innerHTML = b.icon ? `<img src="${esc(b.icon)}" alt="">` : ICON.globe;
     $("browser-name").textContent = b.busy ? "Switching…" : shortName(b);
-    $("browser").classList.toggle("busy", Boolean(b.busy));
-    if (b.busy) { setConn("busy"); setStatus(b.busy); }
+    $("browser").dataset.state = b.busy ? "off" : "on";
+    if (b.busy) setStatus(b.busy, "busy");
     else if (b.error) setStatus(b.error, "err");
     else if (b.note) setStatus(b.note, "warn");
   }
-  window.bar.getBrowser().then(showBrowser);
   window.bar.onBrowserState((b) => {
     showBrowser(b);
-    if (!b.busy && !b.error) setStatus(b.id === "builtin" ? "Controlling the built-in Chromium" : `Connected to ${b.name}${b.separate ? " (separate Voice Browser profile — sign in there once)" : ""}`, "act");
+    if (!b.busy && !b.error) setStatus(b.id === "builtin" ? "Controlling the built-in Chromium." : `Connected to ${b.name}.${b.separate ? " It uses its own profile, so sign in there once." : ""}`, "ok");
   });
   window.bar.onBrowserConfirm((b) => {
     const short = b.name.replace(/^Google |^Microsoft /, "");
+    const cancel = { label: "Cancel", action: () => { clearStatus(); caretToEnd(); } };
     if (b.ownProfile || b.separate) {
-      showChoices(`${b.name} only allows control of a separate profile — open one? Your main window stays as it is.`, [
-        { label: `Open ${short}`, primary: true, action: () => window.bar.switchBrowser(b.id) },
-        { label: "Cancel", action: () => setStatus("Browser unchanged") },
-      ]);
-      return;
+      setStatus(`${b.name} can only be controlled in a separate profile. Your main window stays as it is.`, "warn", [{ label: `Open ${short}`, primary: true, action: () => window.bar.switchBrowser(b.id) }, cancel]);
+    } else {
+      setStatus(`Quit ${b.name} and reopen it so Voice Browser can control it? Your tabs come back.`, "warn", [{ label: `Restart ${short}`, primary: true, action: () => window.bar.switchBrowser(b.id) }, cancel]);
     }
-    showChoices(`Quit ${b.name} and reopen it so Voice Browser can control it? Tabs are restored.`, [
-      { label: `Restart ${short}`, primary: true, action: () => window.bar.switchBrowser(b.id) },
-      { label: "Cancel", action: () => setStatus("Browser unchanged") },
-    ]);
   });
   $("browser").onclick = () => window.bar.browserMenu();
-
-  $("undo").onclick = () => send({ type: "undo" });
-  $("details").onclick = () => window.bar.openControlPage();
-  $("size").onclick = () => window.bar.toggleSize();
-  $("hide").onclick = () => window.bar.hide();
-  $("quit").onclick = () => window.bar.quit();
+  $("more").onclick = () => window.bar.appMenu({ model });
+  window.bar.onMenuAction?.((a) => {
+    if (a === "undo") send({ type: "undo" });
+    else if (a === "record-hotkey") recordHotkey();
+  });
   window.bar.onFocusInput(() => caretToEnd());
-  window.bar.onServerExit((info) => setStatus(`Browser service stopped (code ${info.code})`, "err"));
+  window.bar.onServerExit((info) => setStatus(`The browser service stopped (code ${info.code}).`, "err"));
 
   render();
   (async () => {
-    setConn("busy");
+    setStatus("Starting the browser", "busy");
     const r = await window.bar.ensureServer();
     window.bar.getBrowser().then(showBrowser);
-    if (!r.ok) { setConn("err"); setStatus(r.error, "err"); return; }
-    connect();
+    if (!r.ok) setStatus(r.error, "warn");
+    else clearStatus();
+    connect(); // keeps retrying until the service is up
   })();
 </script>
 </body>

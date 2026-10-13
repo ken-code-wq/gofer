@@ -73,8 +73,18 @@ open "/Applications/Voice Browser.app"
 ```
 
 Voice Browser lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd> shows or hides the bar
-(click the shortcut in the footer to change it), <kbd>Esc</kbd> hides it, and the menu-bar icon has
-**Start at login**.
+(click the shortcut in the footer to change it) and the menu-bar icon has **Start at login**.
+
+| Key | In the bar |
+|---|---|
+| <kbd>↵</kbd> | run the command, or answer **Allow** / **Confirm** when the prompt is empty |
+| <kbd>Esc</kbd> | cancel a prompt, **stop** what's running, leave a follow-up, then hide the bar |
+| <kbd>@</kbd> | pick an open tab |
+| <kbd>↑</kbd> / <kbd>↓</kbd> | recall earlier commands / move into the list (<kbd>↵</kbd> puts a command back in the prompt, <kbd>Space</kbd> expands, <kbd>R</kbd> follows up) |
+| <kbd>1</kbd>–<kbd>9</kbd> | pick an option when it asks "Which one?" |
+| <kbd>/</kbd> | search your history, e.g. `/bills` |
+| <kbd>⌘</kbd><kbd>1</kbd>–<kbd>3</kbd> | Recent, Saved, Passwords |
+| `fn fn` | macOS Dictation, to speak instead of typing |
 
 > **Prefer the terminal?** `./run.sh` starts the server and opens a control page at
 > <http://localhost:8787> with live decision details and a microphone button (Chrome / Edge).

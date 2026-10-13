@@ -5,7 +5,7 @@
  * Starts the server itself (reading ../.env) unless one is already running on the port.
  * A global shortcut (default Cmd/Ctrl+Shift+Space, changeable in the bar) shows/focuses it; Esc hides it.
  */
-const { app, BrowserWindow, Menu, Tray, nativeImage, globalShortcut, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, Menu, Tray, nativeImage, globalShortcut, ipcMain, shell, systemPreferences } = require("electron");
 const browsers = require("./browsers.cjs");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
@@ -173,7 +173,7 @@ function refreshTray() {
       { label: "Quit Voice Browser", accelerator: "Command+Q", click: () => app.quit() },
     ]),
   );
-  tray.setToolTip(`Voice Browser — ${browserState.name}`);
+  tray.setToolTip(`Voice Browser: ${browserState.name}`);
 }
 
 function createTray() {
@@ -243,12 +243,13 @@ async function startServer(cdpUrl = null) {
     if (server === child) server = null;
     if (!restarting) win?.webContents.send("server-exit", { code, stderr: stderr.slice(-400) });
   });
-  for (let i = 0; i < 120; i++) {
+  // Attaching to a browser with many tabs (Dia, Arc) can take a while: allow up to 2 minutes.
+  for (let i = 0; i < 480; i++) {
     if (await serverUp()) return { started: true };
     if (!server) throw new Error(`Server exited: ${stderr.slice(-300) || "unknown error"}`);
     await new Promise((r) => setTimeout(r, 250));
   }
-  throw new Error("Server did not start within 30 s");
+  throw new Error("The browser service is taking longer than usual to start. It keeps trying in the background.");
 }
 
 // Window size/position persist between launches. "compact" = prompt only, "expanded" = with activity.
@@ -347,6 +348,28 @@ function toggle() {
 
 ipcMain.on("hide", () => win?.hide());
 ipcMain.handle("get-browser", () => browserStateForUI());
+// The user's macOS accent colour ("rrggbbaa"), so focus and primary actions match the system.
+ipcMain.handle("get-accent", () => {
+  try {
+    return `#${systemPreferences.getAccentColor().slice(0, 6)}`;
+  } catch {
+    return null;
+  }
+});
+// The ⋯ menu in the bar: secondary actions live here, not as header buttons.
+ipcMain.on("app-menu", (_e, { model } = {}) => {
+  const send = (action) => () => win?.webContents.send("menu-action", action);
+  Menu.buildFromTemplate([
+    { label: "Undo last action", click: send("undo") },
+    { label: "Open control page", click: () => shell.openExternal(`http://localhost:${PORT}`) },
+    { label: "Compact / expanded", click: () => ipcMain.emit("toggle-size") },
+    { label: "Change shortcut…", click: send("record-hotkey") },
+    { type: "separator" },
+    ...(model ? [{ label: `Model: ${model}`, enabled: false }, { type: "separator" }] : []),
+    { label: "Hide", accelerator: "Esc", click: () => win?.hide() },
+    { label: "Quit Voice Browser", accelerator: "Command+Q", click: () => app.quit() },
+  ]).popup({ window: win });
+});
 
 /** Native menu of installed browsers; choosing one asks the bar to confirm the restart. */
 ipcMain.on("browser-menu", () => {
@@ -379,7 +402,7 @@ ipcMain.on("open-path", (_e, p) => {
 let switching = false;
 async function switchBrowser(id) {
   if (switching) return { ok: false, error: "Already switching browsers" };
-  if (externalServer) return { ok: false, error: "Another Voice Browser server is running on this port — stop it (e.g. ./run.sh) and reopen the app" };
+  if (externalServer) return { ok: false, error: "Another Voice Browser server is already running on this port. Stop it (for example ./run.sh) and reopen the app." };
   switching = true;
   const progress = (msg) => sendBrowserState({ busy: msg });
   try {

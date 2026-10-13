@@ -134,7 +134,7 @@ async function callOpenAI(c, { system, text, images, schema, signal }, retryNote
  */
 export async function ask({ system, text, images = [], schema, signal }) {
   const list = modelsToTry();
-  if (!list.length) throw new BrainError("No AI model configured — set BRAIN_PROVIDER + BRAIN_API_KEY, or GEMINI_API_KEY, in .env");
+  if (!list.length) throw new BrainError("No AI model is set up. Add BRAIN_PROVIDER and BRAIN_API_KEY, or GEMINI_API_KEY, to .env");
   let lastErr = null;
   let quota = false;
   for (const c of list) {
@@ -176,7 +176,7 @@ export async function ask({ system, text, images = [], schema, signal }) {
     }
   }
   if (quota && /\b(429|402)\b/.test(lastErr?.message || "")) {
-    throw new BrainError("The AI model's limit or credit is used up for now — wait a minute and try again (or top up / check your key)");
+    throw new BrainError("The AI model's limit or credit is used up for now. Try again in a minute, or check your key and credit.");
   }
   throw lastErr || new BrainError("No AI model available");
 }

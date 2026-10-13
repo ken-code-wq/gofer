@@ -63,7 +63,7 @@ export async function resolveSecrets(text) {
   const values = {};
   for (const n of names) {
     const v = await getSecret(n);
-    if (v == null) throw new Error(`No saved password called "${n}" — add it under Passwords in the bar`);
+    if (v == null) throw new Error(`There's no saved password called "${n}". Add it under Passwords in the bar.`);
     values[n] = v;
   }
   return s.replace(SECRET_RE, (_, n) => values[n]);

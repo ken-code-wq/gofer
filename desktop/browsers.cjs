@@ -82,7 +82,7 @@ async function quit(b) {
       process.kill(pid, "SIGTERM");
     } catch {}
   }
-  if (!(await waitFor(async () => !(await isRunning(b)), 8000))) throw new Error(`${b.name} didn't quit — close it yourself and try again`);
+  if (!(await waitFor(async () => !(await isRunning(b)), 8000))) throw new Error(`${b.name} didn't quit. Close it yourself and try again.`);
 }
 
 function launch(b, args, { newInstance = false } = {}) {
@@ -137,7 +137,7 @@ async function connect(b, { prev = null, allowRestart = false, onProgress = () =
   if (prev?.separate || b.ownProfile) return startSeparate();
 
   if (await isRunning(b)) {
-    if (!allowRestart) throw new Error(`${b.name} is open without remote control — pick it again in the browser menu to restart it`);
+    if (!allowRestart) throw new Error(`${b.name} is open without remote control. Pick it again in the browser menu to restart it.`);
     onProgress(`Quitting ${b.name}…`);
     await quit(b);
     await sleep(600);
