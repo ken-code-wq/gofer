@@ -7,11 +7,11 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-if [ -z "${TYPESAFE_API_KEY:-}" ] && [ -z "${JEV_API_KEY:-}" ] && [ -f .env ]; then
+if [ -z "${SUBQ_API_KEY:-}" ] && [ -z "${TYPESAFE_API_KEY:-}" ] && [ -z "${JEV_API_KEY:-}" ] && [ -f .env ]; then
   set -a; . ./.env; set +a
 fi
-if [ -z "${TYPESAFE_API_KEY:-}" ] && [ -z "${JEV_API_KEY:-}" ]; then
-  echo "No API key found. Set TYPESAFE_API_KEY, or create .env from .env.example (get a key at https://console.typesafe.ai/keys)" >&2
+if [ -z "${SUBQ_API_KEY:-}" ] && [ -z "${TYPESAFE_API_KEY:-}" ] && [ -z "${JEV_API_KEY:-}" ]; then
+  echo "No API key found. Set SUBQ_API_KEY (https://console.subq.ai) or TYPESAFE_API_KEY, or create .env from .env.example (get a key at https://console.typesafe.ai/keys)" >&2
   exit 1
 fi
 

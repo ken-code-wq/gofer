@@ -1,11 +1,11 @@
 {
   "name": "voice-browser",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Control a real browser by voice. Jev (TypeSafe System One) decides intent/target in ~100-300 ms; Playwright executes.",
+  "description": "Tell a real browser what to do in plain English: a macOS command bar that drives Chromium, Dia, Arc or Chrome \u2014 clicks, chains, goals, page questions, forms and follow-ups.",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "start": "node src/server.js",
@@ -24,6 +24,25 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/moritzkremb/jev-voice-browser.git"
-  }
+    "url": "https://github.com/ken-code-wq/voice-browser.git"
+  },
+  "homepage": "https://github.com/ken-code-wq/voice-browser#readme",
+  "bugs": {
+    "url": "https://github.com/ken-code-wq/voice-browser/issues"
+  },
+  "author": "Kenneth Ben-Boulo",
+  "contributors": [
+    "Moritz Kremb (https://github.com/moritzkremb)"
+  ],
+  "keywords": [
+    "browser-automation",
+    "playwright",
+    "voice",
+    "command-bar",
+    "macos",
+    "electron",
+    "ai-agent",
+    "subq",
+    "gemini"
+  ]
 }

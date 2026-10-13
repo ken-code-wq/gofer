@@ -6,3 +6,5 @@ node_modules/
 *.log
 test-results/
 .browser-profile*/
+.DS_Store
+*.tmp

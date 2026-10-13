@@ -10,7 +10,7 @@ import { installOverlay } from "./overlay.js";
 import { collectElementsInPage, buildSnapshot } from "./snapshot.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const DEFAULT_PROFILE_DIR = path.join(__dirname, "..", ".browser-profile");
+export const DEFAULT_PROFILE_DIR = process.env.BROWSER_PROFILE_DIR || path.join(__dirname, "..", ".browser-profile");
 
 export class BrowserManager {
   constructor() {
@@ -87,6 +87,51 @@ export class BrowserManager {
     this._emit();
   }
 
+  /** Open tabs with titles and favicons (for "@" mentions). */
+  async tabList() {
+    const live = this.pages.filter((p) => !p.isClosed());
+    return Promise.all(
+      live.map(async (p, i) => ({
+        index: i,
+        title: await p.title().catch(() => ""),
+        url: p.url(),
+        active: p === this.active,
+        icon: await this.favicon(p),
+      })),
+    );
+  }
+
+  /**
+   * The tab's favicon as a data: URL. Fetched through the browser context (its cookies, so
+   * localhost and signed-in sites work), cached per icon URL, ignored if large or slow.
+   */
+  async favicon(page) {
+    const href = await page
+      .evaluate(() => {
+        if (!/^https?:/.test(location.protocol)) return null;
+        const links = [...document.querySelectorAll('link[rel~="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]')];
+        const best = links.find((l) => /svg/.test(l.type) || /(^|\s)(16|32)x/.test(l.sizes?.value || "")) || links[0];
+        return best ? best.href : `${location.origin}/favicon.ico`;
+      })
+      .catch(() => null);
+    if (!href) return null;
+    if (href.startsWith("data:")) return href.length < 150_000 ? href : null;
+    this.iconCache ??= new Map();
+    if (this.iconCache.has(href)) return this.iconCache.get(href);
+    let icon = null;
+    try {
+      const res = await this.context.request.get(href, { timeout: 2500, failOnStatusCode: false, maxRedirects: 3 });
+      const body = await res.body();
+      let type = (res.headers()["content-type"] || "").split(";")[0].trim();
+      if (!type.startsWith("image/")) type = /\.svg(\?|$)/.test(href) ? "image/svg+xml" : /\.png(\?|$)/.test(href) ? "image/png" : "image/x-icon";
+      if (res.ok() && body.length > 0 && body.length < 100_000) icon = `data:${type};base64,${body.toString("base64")}`;
+    } catch {
+      icon = null;
+    }
+    this.iconCache.set(href, icon);
+    return icon;
+  }
+
   tabInfo() {
     return this.pages.map((p, i) => ({ index: i, url: p.url(), active: p === this.active }));
   }
@@ -130,7 +175,11 @@ export class BrowserManager {
   }
 
   async close() {
+    if (this.browser) {
+      // Attached to the user's own browser: only disconnect. Closing its context would close their tabs.
+      await this.browser.close().catch(() => {});
+      return;
+    }
     await this.context?.close().catch(() => {});
-    await this.browser?.close().catch(() => {});
   }
 }

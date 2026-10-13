@@ -82,15 +82,20 @@ export function collectElementsInPage() {
     }
 
     const img = el.querySelector && el.querySelector("img[alt]");
-    const name =
+    // A password field's value must never reach the model, the UI or the logs.
+    const secret = type === "password";
+    const labelText = el.labels && el.labels.length ? clean(el.labels[0].innerText) : "";
+    let name =
       clean(el.getAttribute("aria-label")) ||
+      labelText ||
       clean(el.innerText) ||
-      clean(el.value) ||
+      (secret ? "" : clean(el.value)) ||
       clean(el.getAttribute("placeholder")) ||
       clean(el.getAttribute("title")) ||
       (img && clean(img.getAttribute("alt"))) ||
       clean(el.getAttribute("name")) ||
       "";
+    if (secret && !/pass/i.test(name)) name = `${name} password`.trim();
 
     const placeholder = clean(el.getAttribute("placeholder"));
     let href = "";

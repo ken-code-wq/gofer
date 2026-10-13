@@ -32,7 +32,7 @@ const WORD_MS = Number(flag("--word-ms", HEADLESS ? 280 : 380));
 const ONLY = flag("--only", null) ? String(flag("--only")).split(",").map(Number) : null;
 
 if (!hasApiKey()) {
-  console.error("Missing TYPESAFE_API_KEY (or JEV_API_KEY). Run via ./run.sh or export it.");
+  console.error("Missing SUBQ_API_KEY or TYPESAFE_API_KEY. Run via ./run.sh or export it.");
   process.exit(1);
 }
 

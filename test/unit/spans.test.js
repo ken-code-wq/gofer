@@ -56,3 +56,13 @@ test("candidate pick parsing", () => {
   assert.equal(parseCandidatePick("go to wikipedia"), null);
   assert.equal(parseCandidatePick(""), null);
 });
+
+test("local / dev URLs: localhost, ports, IPs, quoted full URLs; emails are not URLs", () => {
+  assert.deepEqual(extractUrlCandidates("go to localhost:3000/dashboard/purchaseRequests"), ["localhost:3000/dashboard/purchaseRequests"]);
+  assert.deepEqual(extractUrlCandidates("go to 'http://localhost:3000/dashboard' again"), ["http://localhost:3000/dashboard"]);
+  assert.deepEqual(extractUrlCandidates("open 192.168.1.20:8080/admin"), ["192.168.1.20:8080/admin"]);
+  assert.deepEqual(extractUrlCandidates("type alex@example.com into the email field"), []);
+  assert.equal(toHttpUrl("localhost:3000/x"), "http://localhost:3000/x");
+  assert.equal(toHttpUrl("192.168.1.20:8080"), "http://192.168.1.20:8080");
+  assert.equal(toHttpUrl("example.com"), "https://example.com");
+});

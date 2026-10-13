@@ -1,0 +1,39 @@
+name: Bug report
+description: Something didn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Thanks for the report! **Never paste API keys, passwords or your `.env` here.**"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: The command you typed (or said), what you expected, and what happened instead.
+      placeholder: "I typed `go to @[Bills] and create a bill` — it switched tabs but then …"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "26.5"
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Controlled browser
+      options: [Built-in Chromium, Dia, Arc, Chrome, Brave, Edge, Other]
+  - type: input
+    id: models
+    attributes:
+      label: Models configured (names only, no keys)
+      placeholder: "SubQ Snap + Gemini"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: The control page (http://localhost:8787) log or a screenshot of the bar helps a lot. Remove anything private.

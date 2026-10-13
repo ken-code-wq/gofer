@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Controller } from "../../src/controller.js";
-import { DEBOUNCE_MS } from "../../src/constants.js";
+import { DEBOUNCE_MS, MAX_FINAL_WAITS } from "../../src/constants.js";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -53,7 +53,8 @@ function mockDecide({ latency = 20, complete = (t) => (t.split(" ").length >= 2 
     const ch = (c, conf = 0.95, extra = {}) => ({ type: "choice", choice: c, confidence: conf, probabilities: { [c]: conf, ...extra } });
     let intent = ch("none", 0.9);
     let target = ch("none", 0.9);
-    if (t.startsWith("go back")) intent = ch("go_back");
+    if (t.startsWith("vague")) intent = ch("search_web", 0.4);
+    else if (t.startsWith("go back")) intent = ch("go_back");
     else if (t.startsWith("scroll")) intent = ch("scroll_down");
     else if (t.startsWith("click ambiguous")) {
       intent = ch("click_element");
@@ -68,7 +69,7 @@ function mockDecide({ latency = 20, complete = (t) => (t.split(" ").length >= 2 
         target,
         site: ch("none"),
         complete: { noul: complete(t) },
-        is_command: { noul: intent.choice === "none" ? 0.1 : 0.95 },
+        is_command: { noul: intent.choice === "none" || t.startsWith("chit chat") ? 0.1 : 0.95 },
         destructive: { noul: 0.02 },
         scroll_amount: { score: 1, confidence: 0.9, probabilities: {} },
         tab_direction: ch("none"),
@@ -193,5 +194,91 @@ test("typed command is treated as a final utterance", async () => {
   c.handleCommand("go back");
   await sleep(150);
   assert.equal(executed.length, 1);
+  await c.close();
+});
+
+test("typed chain runs its steps in order, one after another", async () => {
+  const { c, executed } = setup();
+  const events = [];
+  c.on("chain", (e) => events.push(e.status));
+  await c.start();
+  c.handleCommand("scroll down, go back, then click the link");
+  for (let i = 0; i < 60 && events.at(-1) !== "done"; i++) await sleep(100);
+  assert.deepEqual(executed.map((a) => a.type), ["scroll_down", "go_back", "click_element"]);
+  assert.deepEqual(events, ["running", "running", "running", "done"]);
+  assert.equal(c.chain, null);
+  await c.close();
+});
+
+test("chain stops at a step that isn't a browser command", async () => {
+  const { c, executed } = setup();
+  const events = [];
+  c.on("chain", (e) => events.push(e));
+  await c.start();
+  c.handleCommand("scroll down, chit chat about lunch, go back");
+  for (let i = 0; i < 40 && events.at(-1)?.status !== "failed"; i++) await sleep(100);
+  assert.deepEqual(executed.map((a) => a.type), ["scroll_down"]);
+  assert.equal(events.at(-1).status, "failed");
+  assert.equal(events.at(-1).index, 1);
+  await c.close();
+});
+
+test("a finished command that stays unclear is given up instead of retried forever", async () => {
+  const { c, executed, decideFn } = setup();
+  let gaveUp = null;
+  c.on("gaveup", (e) => (gaveUp = e));
+  await c.start();
+  c.handleCommand("vague thing");
+  for (let i = 0; i < 50 && !gaveUp; i++) await sleep(100);
+  assert.ok(gaveUp, "gave up");
+  assert.equal(decideFn.calls.length, MAX_FINAL_WAITS);
+  await sleep(1200);
+  assert.equal(decideFn.calls.length, MAX_FINAL_WAITS, "no more requests after giving up");
+  assert.equal(executed.length, 0);
+  await c.close();
+});
+
+test("chain runs wait/check steps in code and stops with the reason when a check fails", async () => {
+  const { c, executed, decideFn } = setup();
+  c._execute = async (action) => {
+    executed.push(action);
+    if (action.type === "assert_text") return { ok: false, detail: `check failed: ${action.label}`, screenshot: "/tmp/x.png" };
+    return { ok: true, detail: "ok" };
+  };
+  const events = [];
+  c.on("chain", (e) => events.push(e));
+  await c.start();
+  c.handleCommand(`scroll down, wait 1 ms, check that the page says "Approved", go back`);
+  for (let i = 0; i < 60 && !["done", "failed"].includes(events.at(-1)?.status); i++) await sleep(100);
+  assert.deepEqual(executed.map((a) => a.type), ["scroll_down", "wait_ms", "assert_text"]);
+  const end = events.at(-1);
+  assert.equal(end.status, "failed");
+  assert.match(end.reason, /Approved/);
+  assert.equal(end.screenshot, "/tmp/x.png");
+  assert.equal(decideFn.calls.filter((t) => /wait|check/.test(t)).length, 0, "no model call for wait/check");
+  await c.close();
+});
+
+test("threads: results are recorded per thread; follow-ups use the thread and go to the brain", async () => {
+  const saved = process.env.GEMINI_API_KEY;
+  delete process.env.GEMINI_API_KEY;
+  const { c, executed } = setup();
+  const errors = [];
+  c.on("smart-error", (e) => errors.push(e));
+  await c.start();
+  c.handleCommand("scroll down", { thread: "t1" });
+  for (let i = 0; i < 30 && !executed.length; i++) await sleep(50);
+  await sleep(100);
+  const t = c.threads.get("t1");
+  assert.deepEqual(t.turns.map((x) => x.role), ["user", "result"]);
+  assert.match(t.turns[1].text, /scroll/);
+  c.handleCommand("delete the first 10", { thread: "t1", followUp: true });
+  await sleep(50);
+  assert.equal(errors.length, 1, "follow-up was routed to the brain (which is unavailable here)");
+  assert.match(c._threadContext(t), /User: scroll down\nResult: did: scroll/);
+  // a new command without followUp starts its own thread
+  c.handleCommand("scroll down", { thread: "t2" });
+  assert.equal(c.threads.get("t2").turns.length, 1);
+  if (saved) process.env.GEMINI_API_KEY = saved;
   await c.close();
 });

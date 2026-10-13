@@ -11,7 +11,9 @@ import { WebSocketServer } from "ws";
 import { BrowserManager } from "./browser.js";
 import { Controller } from "./controller.js";
 import { hasApiKey } from "./jev.js";
-import { MODEL, QUESTIONS, T } from "./constants.js";
+import { MODEL, PROVIDER, QUESTIONS, T } from "./constants.js";
+import { listCommands, saveCommand, deleteCommand } from "./store.js";
+import { listSecrets, setSecret, deleteSecret } from "./secrets.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -22,8 +24,8 @@ export function parseArgs(argv) {
     // and spend your API credits. Use --host 0.0.0.0 deliberately if you need LAN access.
     host: process.env.HOST || "127.0.0.1",
     headless: false,
-    cdp: null,
-    startUrl: "https://example.com/",
+    cdp: process.env.CDP_URL || null, // attach to your own Chrome instead of launching Chromium
+    startUrl: null,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -33,12 +35,14 @@ export function parseArgs(argv) {
     else if (a === "--cdp") out.cdp = argv[++i];
     else if (a === "--start-url") out.startUrl = argv[++i];
   }
+  // Don't navigate away from whatever tab is open in an attached browser unless asked to.
+  out.startUrl ??= out.cdp ? null : "https://example.com/";
   return out;
 }
 
 export async function startServer(opts = {}) {
   if (!hasApiKey()) {
-    console.error("Missing TYPESAFE_API_KEY (or JEV_API_KEY). Use ./run.sh or export it first.");
+    console.error("Missing SUBQ_API_KEY or TYPESAFE_API_KEY. Use ./run.sh or export it first.");
     process.exit(1);
   }
   const browser = new BrowserManager();
@@ -67,9 +71,15 @@ export async function startServer(opts = {}) {
   controller.on("candidates", (p) => broadcast("candidates", p));
   controller.on("pending", (p) => broadcast("pending", p));
   controller.on("tabs", (p) => broadcast("tabs", p));
+  controller.on("chain", (p) => broadcast("chain", p));
+  controller.on("gaveup", (p) => broadcast("gaveup", p));
+  controller.on("expanded", (p) => broadcast("expanded", p));
+  for (const ev of ["goal", "goal-confirm", "answer", "fill", "smart-error", "tab-switched", "tab-error", "resolved"]) controller.on(ev, (p) => broadcast(ev, p));
 
   wss.on("connection", (ws) => {
+    const reply = (type, payload) => ws.readyState === 1 && ws.send(JSON.stringify({ type, payload }));
     ws.send(JSON.stringify({ type: "hello", payload: controller.uiState() }));
+    reply("commands", listCommands());
     ws.on("message", async (raw) => {
       let msg;
       try {
@@ -82,13 +92,46 @@ export async function startServer(opts = {}) {
           controller.handleTranscript({ text: msg.text, final: Boolean(msg.final), utteranceId: msg.utteranceId });
           break;
         case "command":
-          controller.handleCommand(msg.text);
+          controller.handleCommand(msg.text, { thread: msg.thread, followUp: Boolean(msg.followUp) });
+          break;
+        case "tabs:list":
+          reply("tab-list", await controller.browser.tabList().catch(() => []));
+          break;
+        case "goal:answer":
+          controller.goalAnswer(Boolean(msg.ok), Boolean(msg.all));
           break;
         case "undo":
           controller.undo();
           break;
         case "snapshot":
           controller.refreshSnapshot();
+          break;
+        // Saved commands: shared by every connected window.
+        case "commands:save":
+          try {
+            broadcast("commands", saveCommand(msg.name, msg.text));
+          } catch (err) {
+            reply("store-error", String(err.message || err));
+          }
+          break;
+        case "commands:delete":
+          broadcast("commands", deleteCommand(msg.name));
+          break;
+        // Keychain secrets: names go out, values only come in.
+        case "secrets:list":
+          reply("secrets", await listSecrets());
+          break;
+        case "secrets:set":
+          try {
+            await setSecret(msg.name, msg.value);
+            broadcast("secrets", await listSecrets());
+          } catch (err) {
+            reply("store-error", String(err.message || err));
+          }
+          break;
+        case "secrets:delete":
+          await deleteSecret(msg.name);
+          broadcast("secrets", await listSecrets());
           break;
         case "state":
           ws.send(JSON.stringify({ type: "hello", payload: controller.uiState() }));
@@ -106,7 +149,7 @@ export async function startServer(opts = {}) {
     console.warn(`WARNING: listening on ${host} — anyone who can reach this port can control the browser and spend API credits.`);
   }
   console.log(`\nvoice-browser ready → open ${url} in Chrome (mic needs Chrome/Edge)`);
-  console.log(`model ${MODEL} · controlled window: ${opts.cdp ? "attached via CDP" : opts.headless ? "headless" : "headed Chromium"}\n`);
+  console.log(`${PROVIDER.name} · model ${MODEL} · controlled window: ${opts.cdp ? "attached via CDP" : opts.headless ? "headless" : "headed Chromium"}\n`);
 
   const shutdown = async () => {
     await controller.close();

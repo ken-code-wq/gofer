@@ -1,0 +1,1164 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src ws://127.0.0.1:*; img-src 'self' data:" />
+<title>Voice Browser</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --text: rgba(0, 0, 0, .86);
+    --text-2: rgba(0, 0, 0, .55);
+    --text-3: rgba(0, 0, 0, .34);
+    --hair: rgba(0, 0, 0, .09);
+    --hover: rgba(0, 0, 0, .05);
+    --press: rgba(0, 0, 0, .09);
+    --accent: #0a7aff;
+    --ok: #1f9d4c;
+    --warn: #c27400;
+    --err: #d93a30;
+    --kbd-bg: rgba(0, 0, 0, .06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --text: rgba(255, 255, 255, .92);
+      --text-2: rgba(255, 255, 255, .58);
+      --text-3: rgba(255, 255, 255, .34);
+      --hair: rgba(255, 255, 255, .09);
+      --hover: rgba(255, 255, 255, .06);
+      --press: rgba(255, 255, 255, .1);
+      --accent: #3d9bff;
+      --ok: #3fcf6e;
+      --warn: #f2a83b;
+      --err: #ff6a5e;
+      --kbd-bg: rgba(255, 255, 255, .08);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  /* A near-opaque neutral surface: the window's vibrancy otherwise tints everything with the wallpaper. */
+  html { background: rgba(248, 248, 250, .94); }
+  @media (prefers-color-scheme: dark) { html { background: rgba(28, 28, 31, .94); } }
+  body {
+    font: 13px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    display: flex;
+    flex-direction: column;
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: default; }
+  svg { display: block; }
+
+  /* ── title bar (drag handle) ─────────────────────────────── */
+  .bar {
+    -webkit-app-region: drag;
+    display: flex; align-items: center; gap: 8px;
+    height: 34px; padding: 0 8px 0 14px; flex: none;
+  }
+  .conn { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--text-2); min-width: 0; }
+  .conn b { font-weight: 600; color: var(--text); letter-spacing: -.01em; }
+  .conn .model { color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); flex: none; transition: background .2s; }
+  .dot.on { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 18%, transparent); }
+  .dot.err { background: var(--err); }
+  .dot.busy { background: var(--warn); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .spacer { flex: 1; }
+  .browser {
+    -webkit-app-region: no-drag;
+    display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 6px 0 7px; margin-right: 4px;
+    border-radius: 7px; font-size: 11.5px; color: var(--text-2); background: var(--hover); transition: background .12s, color .12s;
+    max-width: 190px;
+  }
+  .browser:hover { background: var(--press); color: var(--text); }
+  .browser svg { width: 13px; height: 13px; flex: none; }
+  .browser .caret { width: 11px; height: 11px; opacity: .7; }
+  .browser .b-ic { display: grid; place-items: center; width: 16px; height: 16px; flex: none; }
+  .browser .b-ic img { width: 16px; height: 16px; display: block; }
+  .browser.busy .b-ic { opacity: .5; }
+  .browser span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .browser.busy { color: var(--warn); }
+  .icon {
+    -webkit-app-region: no-drag;
+    width: 26px; height: 24px; border-radius: 6px; display: grid; place-items: center;
+    color: var(--text-2); transition: background .12s, color .12s;
+  }
+  .icon:hover { background: var(--hover); color: var(--text); }
+  .icon:active { background: var(--press); }
+  .icon svg { width: 15px; height: 15px; }
+
+  /* ── prompt ─────────────────────────────────────────────── */
+  .prompt {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 14px 12px 16px; flex: none;
+    border-bottom: 1px solid var(--hair);
+  }
+  .prompt .chev { width: 18px; height: 18px; color: var(--accent); flex: none; }
+  /* composer: a one-line editor that holds text and tab chips */
+  .composer {
+    -webkit-app-region: no-drag;
+    flex: 1; min-width: 0; height: 36px; line-height: 36px; white-space: nowrap; overflow-x: auto; overflow-y: hidden;
+    font: 400 20px/36px -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    letter-spacing: -.012em; color: var(--text); outline: none; user-select: text; cursor: text; caret-color: var(--accent);
+    scrollbar-width: none;
+  }
+  .composer::-webkit-scrollbar { display: none; }
+  .composer:empty::before { content: attr(data-placeholder); color: var(--text-3); pointer-events: none; }
+  .composer.off { opacity: .45; cursor: default; }
+
+  /* tab chip: favicon + title, used in the composer, history and the follow-up bar */
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; position: relative; top: -1px;
+    height: 28px; max-width: 260px; padding: 0 9px 0 6px; margin: 0 3px; border-radius: 8px;
+    font: 500 14px/1 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; letter-spacing: 0; color: var(--text);
+    background: rgb(var(--chip-rgb, 61 155 255) / .16);
+    box-shadow: inset 0 0 0 1px rgb(var(--chip-rgb, 61 155 255) / .42);
+    user-select: none; cursor: default; white-space: nowrap; transition: background .2s, box-shadow .2s;
+  }
+  @media (prefers-color-scheme: dark) { .chip[data-darkicon] img { background: #ececf0; border-radius: 4px; padding: 1px; } }
+  .chip .chip-letter {
+    width: 16px; height: 16px; flex: none; border-radius: 4px; display: grid; place-items: center;
+    font: 700 10px/1 -apple-system, system-ui, sans-serif; color: #fff; background: rgb(var(--chip-rgb, 61 155 255));
+  }
+  .row .chip .chip-letter, .replying .chip .chip-letter { width: 13px; height: 13px; font-size: 8.5px; border-radius: 3px; }
+  .chip img, .chip .chip-ic { width: 16px; height: 16px; flex: none; border-radius: 4px; object-fit: contain; }
+  .chip .chip-ic { color: rgb(var(--chip-rgb, 61 155 255)); display: grid; place-items: center; }
+  .chip .chip-ic svg { width: 14px; height: 14px; }
+  .chip .chip-t { overflow: hidden; text-overflow: ellipsis; }
+  .chip .chip-x {
+    display: grid; place-items: center; width: 16px; height: 16px; margin: 0 -3px 0 -1px; border-radius: 50%;
+    color: var(--text-2); background: transparent; opacity: 0; transition: opacity .12s, background .12s;
+  }
+  .chip:hover .chip-x { opacity: 1; }
+  .chip .chip-x:hover { background: var(--press); color: var(--text); }
+  .chip .chip-x svg { width: 9px; height: 9px; }
+  .row .chip, .replying .chip { height: 20px; padding: 0 7px 0 4px; margin: 0 2px; gap: 5px; border-radius: 6px; font-size: 12px; top: -1px; max-width: 180px; }
+  .row .chip img, .row .chip .chip-ic, .replying .chip img, .replying .chip .chip-ic { width: 13px; height: 13px; border-radius: 3px; }
+
+  /* follow-up bar above the composer */
+  .replying {
+    display: flex; align-items: center; gap: 7px; margin: 0 12px 0 14px; padding: 5px 6px 5px 10px; flex: none; min-width: 0;
+    border-radius: 9px; font-size: 12px; color: var(--text-2);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  .replying[hidden] { display: none; }
+  .replying .ri { width: 14px; height: 14px; color: var(--accent); flex: none; transform: scaleY(-1); }
+  .replying .lbl { flex: none; }
+  .replying .what { min-width: 0; color: var(--text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .replying .rx { -webkit-app-region: no-drag; margin-left: auto; flex: none; width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; color: var(--text-2); }
+  .replying .rx:hover { background: var(--press); color: var(--text); }
+  .replying .rx svg { width: 10px; height: 10px; }
+
+  /* threads: follow-ups stack under the command they continue */
+  .turns { grid-column: 2 / 4; display: flex; flex-direction: column; gap: 8px; margin: 8px 0 2px; padding-left: 12px; border-left: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+  .turn { display: grid; grid-template-columns: 16px 1fr auto; gap: 2px 8px; align-items: start; }
+  .turn .text { font-size: 12.5px; }
+  .turn .detail, .turn .steps { grid-column: 2 / 4; }
+  .row.replying-to { background: color-mix(in srgb, var(--accent) 8%, transparent); box-shadow: inset 2px 0 0 var(--accent); }
+  .status .choice svg { width: 13px; height: 13px; }
+  .status .fu {
+    -webkit-app-region: no-drag; display: inline-flex; align-items: center; gap: 5px; flex: none;
+    font-size: 12px; font-weight: 500; color: var(--accent); padding: 3px 7px; border-radius: 6px;
+  }
+  .status .fu:hover { background: var(--hover); }
+  .status .fu svg { width: 12px; height: 12px; }
+  kbd {
+    font: 500 11px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--text-2);
+    background: var(--kbd-bg); border-radius: 5px; padding: 4px 6px; flex: none;
+  }
+
+  /* ── live status / choices ──────────────────────────────── */
+  .status {
+    display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 16px; flex: none;
+    color: var(--text-2); font-size: 12.5px;
+  }
+  .status .msg { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .status.act { color: var(--ok); } .status.warn { color: var(--warn); } .status.err { color: var(--err); }
+  .choices { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; min-width: 0; }
+  .choice {
+    display: inline-flex; align-items: center; gap: 6px; flex: none; max-width: 220px;
+    height: 24px; padding: 0 9px 0 4px; border-radius: 7px;
+    background: var(--hover); color: var(--text); font-size: 12px; transition: background .12s;
+  }
+  .choice:hover { background: var(--press); }
+  .choice .n {
+    display: grid; place-items: center; min-width: 17px; height: 17px; border-radius: 5px;
+    font: 600 10.5px/1 ui-monospace, "SF Mono", monospace; background: var(--accent); color: #fff;
+  }
+  .choice span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .choice.primary { background: var(--accent); color: #fff; padding: 0 12px; }
+
+  /* ── activity ───────────────────────────────────────────── */
+  .activity { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 8px 8px; border-top: 1px solid var(--hair); }
+  .activity::-webkit-scrollbar { width: 8px; }
+  .activity::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 4px; }
+  .section { font-size: 11px; font-weight: 600; color: var(--text-3); padding: 10px 8px 4px; letter-spacing: .02em; }
+  .empty { padding: 18px 8px; color: var(--text-3); font-size: 12.5px; line-height: 1.6; }
+  .empty code { font: 12px ui-monospace, "SF Mono", monospace; color: var(--text-2); background: var(--kbd-bg); padding: 1px 5px; border-radius: 4px; }
+  .row { border-radius: 8px; padding: 7px 8px; display: grid; grid-template-columns: 18px 1fr auto; gap: 2px 10px; align-items: start; }
+  .row:hover { background: var(--hover); }
+  .row .mark { margin-top: 1px; }
+  .row .text { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .time { font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; padding-top: 1px; }
+  .row .detail { grid-column: 2 / 4; font-size: 11.5px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row.fail .detail { color: var(--err); }
+  .row .detail.long { white-space: normal; color: var(--text); font-size: 12.5px; line-height: 1.45; user-select: text; }
+  .mark.awaiting { color: var(--warn); }
+  .detail.resolved { color: var(--accent); white-space: normal; }
+  .steps { grid-column: 2 / 4; display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+  .step { display: grid; grid-template-columns: 16px 1fr; gap: 8px; align-items: center; font-size: 12px; color: var(--text-2); }
+  .step.pending { color: var(--text-3); }
+  .step.running { color: var(--text); }
+  .step .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .step .t small { color: var(--text-3); font-size: 11px; margin-left: 6px; }
+  .mark { width: 16px; height: 16px; display: grid; place-items: center; }
+  .mark svg { width: 14px; height: 14px; }
+  .mark.ok { color: var(--ok); } .mark.fail { color: var(--err); } .mark.ignored { color: var(--warn); }
+  .mark.pending::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--text-3); }
+  .spin { width: 12px; height: 12px; border-radius: 50%; border: 1.6px solid var(--hair); border-top-color: var(--accent); animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .foot {
+    display: flex; gap: 14px; align-items: center; flex: none;
+    height: 30px; padding: 0 16px; border-top: 1px solid var(--hair);
+    font-size: 11px; color: var(--text-3);
+  }
+  .foot span { display: inline-flex; gap: 5px; align-items: center; }
+  .foot kbd { padding: 2px 5px; font-size: 10px; }
+  .hotkey { display: inline-flex; gap: 5px; align-items: center; font-size: 11px; color: var(--text-3); border-radius: 6px; padding: 2px 4px; margin: 0 -4px; }
+  .hotkey:hover { background: var(--hover); color: var(--text-2); }
+  .hotkey.recording kbd { background: var(--accent); color: #fff; }
+
+  /* ── @tab autocomplete ── */
+  .mentions {
+    position: fixed; left: 40px; right: 16px; z-index: 10; max-height: 236px; overflow-y: auto; padding: 5px;
+    border-radius: 10px; border: 1px solid var(--hair); background: var(--menu-bg, #fff);
+    box-shadow: 0 12px 32px rgba(0,0,0,.28), 0 2px 6px rgba(0,0,0,.12);
+  }
+  @media (prefers-color-scheme: dark) { .mentions { --menu-bg: #2b2b30; } }
+  .mention { display: grid; grid-template-columns: 16px 1fr; gap: 1px 9px; align-items: center; padding: 6px 8px; border-radius: 7px; cursor: default; }
+  .mention .ic { grid-row: 1 / 3; width: 16px; height: 16px; color: var(--text-3); }
+  .mention .ic svg { width: 15px; height: 15px; }
+  .mention .ic .chip-letter { width: 16px; height: 16px; border-radius: 4px; display: grid; place-items: center; font: 700 10px/1 -apple-system, system-ui, sans-serif; color: #fff; background: rgb(var(--chip-rgb)); }
+  .mention.on .ic .chip-letter { box-shadow: 0 0 0 1.5px #fff; }
+  .mention .ic img { width: 16px; height: 16px; border-radius: 3px; object-fit: contain; display: block; }
+  .mention.on .ic img { background: #fff; box-shadow: 0 0 0 1.5px #fff; }
+  .mention .t { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mention .u { font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mention.on { background: var(--accent); }
+  .mention.on .t, .mention.on .u, .mention.on .ic { color: #fff; }
+  .mention .cur { font-size: 10px; margin-left: 6px; opacity: .7; }
+  .mentions .none { padding: 8px 10px; font-size: 12px; color: var(--text-3); }
+
+  /* ── tabs ── */
+  .tabs { display: flex; align-items: center; gap: 2px; padding: 6px 10px 0; border-top: 1px solid var(--hair); flex: none; }
+  .tabs button { font-size: 12px; font-weight: 500; color: var(--text-3); padding: 4px 9px; border-radius: 6px; display: inline-flex; gap: 6px; align-items: center; }
+  .tabs button:hover { color: var(--text-2); background: var(--hover); }
+  .tabs button.on { color: var(--text); background: var(--hover); }
+  .tabs .count { font-size: 10.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .filter-note { font-size: 11px; color: var(--text-3); padding-right: 6px; }
+  .activity { border-top: 0; }
+
+  /* row actions appear on hover */
+  .row { position: relative; }
+  .row-acts { position: absolute; right: 6px; top: 5px; display: none; gap: 2px; }
+  .row:hover .row-acts { display: flex; }
+  .row:hover .time { visibility: hidden; }
+  .row-act { width: 24px; height: 22px; border-radius: 6px; display: grid; place-items: center; color: var(--text-2); }
+  .row-act:hover { background: var(--press); color: var(--text); }
+  .row-act svg { width: 14px; height: 14px; }
+  .row .name { font-weight: 600; }
+  .row .mark.saved, .row .mark.key { color: var(--accent); }
+  code.ph { font: 11.5px ui-monospace, "SF Mono", monospace; color: var(--text-2); background: var(--kbd-bg); padding: 1px 5px; border-radius: 4px; }
+
+  /* inline forms (save-as, add password) */
+  .inline { display: flex; gap: 6px; align-items: center; min-width: 0; flex: 1; }
+  .field {
+    -webkit-app-region: no-drag; user-select: text;
+    height: 26px; min-width: 0; flex: 1; padding: 0 9px; border-radius: 7px; outline: none;
+    font: 12.5px -apple-system, system-ui, sans-serif; color: var(--text);
+    background: var(--field-bg, var(--hover)); border: 1px solid var(--hair);
+  }
+  .field:focus { border-color: var(--accent); }
+  .secret-form { display: flex; gap: 6px; padding: 10px 8px 6px; }
+  .secret-form .choice { height: 26px; }
+  .note { padding: 6px 8px 10px; font-size: 11.5px; color: var(--text-3); line-height: 1.5; }
+
+  /* Narrow windows: tighter type and spacing, fewer hints. */
+  @media (max-width: 620px) {
+    .composer { font-size: 17px; }
+    .chip { height: 24px; font-size: 13px; max-width: 200px; }
+    .conn .model { display: none; }
+    .prompt { padding: 2px 12px 10px 14px; }
+    .foot span:not(.spacer):nth-of-type(n+3) { display: none; }
+    .replying .lbl { display: none; }
+    .row { padding: 6px 6px; }
+    .row .detail.long { font-size: 12px; }
+  }
+
+  /* Compact window: prompt + status only. */
+  @media (max-height: 190px) {
+    .activity, .foot, .tabs { display: none; }
+  }
+</style>
+</head>
+<body>
+  <header class="bar">
+    <div class="conn"><span class="dot" id="dot"></span><b>Voice Browser</b><span class="model" id="model">starting…</span></div>
+    <span class="spacer"></span>
+    <button class="browser" id="browser" title="Choose which browser to control">
+      <span class="b-ic" id="browser-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span>
+      <span id="browser-name">Built-in</span>
+      <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg>
+    </button>
+    <button class="icon" id="undo" title="Undo last action">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+    </button>
+    <button class="icon" id="details" title="Open the full control page (live probabilities)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16v-3M12 16V8M17 16v-6"/></svg>
+    </button>
+    <button class="icon" id="size" title="Compact / expanded">
+      <svg id="size-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+    </button>
+    <button class="icon" id="hide" title="Hide (Esc)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg>
+    </button>
+    <button class="icon" id="quit" title="Quit and close the controlled browser">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.4 6.4a8 8 0 1 0 11.2 0"/></svg>
+    </button>
+  </header>
+
+  <div class="replying" id="replying" hidden>
+    <svg class="ri" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v6"/></svg>
+    <span class="lbl">Following up on</span>
+    <span class="what" id="reply-what"></span>
+    <button class="rx" id="reply-x" type="button" title="Stop following up (Esc)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <form class="prompt" id="form">
+    <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    <div id="cmd" class="composer off" contenteditable="false" role="textbox" aria-label="Command" spellcheck="false" data-placeholder="Tell the browser what to do…   @ to pick a tab"></div>
+    <kbd>↵</kbd>
+  </form>
+
+  <div class="mentions" id="mentions" hidden></div>
+
+  <div class="status" id="status"><span class="msg" id="msg">Starting the browser…</span></div>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="recent" class="on">Recent</button>
+    <button data-tab="saved">Saved<span class="count" id="saved-count"></span></button>
+    <button data-tab="secrets">Passwords<span class="count" id="secrets-count"></span></button>
+    <span class="spacer"></span>
+    <span class="filter-note" id="filter-note"></span>
+  </nav>
+  <main class="activity" id="activity"></main>
+
+  <footer class="foot">
+    <button class="hotkey" id="hotkey" title="Click to change the shortcut"><kbd id="hotkey-keys">⌘⇧Space</kbd> show</button>
+    <span><kbd>esc</kbd> hide</span>
+    <span><kbd>↑</kbd> history</span>
+    <span><kbd>fn fn</kbd> dictate</span>
+    <span class="spacer"></span>
+    <span><kbd>@</kbd> pick a tab</span>
+  </footer>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const wsUrl = params.get("ws");
+  const ICON = {
+    ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
+    fail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+    ignored: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 7v6M12 17h.01"/></svg>',
+    awaiting: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 7v6M12 17h.01"/></svg>',
+  };
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  let ws = null;
+  let browserBusy = false; // switching browsers: the server restarts, so disconnects are expected
+  const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  // History survives restarts (Electron keeps localStorage in the app's data folder).
+  const HISTORY_KEY = "vb.history.v1";
+  const history = (() => {
+    try {
+      const h = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+      for (const e of h) {
+        if (e.status === "running") { e.status = "ignored"; e.detail = "interrupted"; }
+        e.id ||= uid();
+        for (const t of e.turns || []) if (t.status === "running") { t.status = "ignored"; t.detail = "interrupted"; }
+      }
+      return Array.isArray(h) ? h : [];
+    } catch { return []; }
+  })(); // newest first: { text, status, detail, at, steps?: [{ text, status, detail }] }
+  let saveTimer = null;
+  const persistHistory = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 100))), 200); };
+  let tab = "recent";
+  let replyTo = null; // history entry the next command follows up on
+  let currentRoot = null; // entry (thread) the running command belongs to
+  let saved = []; // [{ name, text }]
+  let secrets = []; // names only
+  let current = null; // entry awaiting a result
+  let recall = -1; // ↑/↓ position in history
+
+  // ── status line ───────────────────────────────────────────
+  function setStatus(text, cls = "") {
+    $("status").className = `status ${cls}`;
+    $("status").innerHTML = `<span class="msg">${esc(text)}</span>`;
+  }
+  function showChoices(text, items, cls = "warn") {
+    $("status").className = `status ${cls}`;
+    $("status").innerHTML = `<span class="msg">${esc(text)}</span><div class="choices"></div>`;
+    const box = $("status").querySelector(".choices");
+    for (const it of items) {
+      const b = document.createElement("button");
+      b.className = `choice${it.primary ? " primary" : ""}`;
+      b.innerHTML = it.n ? `<span class="n">${it.n}</span><span>${esc(it.label)}</span>` : `<span>${esc(it.label)}</span>`;
+      b.onclick = () => (it.action ? it.action() : run(it.say, { reply: true }));
+      box.appendChild(b);
+    }
+  }
+  function setConn(state, model) {
+    $("dot").className = `dot ${state}`;
+    if (model) $("model").textContent = model;
+  }
+
+  // ── activity list ─────────────────────────────────────────
+  const shortUrl = (u) => {
+    try { const x = new URL(u); return (x.host.replace(/^www\./, "") + decodeURIComponent(x.pathname + x.search)).replace(/\/$/, "").slice(0, 90); }
+    catch { return String(u || "").slice(0, 90); }
+  };
+  const ago = (t) => {
+    const s = Math.round((Date.now() - t) / 1000);
+    return s < 5 ? "now" : s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m` : `${Math.floor(s / 3600)}h`;
+  };
+  const mark = (status) => status === "running" ? '<span class="mark"><span class="spin"></span></span>' : `<span class="mark ${status}">${ICON[status] || ""}</span>`;
+
+  const SVG = {
+    star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+    play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
+    bookmark: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 3.5h12v17l-6-4-6 4z"/></svg>',
+    reply: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform:scaleY(-1)"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v6"/></svg>',
+    key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="15" r="4"/><path d="m11 12 8-8M16 7l2 2M14 9l2 2"/></svg>',
+  };
+  // no filtering while following up: the conversation you're replying to stays visible
+  const query = () => (replyTo ? "" : cmdText().toLowerCase());
+  const matches = (...fields) => !query() || fields.some((f) => String(f || "").toLowerCase().includes(query()));
+
+  function render() {
+    persistHistory();
+    $("saved-count").textContent = saved.length || "";
+    $("secrets-count").textContent = secrets.length || "";
+    document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
+    $("filter-note").textContent = query() && tab !== "secrets" ? "filtered by what you're typing" : "";
+    if (tab === "saved") return renderSaved();
+    if (tab === "secrets") return renderSecrets();
+    renderRecent();
+  }
+
+  function renderSaved() {
+    const a = $("activity");
+    const rows = saved.filter((c) => matches(c.name, c.text));
+    if (!saved.length) {
+      a.innerHTML = `<div class="empty">No saved commands yet. Hover a command under <b>Recent</b> and click ☆ to save it under a name — then just type the name (e.g. <code>login-dev</code>) to run it.</div>`;
+      return;
+    }
+    a.innerHTML = rows.map((c) => `
+      <div class="row" data-run="${esc(c.name)}" title="Click to run">
+        <span class="mark saved">${SVG.bookmark}</span>
+        <span class="text name">${esc(c.name)}</span>
+        <span class="time"></span>
+        <span class="detail">${esc(c.text)}</span>
+        <div class="row-acts">
+          <button class="row-act" data-act="run" data-name="${esc(c.name)}" title="Run">${SVG.play}</button>
+          <button class="row-act" data-act="delete-cmd" data-name="${esc(c.name)}" title="Delete">${SVG.trash}</button>
+        </div>
+      </div>`).join("") || `<div class="empty">Nothing matches “${esc(cmdText())}”.</div>`;
+  }
+
+  function renderSecrets() {
+    $("activity").innerHTML = `
+      <form class="secret-form" id="secret-form">
+        <input class="field" id="secret-name" placeholder="name, e.g. dev-password" autocomplete="off" spellcheck="false" />
+        <input class="field" id="secret-value" type="password" placeholder="password" autocomplete="new-password" />
+        <button class="choice primary" type="submit">Save</button>
+      </form>
+      <div class="note">Stored in your macOS Keychain. Write <code class="ph">{{name}}</code> in a command — e.g. <code class="ph">type {{dev-password}} into the password field</code> — and the real value is typed into the page only at that moment. The AI model, history and logs only ever see <code class="ph">{{name}}</code>.</div>
+      ${secrets.map((n) => `
+        <div class="row">
+          <span class="mark key">${SVG.key}</span>
+          <span class="text"><code class="ph">{{${esc(n)}}}</code></span>
+          <span class="time"></span>
+          <div class="row-acts"><button class="row-act" data-act="delete-secret" data-name="${esc(n)}" title="Delete from Keychain">${SVG.trash}</button></div>
+        </div>`).join("")}`;
+    $("secret-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = $("secret-name").value.trim(), value = $("secret-value").value;
+      if (!name || !value) return setStatus("Give the password a name and a value", "warn");
+      send({ type: "secrets:set", name, value });
+      $("secret-value").value = "";
+      setStatus(`Saved {{${name}}} to your Keychain`, "act");
+    });
+  }
+
+  function renderRecent() {
+    const a = $("activity");
+    if (!history.length) {
+      a.innerHTML = `<div class="empty">Try <code>go to wikipedia</code>, <code>search youtube for lofi beats</code>, or chain steps:<br><code>open youtube, theo t3.gg's channel</code><br><br>Add checks to chains: <code>wait until "Dashboard" appears</code>, <code>check that the page says "Approved"</code><br><br>Smart (Gemini): ask <code>how many requests are pending?</code>, give a <code>goal: approve all pending requests under $500</code>, or <code>fill the form with name Alex, role admin</code></div>`;
+      return;
+    }
+    const rows = history.map((h, i) => [h, i]).filter(([h]) => matches(h.text, h.detail, ...(h.turns || []).map((t) => t.text)));
+    if (!rows.length) { a.innerHTML = `<div class="empty">Nothing in your history matches “${esc(cmdText())}”.</div>`; return; }
+    const body = (h) => `
+        ${h.resolved ? `<span class="detail resolved">→ ${esc(h.resolved)}</span>` : ""}
+        ${h.detail ? `<span class="detail${h.long ? " long" : ""}">${esc(h.detail)}</span>` : ""}
+        ${h.steps ? `<div class="steps">${h.steps.map((s) => `
+          <div class="step ${s.status}">${mark(s.status)}<span class="t">${esc(s.text)}${s.detail ? `<small>${esc(s.detail)}</small>` : ""}</span></div>`).join("")}</div>` : ""}`;
+    a.innerHTML = rows.map(([h, i]) => `
+      <div class="row ${h.status}${h === replyTo ? " replying-to" : ""}" data-i="${i}" title="Click to run again">
+        ${mark(h.status)}
+        <span class="text">${richText(h.text, h.icons)}</span>
+        <span class="time">${ago(h.at)}</span>
+        <div class="row-acts">
+          ${h.status !== "running" ? `<button class="row-act" data-act="reply" data-i="${i}" title="Follow up on this">${SVG.reply}</button>` : ""}
+          <button class="row-act" data-act="save" data-i="${i}" title="Save as a named command">${SVG.star}</button>
+        </div>
+        ${body(h)}
+        ${h.turns?.length ? `<div class="turns">${h.turns.map((t) => `
+          <div class="turn ${t.status}">${mark(t.status)}<span class="text">${richText(t.text, t.icons || h.icons)}</span><span class="time">${ago(t.at)}</span>${body(t)}</div>`).join("")}</div>` : ""}
+      </div>`).join("");
+    paintChips(a);
+  }
+  $("activity").addEventListener("click", (e) => {
+    const act = e.target.closest(".row-act");
+    if (act) {
+      e.stopPropagation();
+      const name = act.dataset.name;
+      if (act.dataset.act === "save") askSaveAs(history[Number(act.dataset.i)].text);
+      else if (act.dataset.act === "reply") setReply(history[Number(act.dataset.i)]);
+      else if (act.dataset.act === "run") run(name);
+      else if (act.dataset.act === "delete-cmd") { send({ type: "commands:delete", name }); setStatus(`Deleted “${name}”`); }
+      else if (act.dataset.act === "delete-secret") { send({ type: "secrets:delete", name }); setStatus(`Removed {{${name}}} from your Keychain`); }
+      return;
+    }
+    const row = e.target.closest(".row");
+    if (!row || e.target.closest(".turns")) return;
+    if (row.dataset.run) run(row.dataset.run);
+    else if (row.dataset.i !== undefined) run(history[Number(row.dataset.i)].text);
+  });
+  document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => {
+    tab = b.dataset.tab;
+    if (tab === "secrets") send({ type: "secrets:list" });
+    render();
+  }));
+  $("cmd").addEventListener("input", () => tab !== "secrets" && render());
+
+  // ── follow-ups ────────────────────────────────────────────
+  function setReply(entry) {
+    replyTo = entry;
+    $("reply-what").innerHTML = richText(entry.text, entry.icons);
+    paintChips($("reply-what"));
+    $("replying").hidden = false;
+    $("cmd").dataset.placeholder = "Follow up…  e.g. now delete the first 10";
+    tab = "recent";
+    render();
+    caretToEnd();
+  }
+  function clearReply() {
+    replyTo = null;
+    $("replying").hidden = true;
+    $("cmd").dataset.placeholder = "Tell the browser what to do…   @ to pick a tab";
+    render();
+  }
+  $("reply-x").onclick = () => { clearReply(); caretToEnd(); };
+  /** After a command finishes: a "Follow up" button next to the result. */
+  function offerFollowUp(root) {
+    if (!root || replyTo === root || $("status").querySelector(".fu")) return;
+    const b = document.createElement("button");
+    b.className = "fu";
+    b.innerHTML = `${SVG.reply}<span>Follow up</span>`;
+    b.onclick = () => setReply(root);
+    $("status").appendChild(b);
+  }
+
+  const send = (obj) => ws && ws.readyState === 1 && (ws.send(JSON.stringify(obj)), true);
+
+  /** Inline "Save as" in the status line. */
+  function askSaveAs(text) {
+    const suggestion = (text.match(/(?:localhost|[\w-]+\.\w+)[^\s,]*/)?.[0] || text).split(/[/:,\s]/)[0].slice(0, 20).toLowerCase();
+    $("status").className = "status";
+    $("status").innerHTML = `<form class="inline" id="save-form"><span class="msg">Save as</span>
+      <input class="field" id="save-name" placeholder="name, e.g. login-dev" value="${esc(suggestion)}" spellcheck="false" />
+      <button class="choice primary" type="submit">Save</button><button class="choice" type="button" id="save-cancel">Cancel</button></form>`;
+    $("save-name").select();
+    $("save-cancel").onclick = () => setStatus("Not saved");
+    $("save-form").onsubmit = (e) => {
+      e.preventDefault();
+      const name = $("save-name").value.trim();
+      if (!name) return;
+      send({ type: "commands:save", name, text });
+      setStatus(`Saved — type “${name.toLowerCase().replace(/\s+/g, "-")}” to run it`, "act");
+      tab = "saved";
+      render();
+    };
+  }
+  setInterval(render, 15000); // keep "2m ago" fresh
+
+  function finish(status, detail) {
+    if (!current) return;
+    current.status = status;
+    if (detail !== undefined) current.detail = detail;
+    current = null;
+    render();
+    offerFollowUp(currentRoot);
+  }
+
+  // ── server connection ─────────────────────────────────────
+  function connect() {
+    ws = new WebSocket(wsUrl);
+    ws.onopen = () => {
+      setConn("on"); setEnabled(true); caretToEnd();
+      send({ type: "secrets:list" });
+      if (/Disconnected|Starting|Reconnecting/.test($("status").textContent)) setStatus("Ready");
+    };
+    ws.onclose = () => {
+      setEnabled(false);
+      if (browserBusy) setStatus("Reconnecting…");
+      else { setConn("err"); setStatus("Disconnected — reconnecting…", "err"); }
+      setTimeout(connect, 800);
+    };
+    ws.onmessage = (ev) => handle(JSON.parse(ev.data));
+  }
+
+  function handle({ type, payload }) {
+    switch (type) {
+      case "hello": setConn("on", payload.model); break;
+      case "tab-list": tabList = payload || []; renderMentions(); break;
+      case "tab-switched":
+        if (current && !payload.rest) { setStatus(`Switched to “${payload.title}”`, "act"); finish("ok", payload.url); }
+        else setStatus(`In “${payload.title}” — ${payload.rest}`);
+        break;
+      case "resolved":
+        if (current) { current.resolved = payload.goal; render(); }
+        setStatus(`Understood as: ${payload.goal}`);
+        break;
+      case "tab-error":
+        setStatus(payload.error, "err");
+        if (current) finish("fail", payload.error);
+        break;
+      case "commands": saved = payload || []; render(); break;
+      case "secrets": secrets = payload || []; render(); break;
+      case "store-error": setStatus(payload, "err"); break;
+      case "expanded":
+        if (current && !current.steps) { current.detail = `→ ${payload.text}`; render(); }
+        break;
+      case "decision": {
+        const p = payload.policy;
+        if (p.decision === "act") setStatus(p.summary);
+        else if (p.decision === "wait") setStatus("Thinking…");
+        else if (p.decision === "ignore" && current && !current.steps) { setStatus("That doesn't sound like a browser command", "warn"); finish("ignored", "not a browser command"); }
+        break;
+      }
+      case "action": {
+        const ok = payload.ok !== false;
+        const detail = ok ? shortUrl(payload.detail) : payload.detail;
+        if (current?.steps) {
+          const s = current.steps.find((x) => x.status === "running");
+          if (s) { s.detail = detail; render(); }
+        } else {
+          if (!ok && payload.screenshot) showChoices(`Failed: ${payload.detail}`, [{ label: "Open screenshot", action: () => window.bar.openPath(payload.screenshot) }], "err");
+          else setStatus(ok ? (payload.action?.type?.startsWith("assert_") || payload.action?.type?.startsWith("wait_") ? payload.detail : "Done") : `Failed: ${payload.detail}`, ok ? "act" : "err");
+          finish(ok ? "ok" : "fail", detail);
+        }
+        break;
+      }
+      case "chain": {
+        if (!current) break;
+        if (!current.steps) current.steps = payload.steps.map((text) => ({ text, status: "pending" }));
+        current.steps.forEach((s, i) => {
+          if (i < payload.index) s.status = "ok";
+          else if (i === payload.index) s.status = payload.status === "failed" ? "fail" : payload.status === "done" ? "ok" : payload.status === "cancelled" ? "ignored" : "running";
+        });
+        const n = payload.steps.length;
+        if (payload.status === "running") setStatus(`Step ${payload.index + 1} of ${n}`);
+        else if (payload.status === "done") { setStatus(`Done — ${n} steps`, "act"); finish("ok", null); }
+        else if (payload.status === "failed") {
+          if (payload.screenshot) showChoices(payload.reason, [{ label: "Open screenshot", action: () => window.bar.openPath(payload.screenshot) }], "err");
+          else setStatus(payload.reason, "err");
+          finish("fail", payload.reason);
+        }
+        else if (payload.status === "cancelled") finish("ignored", "cancelled");
+        render();
+        break;
+      }
+      case "pending":
+        if (payload) showChoices(`Confirm: ${payload.summary}?`, [{ label: "Confirm", say: "confirm", primary: true }, { label: "Cancel", say: "cancel" }]);
+        break;
+      case "candidates":
+        if (payload?.length) showChoices("Which one?", payload.map((c) => ({ n: c.n, label: c.label.replace(/^\w+ "?|"$/g, ""), say: String(c.n) })));
+        break;
+      case "gaveup":
+        showChoices(`Couldn't understand “${payload.transcript}”`, [{ label: "Try it as a goal", primary: true, action: () => run(`goal: ${payload.transcript}`) }], "err");
+        if (current && !current.steps) finish("fail", "couldn't understand — try rephrasing, or run it as a goal");
+        break;
+      // ── smart (brain) results ──
+      case "answer":
+        setStatus(`Answered in ${(payload.ms / 1000).toFixed(1)}s`, "act");
+        if (current) { current.long = true; finish("ok", payload.answer); }
+        break;
+      case "fill": {
+        const ok = payload.filled.filter((f) => !f.error);
+        const parts = ok.map((f) => `${f.label}: ${f.value}`);
+        const bad = payload.filled.filter((f) => f.error).map((f) => f.label);
+        let msg = `Filled ${ok.length} field${ok.length === 1 ? "" : "s"} — ${parts.join(" · ")}`;
+        if (bad.length) msg += ` · couldn't fill: ${bad.join(", ")}`;
+        if (payload.missing?.length) msg += ` · no field for: ${payload.missing.join(", ")}`;
+        setStatus(`Filled ${ok.length} field${ok.length === 1 ? "" : "s"} — not submitted`, payload.missing?.length || bad.length ? "warn" : "act");
+        if (current) { current.long = true; finish(ok.length ? "ok" : "fail", msg); }
+        break;
+      }
+      case "goal": {
+        if (!current) break;
+        current.steps = payload.steps.map((s) => ({ text: s.text, status: s.status, detail: s.detail }));
+        if (payload.status === "running") setStatus(payload.steps.length ? `Step ${payload.steps.length}: ${payload.steps.at(-1).text}` : "Looking at the page…");
+        else if (payload.status === "done") { setStatus("Goal done", "act"); current.long = true; finish("ok", payload.summary); }
+        else if (payload.status === "failed") { setStatus(payload.summary, "err"); current.long = true; finish("fail", payload.summary); }
+        else if (payload.status === "cancelled") finish("ignored", payload.summary);
+        render();
+        break;
+      }
+      case "goal-confirm":
+        showChoices(`Allow: ${payload.description}?`, [
+          { label: "Allow", primary: true, action: () => { send({ type: "goal:answer", ok: true }); setStatus("Continuing…"); } },
+          { label: "Allow all", action: () => { send({ type: "goal:answer", ok: true, all: true }); setStatus("Continuing — won't ask again for this goal"); } },
+          { label: "Stop", action: () => send({ type: "goal:answer", ok: false }) },
+        ]);
+        break;
+      case "smart-error":
+        setStatus(payload.error, "err");
+        if (current && current.status === "running") finish("fail", payload.error);
+        break;
+      case "log":
+        if (payload.level === "error") setStatus(payload.msg, "err");
+        break;
+    }
+  }
+
+  /**
+   * reply: an answer to a prompt in the status line ("confirm", "2") — same thread, no new row.
+   * Otherwise a new command, or a follow-up when the "Following up on" bar is showing.
+   */
+  function run(text, { reply = false, icons = null } = {}) {
+    const followUp = !reply && Boolean(replyTo);
+    const threadId = reply ? currentRoot?.id : followUp ? replyTo.id : uid();
+    if (!send({ type: "command", text, thread: threadId, followUp })) return setStatus("Not connected", "err");
+    if (!reply) {
+      if (current && current.status === "running") { current.status = "ignored"; current.detail = "replaced"; }
+      if (followUp) {
+        current = { text, status: "running", at: Date.now(), ...(icons && Object.keys(icons).length ? { icons } : {}) };
+        (replyTo.turns ||= []).push(current);
+        replyTo.at = Date.now();
+        history.splice(history.indexOf(replyTo), 1);
+        history.unshift(replyTo); // the active conversation stays on top
+        currentRoot = replyTo;
+      } else {
+        current = { id: threadId, text, status: "running", at: Date.now(), ...(icons && Object.keys(icons).length ? { icons } : {}) };
+        history.unshift(current);
+        history.splice(100);
+        currentRoot = current;
+      }
+      tab = "recent";
+    }
+    setStatus("Thinking…");
+    render();
+  }
+
+  // ── composer: text + inline tab chips ─────────────────────
+  // The command is plain text where "@[Tab title]" marks a tab; in the editor each mention is a
+  // chip (favicon + title) that behaves like one character: arrow past it, Backspace removes it.
+  const cmd = $("cmd");
+  const TAB_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 9h18"/></svg>';
+  const X_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+  let tabList = [];
+  let tabListAt = 0;
+  let mention = null; // { node, start, query } while the caret is in an "@..." token
+  let mentionSel = 0;
+
+  // favicons of tabs you've mentioned, so chips in history keep their icon
+  const ICONS_KEY = "vb.icons.v1";
+  const iconCache = (() => { try { return JSON.parse(localStorage.getItem(ICONS_KEY) || "{}"); } catch { return {}; } })();
+  function rememberIcon(title, icon) {
+    if (!icon || iconCache[title] === icon) return;
+    iconCache[title] = icon;
+    const keys = Object.keys(iconCache);
+    for (const k of keys.slice(0, Math.max(0, keys.length - 40))) delete iconCache[k];
+    try { localStorage.setItem(ICONS_KEY, JSON.stringify(iconCache)); } catch {}
+  }
+  // Titles change ("(5834) Video - YouTube" -> "(5836) …"); match on the title without counters.
+  const normTitle = (t) => String(t || "").replace(/^\(\d+\+?\)\s*/, "").replace(/\s+/g, " ").trim().toLowerCase();
+  function iconFor(title, extra) {
+    if (extra?.[title]) return extra[title];
+    const n = normTitle(title);
+    return (
+      tabList.find((t) => t.title === title)?.icon ||
+      iconCache[title] ||
+      tabList.find((t) => t.icon && normTitle(t.title) === n)?.icon ||
+      Object.entries(iconCache).find(([k]) => normTitle(k) === n)?.[1] ||
+      null
+    );
+  }
+  const urlFor = (title) => tabList.find((t) => t.title === title || normTitle(t.title) === normTitle(title))?.url || "";
+
+  // Chip colour: the dominant colour of the favicon, or a stable colour from the site when there's none.
+  const colorCache = new Map(); // icon data URL -> "r g b"
+  function hashColor(s) {
+    let h = 0;
+    for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const hue = h % 360;
+    // HSL(hue, 55%, 52%) -> rgb
+    const a = 0.55 * Math.min(0.52, 0.48), f = (n) => { const k = (n + hue / 30) % 12; return Math.round(255 * (0.52 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); };
+    return `${f(0)} ${f(8)} ${f(4)}`;
+  }
+  function dominantColor(img) {
+    try {
+      const c = document.createElement("canvas");
+      c.width = c.height = 24;
+      const g = c.getContext("2d", { willReadFrequently: true });
+      g.drawImage(img, 0, 0, 24, 24);
+      const d = g.getImageData(0, 0, 24, 24).data;
+      const buckets = new Map();
+      let greyN = 0, grey = [0, 0, 0];
+      for (let i = 0; i < d.length; i += 4) {
+        const [r, gg, b, al] = [d[i], d[i + 1], d[i + 2], d[i + 3]];
+        if (al < 140) continue;
+        const max = Math.max(r, gg, b), min = Math.min(r, gg, b);
+        const sat = max === 0 ? 0 : (max - min) / max;
+        if (sat < 0.25 || max < 80) { greyN++; grey[0] += r; grey[1] += gg; grey[2] += b; continue; } // white / black / greys
+        const key = `${r >> 5},${gg >> 5},${b >> 5}`;
+        const e = buckets.get(key) || { n: 0, r: 0, g: 0, b: 0 };
+        e.n++; e.r += r; e.g += gg; e.b += b;
+        buckets.set(key, e);
+      }
+      const best = [...buckets.values()].sort((x, y) => y.n - x.n)[0];
+      if (best && best.n >= 4) return `${Math.round(best.r / best.n)} ${Math.round(best.g / best.n)} ${Math.round(best.b / best.n)}`;
+      if (greyN) { // monochrome icon (GitHub): a neutral tint that works in light and dark
+        const v = Math.round((grey[0] + grey[1] + grey[2]) / 3 / greyN);
+        return v > 128 ? "150 150 160" : "120 120 135";
+      }
+    } catch {}
+    return null;
+  }
+  /** Colour every chip under `root` once its icon has loaded. */
+  function paintChips(root = document) {
+    for (const chip of root.querySelectorAll(".chip")) {
+      if (chip.dataset.painted) continue;
+      const img = chip.querySelector("img");
+      if (!img) { chip.dataset.painted = "1"; continue; }
+      const apply = () => {
+        let rgb = colorCache.get(img.src);
+        if (rgb === undefined) { rgb = dominantColor(img); colorCache.set(img.src, rgb); }
+        if (rgb) chip.style.setProperty("--chip-rgb", rgb);
+        if (rgb === "120 120 135") chip.dataset.darkicon = "1"; // black logo (GitHub): give it a light backing in dark mode
+        chip.dataset.painted = "1";
+      };
+      if (img.complete && img.naturalWidth) apply();
+      else img.addEventListener("load", apply, { once: true });
+    }
+  }
+
+  /** "(5836) 20 AI Concepts Explained - YouTube" -> "20 AI Concepts Explained" (full title on hover). */
+  function chipLabel(title) {
+    let t = String(title).replace(/^\(\d+\+?\)\s*/, "").trim();
+    const m = t.match(/^(.{6,}?)\s+[-–—|·]\s+[^-–—|·]{2,30}$/);
+    if (m) t = m[1];
+    return t;
+  }
+
+  function chipHTML(title, removable = false, icons = null) {
+    const icon = iconFor(title, icons);
+    const letter = (title.replace(/^\(\d+\+?\)\s*/, "").match(/[\p{L}\p{N}]/u)?.[0] || "?").toUpperCase();
+    const fallbackRgb = hashColor(urlFor(title).replace(/^https?:\/\//, "").split("/")[0] || normTitle(title));
+    const known = icon && colorCache.get(icon);
+    const style = icon ? (known ? ` style="--chip-rgb:${known}"` : "") : ` style="--chip-rgb:${fallbackRgb}"`;
+    const ic = icon
+      ? `<img src="${esc(icon)}" alt="" onerror="this.outerHTML='<span class=chip-letter>${esc(letter)}</span>'">`
+      : `<span class="chip-letter">${esc(letter)}</span>`;
+    return `<span class="chip" contenteditable="false" data-title="${esc(title)}" title="${esc(title)}"${style}${icon && known ? ' data-painted="1"' : ""}>${ic}<span class="chip-t">${esc(chipLabel(title))}</span>${removable ? `<button class="chip-x" tabindex="-1" title="Remove">${X_ICON}</button>` : ""}</span>`;
+  }
+  /** "@[Title]" in plain text -> chips (history rows, follow-up bar). `icons`: title -> icon saved with the command. */
+  const richText = (text, icons = null) => String(text ?? "").split(/@\[([^\]]+)\]/g).map((p, i) => (i % 2 ? chipHTML(p, false, icons) : esc(p))).join("");
+  /** Icons of the chips currently in the composer, saved with the command so history keeps them. */
+  function composerIcons() {
+    const out = {};
+    for (const chip of cmd.querySelectorAll(".chip")) {
+      const src = chip.querySelector("img")?.getAttribute("src");
+      if (src) out[chip.dataset.title] = src;
+    }
+    return out;
+  }
+
+  function cmdText() {
+    let out = "";
+    for (const n of cmd.childNodes) {
+      if (n.nodeType === 3) out += n.nodeValue;
+      else if (n.classList?.contains("chip")) out += ` @[${n.dataset.title}] `;
+      else out += n.textContent || "";
+    }
+    return out.replace(/\u00a0/g, " ").replace(/\s+/g, " ").replace(/\]\s+([,.;:!?])/g, "]$1").trim();
+  }
+  function caretToEnd() {
+    if (cmd.contentEditable !== "true") return;
+    cmd.focus();
+    const r = document.createRange();
+    r.selectNodeContents(cmd);
+    r.collapse(false);
+    const sel = getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+    cmd.scrollLeft = cmd.scrollWidth;
+  }
+  function setCmd(text) {
+    cmd.innerHTML = text ? String(text).split(/@\[([^\]]+)\]/g).map((p, i) => (i % 2 ? chipHTML(p, true) : esc(p))).join("") : "";
+    paintChips(cmd);
+    if (cmd.lastChild && cmd.lastChild.nodeType !== 3) cmd.appendChild(document.createTextNode(" "));
+    caretToEnd();
+  }
+  function setEnabled(on) {
+    cmd.contentEditable = on ? "true" : "false";
+    cmd.classList.toggle("off", !on);
+  }
+  // an emptied editor can keep a stray <br>; drop it so the placeholder shows
+  function tidy() {
+    if (!cmd.querySelector(".chip") && !cmd.textContent.replace(/ /g, " ").trim()) cmd.innerHTML = "";
+  }
+
+  function submit() {
+    const text = cmdText();
+    if (!text) return;
+    const icons = composerIcons();
+    setCmd("");
+    closeMentions();
+    run(text, { icons });
+    recall = -1;
+  }
+  $("form").addEventListener("submit", (e) => { e.preventDefault(); submit(); });
+
+  // ── "@" opens a list of open tabs ─────────────────────────
+  function mentionAtCursor() {
+    const sel = getSelection();
+    if (!sel.rangeCount || !sel.isCollapsed) return null;
+    const node = sel.anchorNode;
+    if (!node || node.nodeType !== 3 || !cmd.contains(node)) return null;
+    const upto = node.nodeValue.slice(0, sel.anchorOffset);
+    const m = upto.match(/(?:^|[\s(,; ])@([^\s@,; ]*)$/);
+    if (!m) return null;
+    return { node, start: sel.anchorOffset - m[1].length - 1, query: m[1] };
+  }
+  const mentionMatches = () => {
+    const q = (mention?.query || "").toLowerCase();
+    return tabList.filter((t) => !q || `${t.title} ${t.url}`.toLowerCase().includes(q)).slice(0, 12);
+  };
+  function closeMentions() { mention = null; $("mentions").hidden = true; }
+  function renderMentions() {
+    const box = $("mentions");
+    if (!mention) return (box.hidden = true);
+    const items = mentionMatches();
+    mentionSel = Math.min(mentionSel, Math.max(0, items.length - 1));
+    box.style.top = `${$("form").getBoundingClientRect().bottom - 4}px`;
+    box.innerHTML = items.length
+      ? items.map((t, i) => `<div class="mention${i === mentionSel ? " on" : ""}" data-i="${i}"><span class="ic">${t.icon ? `<img src="${esc(t.icon)}" alt="" onerror="this.replaceWith(document.createRange().createContextualFragment(TAB_ICON))">` : `<span class="chip-letter" style="--chip-rgb:${hashColor(t.url.replace(/^https?:\/\//, "").split("/")[0] || t.title)}">${esc(((t.title || "").replace(/^\(\d+\+?\)\s*/, "").match(/[\p{L}\p{N}]/u)?.[0] || "?").toUpperCase())}</span>`}</span><span class="t">${esc(t.title || "(untitled)")}${t.active ? '<span class="cur">current</span>' : ""}</span><span class="u">${esc(shortUrl(t.url))}</span></div>`).join("")
+      : `<div class="none">${tabList.length ? "No open tab matches" : "No tabs open in the controlled browser"}</div>`;
+    box.hidden = false;
+    box.querySelector(".mention.on")?.scrollIntoView({ block: "nearest" });
+  }
+  function pickMention(i) {
+    const t = mentionMatches()[i];
+    const at = mentionAtCursor() || mention;
+    if (!t || !at) return closeMentions();
+    const title = (t.title || shortUrl(t.url)).replace(/[\[\]]/g, "");
+    rememberIcon(title, t.icon);
+    const sel = getSelection();
+    const range = document.createRange();
+    range.setStart(at.node, at.start);
+    range.setEnd(at.node, sel.anchorNode === at.node ? sel.anchorOffset : at.start + 1 + at.query.length);
+    range.deleteContents();
+    const tpl = document.createElement("template");
+    tpl.innerHTML = chipHTML(title, true);
+    const chip = tpl.content.firstChild;
+    range.insertNode(chip);
+    paintChips(cmd);
+    // a space after the chip, with the caret after it
+    let after = chip.nextSibling;
+    if (!after || after.nodeType !== 3) { after = document.createTextNode(" "); chip.after(after); }
+    else if (!/^[\s ]/.test(after.nodeValue)) after.nodeValue = " " + after.nodeValue;
+    const r = document.createRange();
+    r.setStart(after, 1);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+    closeMentions();
+    cmd.focus();
+  }
+  function updateMention() {
+    mention = mentionAtCursor();
+    if (!mention) return closeMentions();
+    if (Date.now() - tabListAt > 2000) { tabListAt = Date.now(); send({ type: "tabs:list" }); }
+    renderMentions();
+  }
+  cmd.addEventListener("input", () => { tidy(); updateMention(); });
+  cmd.addEventListener("click", updateMention);
+  cmd.addEventListener("blur", () => setTimeout(closeMentions, 150));
+  // chip ×: remove the chip (and the space after it)
+  cmd.addEventListener("mousedown", (e) => {
+    const x = e.target.closest(".chip-x");
+    if (!x) return;
+    e.preventDefault();
+    const chip = x.closest(".chip");
+    const next = chip.nextSibling;
+    if (next?.nodeType === 3) next.nodeValue = next.nodeValue.replace(/^[\s ]/, "");
+    chip.remove();
+    tidy();
+    cmd.dispatchEvent(new Event("input"));
+    cmd.focus();
+  });
+  // paste as plain text (one line)
+  cmd.addEventListener("paste", (e) => {
+    e.preventDefault();
+    const t = (e.clipboardData?.getData("text/plain") || "").replace(/\s*\n\s*/g, " ");
+    document.execCommand("insertText", false, t);
+  });
+  $("mentions").addEventListener("mousedown", (e) => {
+    const it = e.target.closest(".mention");
+    if (it) { e.preventDefault(); pickMention(Number(it.dataset.i)); }
+  });
+  // Runs before the history / submit handlers while the list is open.
+  cmd.addEventListener("keydown", (e) => {
+    if ($("mentions").hidden || !mention) return;
+    const n = mentionMatches().length;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      mentionSel = n ? (mentionSel + (e.key === "ArrowDown" ? 1 : -1) + n) % n : 0;
+      renderMentions();
+    } else if ((e.key === "Enter" || e.key === "Tab") && n) pickMention(mentionSel);
+    else if (e.key === "Escape") closeMentions();
+    else return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }, true);
+
+  cmd.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); return submit(); }
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    const texts = [...new Set(history.flatMap((h) => [...(h.turns || []).map((t) => t.text).reverse(), h.text]))];
+    if (!texts.length) return;
+    e.preventDefault();
+    recall = e.key === "ArrowUp" ? Math.min(recall + 1, texts.length - 1) : Math.max(recall - 1, -1);
+    setCmd(recall < 0 ? "" : texts[recall]);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || recording || e.defaultPrevented) return;
+    if (replyTo) return clearReply(); // first Esc stops following up, the next one hides the bar
+    window.bar.hide();
+  });
+
+  // ── global shortcut: click it in the footer, press new keys ──
+  const SYM = { Command: "⌘", CommandOrControl: "⌘", Control: "⌃", Alt: "⌥", Shift: "⇧" };
+  const showHotkey = (accel) => {
+    $("hotkey-keys").textContent = (accel || "none").split("+").map((k) => SYM[k] || (k.length === 1 ? k.toUpperCase() : k)).join("");
+  };
+  function keyName(e) {
+    const c = e.code;
+    if (/^Key[A-Z]$/.test(c)) return c.slice(3);
+    if (/^Digit\d$/.test(c)) return c.slice(5);
+    if (/^F\d{1,2}$/.test(c)) return c;
+    const map = { Space: "Space", Enter: "Enter", Tab: "Tab", Backquote: "`", Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]",
+      Backslash: "\\", Semicolon: ";", Quote: "'", Comma: ",", Period: ".", Slash: "/", ArrowUp: "Up", ArrowDown: "Down", ArrowLeft: "Left", ArrowRight: "Right" };
+    return map[c] || null;
+  }
+  let recording = false;
+  function stopRecording() {
+    recording = false;
+    $("hotkey").classList.remove("recording");
+    window.bar.pauseHotkey(false);
+    document.removeEventListener("keydown", onRecordKey, true);
+  }
+  async function onRecordKey(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.key === "Escape") { stopRecording(); showHotkey(await window.bar.getHotkey()); setStatus("Shortcut unchanged"); return; }
+    if (["Meta", "Control", "Alt", "Shift"].includes(e.key)) return; // wait for the real key
+    const key = keyName(e);
+    const mods = [e.metaKey && "Command", e.ctrlKey && "Control", e.altKey && "Alt", e.shiftKey && "Shift"].filter(Boolean);
+    if (!key || (!mods.length && !/^F\d/.test(key)) || (mods.length === 1 && mods[0] === "Shift")) {
+      setStatus("Use at least ⌘, ⌃ or ⌥ with a key — Esc to cancel", "warn");
+      return;
+    }
+    stopRecording();
+    const r = await window.bar.setHotkey([...mods, key].join("+"));
+    showHotkey(r.hotkey);
+    setStatus(r.ok ? `Shortcut set to ${$("hotkey-keys").textContent}` : r.error, r.ok ? "act" : "err");
+  }
+  $("hotkey").onclick = () => {
+    if (recording) return;
+    recording = true;
+    $("hotkey").classList.add("recording");
+    $("hotkey-keys").textContent = "Press keys…";
+    setStatus("Press the new shortcut — Esc to cancel");
+    window.bar.pauseHotkey(true);
+    document.addEventListener("keydown", onRecordKey, true);
+  };
+  window.bar.getHotkey().then(showHotkey);
+
+  // ── which browser is controlled ───────────────────────────
+  const shortName = (b) => b.id === "builtin" ? "Built-in" : `${b.name.replace(/^Google |^Microsoft /, "")}${b.separate ? " · own profile" : ""}`;
+  const GLOBE = $("browser-ic").innerHTML;
+  function showBrowser(b) {
+    browserBusy = Boolean(b.busy);
+    if (!b.busy) $("browser-ic").innerHTML = b.icon ? `<img src="${esc(b.icon)}" alt="">` : GLOBE;
+    $("browser-name").textContent = b.busy ? "Switching…" : shortName(b);
+    $("browser").classList.toggle("busy", Boolean(b.busy));
+    if (b.busy) { setConn("busy"); setStatus(b.busy); }
+    else if (b.error) setStatus(b.error, "err");
+    else if (b.note) setStatus(b.note, "warn");
+  }
+  window.bar.getBrowser().then(showBrowser);
+  window.bar.onBrowserState((b) => {
+    showBrowser(b);
+    if (!b.busy && !b.error) setStatus(b.id === "builtin" ? "Controlling the built-in Chromium" : `Connected to ${b.name}${b.separate ? " (separate Voice Browser profile — sign in there once)" : ""}`, "act");
+  });
+  window.bar.onBrowserConfirm((b) => {
+    const short = b.name.replace(/^Google |^Microsoft /, "");
+    if (b.ownProfile || b.separate) {
+      showChoices(`${b.name} only allows control of a separate profile — open one? Your main window stays as it is.`, [
+        { label: `Open ${short}`, primary: true, action: () => window.bar.switchBrowser(b.id) },
+        { label: "Cancel", action: () => setStatus("Browser unchanged") },
+      ]);
+      return;
+    }
+    showChoices(`Quit ${b.name} and reopen it so Voice Browser can control it? Tabs are restored.`, [
+      { label: `Restart ${short}`, primary: true, action: () => window.bar.switchBrowser(b.id) },
+      { label: "Cancel", action: () => setStatus("Browser unchanged") },
+    ]);
+  });
+  $("browser").onclick = () => window.bar.browserMenu();
+
+  $("undo").onclick = () => send({ type: "undo" });
+  $("details").onclick = () => window.bar.openControlPage();
+  $("size").onclick = () => window.bar.toggleSize();
+  $("hide").onclick = () => window.bar.hide();
+  $("quit").onclick = () => window.bar.quit();
+  window.bar.onFocusInput(() => caretToEnd());
+  window.bar.onServerExit((info) => setStatus(`Browser service stopped (code ${info.code})`, "err"));
+
+  render();
+  (async () => {
+    setConn("busy");
+    const r = await window.bar.ensureServer();
+    window.bar.getBrowser().then(showBrowser);
+    if (!r.ok) { setConn("err"); setStatus(r.error, "err"); return; }
+    connect();
+  })();
+</script>
+</body>
+</html>

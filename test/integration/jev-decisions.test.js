@@ -12,7 +12,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { decide, hasApiKey } from "../../src/jev.js";
 import { evaluatePolicy } from "../../src/policy.js";
-import { MODEL } from "../../src/constants.js";
+import { MODEL, PRICE_PER_M_INPUT_TOKENS_USD } from "../../src/constants.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixture = (name) => JSON.parse(fs.readFileSync(path.join(__dirname, "..", "fixtures", `${name}.json`), "utf8"));
@@ -147,7 +147,7 @@ CASES.push(
 const results = [];
 
 before(() => {
-  if (!hasApiKey()) console.log("SKIP: no TYPESAFE_API_KEY / JEV_API_KEY set");
+  if (!hasApiKey()) console.log("SKIP: no SUBQ_API_KEY / TYPESAFE_API_KEY set");
 });
 
 for (const c of CASES) {
@@ -185,6 +185,6 @@ test("integration pass-rate report", { skip: !hasApiKey() }, () => {
   const avg = Math.round(lat.reduce((a, b) => a + b, 0) / lat.length);
   const tokens = results.reduce((a, r) => a + r.tokens, 0);
   const rate = passed / results.length;
-  console.log(`\n  ${MODEL}: ${passed}/${results.length} cases passed (${(rate * 100).toFixed(1)}%) · latency avg ${avg} ms, p50 ${p50} ms, max ${lat[lat.length - 1]} ms · ${tokens} input tokens ($${((tokens / 1e6) * 0.042).toFixed(5)})\n`);
+  console.log(`\n  ${MODEL}: ${passed}/${results.length} cases passed (${(rate * 100).toFixed(1)}%) · latency avg ${avg} ms, p50 ${p50} ms, max ${lat[lat.length - 1]} ms · ${tokens} input tokens ($${((tokens / 1e6) * PRICE_PER_M_INPUT_TOKENS_USD).toFixed(5)})\n`);
   assert.ok(rate >= 0.9, `pass rate ${(rate * 100).toFixed(1)}% is below 90%`);
 });

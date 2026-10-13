@@ -1,178 +1,182 @@
-# voice-browser — talk to a real browser, it acts before you finish the sentence
+<p align="center">
+  <img src="docs/images/icon.png" width="112" alt="Voice Browser icon" />
+</p>
 
-A Node app that controls a **headed Chromium window** (Playwright) by voice. Speech is streamed
-word by word from the browser's Web Speech API to a small Node server; on every partial transcript
-the server asks **Jev** (TypeSafe's System One model, `jev-1.13.0`) one request with a dozen typed
-questions — intent, target element, site, "is the command complete?", "is this even addressed to
-me?", "is it destructive?" — gets typed probabilities back in ~250–350 ms, and code decides whether
-to act, wait, ask, or ignore.
+<h1 align="center">Voice Browser</h1>
 
-Jev never generates text. Search queries, typed text and URLs are extracted as candidate spans by
-code and Jev only *picks* one, which is copied verbatim.
+<p align="center">
+  <b>Tell a real browser what to do — in plain English, by typing or talking.</b><br/>
+  A macOS command bar that drives Chromium, Dia, Arc or Chrome: single clicks in about a second,
+  multi-step goals, questions about the page, form filling, and follow-ups.
+</p>
 
+<p align="center">
+  <a href="https://github.com/ken-code-wq/voice-browser/actions/workflows/ci.yml"><img src="https://github.com/ken-code-wq/voice-browser/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" /></a>
+  <img src="https://img.shields.io/badge/platform-macOS-lightgrey.svg" alt="macOS" />
+  <img src="https://img.shields.io/badge/node-%E2%89%A522-339933.svg" alt="Node 22+" />
+</p>
+
+<p align="center">
+  <img src="docs/images/bar-dark.png" width="680" alt="The command bar: a goal that created three bills, and a follow-up deleting two of them, waiting for Allow" />
+</p>
+
+---
+
+## What it does
+
+Press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd> anywhere, type what you want, and watch the browser do it.
+
+```text
+go to wikipedia, search for alan turing, then click the first result
+in @[Bills - Acme Books] create 3 bills with dummy data
+  ↪ now delete the first 2
+how many purchase requests are pending, and what's their total?
+fill the form with vendor Northwind, amount 220.50, due next Friday
+login-dev                      ← a saved command
 ```
- mic (Chrome, Web Speech API)          Node server (owns the API key)             controlled window
- ───────────────────────────    ws     ───────────────────────────────────         ──────────────────
- partial transcripts  ───────────────▶ debounce 200 ms                            headed Chromium via
- "go to"  "go to wiki"                 snapshot page (≤100 elements, e01..eNN) ◀── Playwright, persistent
- "go to wikipedia" (final)             ONE Jev request: 9–11 questions             profile, overlay
-                                       policy (thresholds in constants.js)  ───▶  highlight / toast /
- control page ◀─────────────────────── decision + bars + latency + cost            numbered candidates
-```
 
-## Run it
+| | |
+|---|---|
+| **Fast single actions** | "click new bill", "scroll down", "go back" — decided by [SubQ Snap](https://subq.ai) (or TypeSafe Jev), a model that *picks* options instead of writing text: typically 0.5–1 s to decide. |
+| **Chains** | Steps separated by commas, `then` or `and …` run one after another, each after the page has loaded. |
+| **Goals** | `goal: approve every pending request under $500` — a small multimodal model looks at the page + a screenshot, acts, and repeats until a second check agrees it's done. |
+| **Questions** | Anything ending in `?` is answered from the current page. |
+| **Forms** | `fill the form with …` fills text fields, dropdowns, dates and checkboxes in one go — and never submits by itself. |
+| **Follow-ups** | ↩ on a finished command continues the conversation in the same tab: "now delete the first 2" is rewritten to name the exact items first. |
+| **@ tabs** | Type `@` to pick any open tab; it becomes a chip with the site's icon and colour. |
+| **Your browser** | Drive the built-in Chromium, or connect Dia, Arc, Brave, Chrome or Edge — it shows their real icon. |
+| **Safe by default** | Anything that saves, pays, sends or deletes asks **Allow / Allow all / Stop**. Passwords live in the macOS Keychain as `{{name}}` and never reach a model. |
+| **Waits & checks** | `wait until "Saved" appears`, `check that the page says "Approved"` — run in code; a failed check stops and saves a screenshot. |
 
-Requirements: Node ≥ 20 (tested on 22), npm, Chrome or Edge for the microphone (the Web Speech API
-is not available in Firefox/Safari). Real API calls cost ~$0.0002 each.
+<p align="center">
+  <img src="docs/images/tab-picker.png" width="49%" alt="Typing @ lists open tabs with their icons" />
+  <img src="docs/images/question.png" width="49%" alt="A question about the page, answered" />
+</p>
+
+## Quick start
+
+**Requirements:** macOS (built and tested on Apple Silicon, macOS 26), [Node.js](https://nodejs.org) 22+, and a free API key
+for at least one model (see [Configuration](#configuration)).
 
 ```bash
-git clone https://github.com/moritzkremb/jev-voice-browser.git
-cd jev-voice-browser
+git clone https://github.com/ken-code-wq/voice-browser.git
+cd voice-browser
 npm install
 npx playwright install chromium
-cp .env.example .env          # paste your TypeSafe API key (https://console.typesafe.ai/keys)
-./run.sh                      # starts the server on http://localhost:8787
+cp .env.example .env            # then add your keys — .env is git-ignored and never leaves your Mac
+
+# the desktop app
+cd desktop && npm install
+./install-mac.sh                # builds /Applications/Voice Browser.app
+open "/Applications/Voice Browser.app"
 ```
 
-Then open **http://localhost:8787 in your normal Chrome**, click **Start mic**, allow the
-microphone, and speak. A separate Chromium window (the *controlled* browser) is opened by the server;
-that is the one that acts. Keep the control page visible on a second screen / half the screen for
-the live probability bars.
+Voice Browser lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd> shows or hides the bar
+(click the shortcut in the footer to change it), <kbd>Esc</kbd> hides it, and the menu-bar icon has
+**Start at login**.
 
-Options: `./run.sh --port 9000`, `--host 0.0.0.0` (LAN, see Security), `--start-url https://…`, `--headless` (CI), or attach to a Chrome
-you already have running instead of launching one:
+> **Prefer the terminal?** `./run.sh` starts the server and opens a control page at
+> <http://localhost:8787> with live decision details and a microphone button (Chrome / Edge).
+
+## Using it
+
+### Commands
+
+| Type | What happens |
+|---|---|
+| `go to example dot com` · `open youtube` · `go to localhost:3000/dashboard` | navigate |
+| `search for alan turing` · `search youtube for lofi beats` | the site's own search box, a site search, or DuckDuckGo |
+| `click the first result` · `click new bill` | click — ambiguous targets show numbered choices |
+| `type hello into the search box` · `click on email and type {{dev-email}}` | type (verbatim) |
+| `scroll down a bit` · `go back` · `reload` · `open a new tab` · `next tab` | scroll, history, tabs |
+| `open youtube, theo t3.gg's channel` | a chain; a step with no verb means *find it* (search, then click) |
+| `wait until "Dashboard" appears` · `check that the url contains /bills` | code-only waits and checks |
+| `goal: …` · `create a new bill with dummy data` · `help me …` | a goal (multi-step, model-planned) |
+| `… ?` · `what's the total due?` · `summarize this` | a question about the current page |
+| `fill the form with …` | fill every matching field, without submitting |
+| `in @[Tab] …` · `go to @[Tab] and …` | switch to that tab first |
+
+### Saved commands & passwords
+
+* **Save** any command from *Recent* with ☆, then run it by typing its name (`login-dev`).
+* **Passwords** tab → stored in your macOS Keychain. Write `{{dev-password}}` in a command; the real
+  value is typed into the page at the last moment. Models, history and logs only ever see `{{dev-password}}`,
+  and password fields are never read back from pages.
+
+### Your own browser
+
+Click the browser button in the bar (or the menu-bar icon → *Browser*) and pick Dia, Arc, Brave, Chrome
+or Edge. Voice Browser quits it like <kbd>⌘</kbd><kbd>Q</kbd> (tabs are restored), reopens it with remote
+debugging and reconnects. Chrome and Edge don't allow that for your main profile, so they get a separate
+profile instead. Your choice is remembered.
+
+## Configuration
+
+Everything lives in `.env` (copy `.env.example`). It is in `.gitignore` and is only read by the local
+server — the UI never sees your keys.
+
+| Variable | Needed for | Notes |
+|---|---|---|
+| `SUBQ_API_KEY` | single actions & chains | [SubQ Snap](https://console.subq.ai) — or `TYPESAFE_API_KEY` for [TypeSafe Jev](https://console.typesafe.ai/keys) |
+| `GEMINI_API_KEY` | goals, questions, forms | free key from [Google AI Studio](https://aistudio.google.com); also the fallback for the options below |
+| `BRAIN_PROVIDER` + `BRAIN_API_KEY` | goals, questions, forms (optional) | `zai` (GLM 5.3 Flash, vision), `deepseek`, `openrouter` or `custom` — tried before Gemini |
+| `BRAIN_MODEL`, `BRAIN_BASE_URL`, `BRAIN_VISION` | optional | override a preset / point `custom` at any OpenAI-compatible API |
+| `CDP_URL` | optional | attach to a browser you started with `--remote-debugging-port` |
+| `PORT` | optional | local server port (default `8787`, bound to `127.0.0.1`) |
+
+Rough costs: a single action is ~3–6k input tokens on SubQ Snap ($0.05 / 1M input, output free). A goal
+step is one call to the "brain" model plus a final check; Gemini Flash-Lite's free tier covers casual use.
+
+## Privacy & safety
+
+* The server listens on **127.0.0.1 only**. Anyone who can reach that port can drive your browser.
+* Page content (element list, visible text, a screenshot for goals/questions) is sent to the model
+  providers you configure. Free tiers may use prompts to improve their models.
+* `{{secrets}}` are resolved from the Keychain only at the moment of typing.
+* Risky steps (submit, approve, delete, pay) ask first — treat that as a convenience, not a guarantee,
+  and don't connect a browser profile holding accounts you wouldn't want an automated click near.
+
+See [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
+
+## How it works
+
+```
+ ⌘⇧Space bar (Electron) ──ws──▶ local Node server ──▶ Playwright ──▶ Chromium / Dia / Arc / Chrome
+                                 │
+                                 ├─ SubQ Snap / Jev: typed questions → act · wait · ask · ignore  (~0.5–1 s)
+                                 └─ "brain" (Gemini / GLM / DeepSeek): goals, questions, forms, follow-ups
+```
+
+Single commands are decided by a *decision model* answering a dozen typed questions at once (intent,
+target element, "is it complete?", "is it destructive?") with probabilities; code turns those into an
+action or a "which one?" prompt. Goals, questions and forms go to a small generative model with the page's
+elements, text and a screenshot. Details: **[docs/how-it-works.md](docs/how-it-works.md)**.
+
+```
+src/        server, controller, decision policy, goals/questions/forms (smart.js), model clients
+desktop/    the macOS command bar (Electron): bar.html, main.cjs, install-mac.sh
+test/unit/  fast tests with mocked models and browser — no network
+```
+
+## Development
 
 ```bash
-# start your Chrome with a debugging port, then:
-./run.sh --cdp http://127.0.0.1:9222
+npm test                    # unit tests, no network or keys needed
+npm run test:integration    # real decision-model calls on captured pages (needs a key)
+cd desktop && npm start     # run the bar without installing it
+./desktop/install-mac.sh    # rebuild /Applications/Voice Browser.app after changing desktop/
 ```
 
-Set the key yourself instead of `.env`: `export TYPESAFE_API_KEY=…` (legacy `JEV_API_KEY` is
-also accepted) and `npm start`. The key is only ever read by the Node process; the control page
-never sees it.
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Security:** the server listens on `127.0.0.1` only. Anyone who can reach the control port can
-drive the browser and spend your API credits, so only use `--host 0.0.0.0` on a network you trust.
-The controlled Chromium uses a persistent profile in `.browser-profile/` (gitignored) — don't log
-into accounts there that you wouldn't want a mis-heard "click place order" to touch; destructive
-clicks require a spoken "confirm", but treat that as a convenience, not a guarantee.
+## Credits
 
-No microphone? Type a command into the text box on the control page and press Enter.
+Voice Browser started as a fork of **[jev-voice-browser](https://github.com/moritzkremb/jev-voice-browser)**
+by [Moritz Kremb](https://github.com/moritzkremb) — the voice pipeline, decision questions and policy are
+his. This fork adds the desktop command bar, SubQ Snap support, chains, goals, questions, forms,
+follow-ups, tab mentions, Keychain secrets, waits/checks and connecting your own browser.
 
-## What you can say
+## License
 
-| Say | What happens |
-| --- | --- |
-| "go to wikipedia" / "open youtube" / "go to example dot com" | navigates (site list or spoken domain, code owns the URLs) |
-| "search for alan turing" | uses the page's own search box if it has one (Wikipedia, YouTube…), else DuckDuckGo |
-| "search youtube for lofi beats" | site-specific search URL template |
-| "click the first result" / "click the new link" / "open the comments tab" | clicks the element Jev picked from the snapshot; ambiguous → numbered overlays, say "two" |
-| "type hello world into the search box" | types verbatim (Jev picked the span, code copies it) |
-| "scroll down a bit" / "scroll to the bottom" / "scroll up a page" | scroll with amount from a 3-level Score |
-| "go back" / "go forward" / "reload" | history |
-| "open a new tab" / "close this tab" / "next tab" | tabs |
-| "click place order" | destructive → toast asks you to say **"confirm"** (or "cancel") |
-| "so anyway I think we should get lunch" | ignored (`is_command` ≈ 0.02) |
-
-Two commands in one breath work too: "go to example dot com and click the more information link".
-
-## How a decision is made
-
-Every transcript update produces exactly one Jev request (`src/jev.js`). State:
-
-```json
-{ "transcript": "open the documentation",
-  "page": { "url": "https://typesafe.ai/jev", "title": "Jev", "site": "generic" },
-  "elements": ["e03 link \"Documentation\" → docs.typesafe.ai", "e07 link \"Read the docs\" → docs.typesafe.ai", "..."],
-  "context": {
-    "previous_page": { "url": "https://duckduckgo.com/?q=jev+typesafe", "title": "jev typesafe at DuckDuckGo" },
-    "recent_actions": [
-      { "said": "click the first result", "action": "click_element", "target": "link \"TypeSafe — Jev\"", "outcome": "navigated to typesafe.ai/jev", "seconds_ago": 6 },
-      { "said": "search for jev typesafe", "action": "navigate_url", "outcome": "navigated to duckduckgo.com/?q=jev+typesafe", "seconds_ago": 25 } ] } }
-```
-
-`context` is the conversation so far: the page you came from and the last three executed actions
-(what you said, what was done, what happened). It is what makes "go back to the results", "no, not
-that one", "the other one" and "open its documentation" resolvable — Jev has no memory between
-requests, so the memory lives in the state.
-
-Questions (all in `src/constants.js`, asked together, answered in parallel):
-
-| id | type | answers |
-| --- | --- | --- |
-| `intent` | Choice | navigate_url · search_web · click_element · type_into_field · select_option · press_enter · scroll_down/up · go_back/forward · reload · open/close/switch tab · confirm · cancel · none — each option has `{what, not_for, examples}` |
-| `target` | Choice | the element ids on the page + `none` |
-| `site` | Choice | google · duckduckgo · the_web · youtube · wikipedia · github · amazon · reddit · twitter_x · hacker_news · example_com · other_named_site · none |
-| `complete` | Noul | has the user finished the command? (lets us act on partial speech) |
-| `is_command` | Noul | is the user addressing the browser at all? |
-| `destructive` | Noul | would it submit / buy / delete / send? |
-| `scroll_amount` | Score | a little · one page · to the end |
-| `text_span` | Choice | verbatim candidate spans extracted by regex (+ `none`) — only when the transcript has any |
-| `url_span` | Choice | domain-looking spans (+ `none`) — only when present |
-| `tab_direction` | Choice | next · previous · first · none |
-| `is_correction` | Noul | is the user rejecting / redirecting the most recent action in `context.recent_actions`? — only asked when there is history |
-
-Policy (`src/policy.js`, thresholds `T` in `constants.js`), shown live in the UI as a gate table:
-
-0. `is_correction ≥ 0.6` on a finished phrase: with no confident new command ("no, not that one",
-   "undo that") → reverse the last action (click/navigate → back, typing → clear, scroll → opposite);
-   with a new target ("no, the other one") → the previously clicked element is excluded from the
-   candidates. A confident closed-set command ("go back" after a scroll) is never treated as a correction.
-1. `is_command ≥ 0.5` else **ignore**
-2. `intent.confidence ≥ 0.55` and not `none` else **wait**
-3. `complete ≥ 0.6`, or 900 ms of silence, or the recognizer's final result — else **wait**
-4. free-text intents (search / type) additionally wait for the final result or 600 ms silence, so a
-   query is never truncated ("search for alan" vs "search for alan turing")
-5. build the action in code: URL templates, search-box fallback, verbatim span copy
-6. click/type targets need `target.confidence ≥ 0.45` and top probability ≥ 0.35, else the top 2–3
-   candidates get numbered overlays in the page and a spoken number picks one (no model call)
-7. `destructive ≥ 0.5` on a click → **confirm** (say "confirm" / "cancel")
-
-Requests overlap: up to 2 in flight; older ones are cancelled with `AbortSignal`. A response for a
-partial transcript may still act if the words already commit to a closed-set action ("go back"),
-but is never treated as final for free text.
-
-## Project layout
-
-```
-src/constants.js   MODEL pin, thresholds, every question text — the one file to review on camera
-src/jev.js         builds state + questions, calls @typesafe-ai/sdk, returns answers/latency/usage/cost
-src/spans.js       candidate extraction (text payloads, spoken URLs, number words) — code, not Jev
-src/snapshot.js    in-page element collector (tags data-vb-id), compaction + size guard, site detection
-src/policy.js      answers → act / wait / ignore / confirm / disambiguate, with reasons
-src/executor.js    Playwright actions + overlay feedback
-src/browser.js     launch headed Chromium (persistent profile) or attach via CDP; tabs
-src/overlay.js     injected highlight / toast / numbered badges
-src/controller.js  debounce, in-flight management, one action per utterance, chaining, stats
-src/server.js      Express + ws, serves src/public/index.html (control page)
-scripts/demo.js    word-by-word replay against real sites = end-to-end test
-test/unit/         spans, snapshot compaction, policy (mocked Jev), controller (mocked Jev + browser), context encoding + corrections
-test/integration/  34 real-API cases on captured page fixtures (incl. context / correction), prints pass rate + latency
-```
-
-## Tests and demo
-
-```bash
-npm test                 # unit tests (no network)
-npm run test:integration # real Jev calls on fixtures; prints pass rate (expects ≥ 90%)
-npm run demo             # headed replay of 16 spoken commands against real sites, asserts URLs
-npm run demo:ci          # same, headless; exit code 1 on failure
-node scripts/demo.js --headless --only 1,2,3 --word-ms 250
-```
-
-Latest measured (Sep 2026, from this machine): integration 34/34 (100%, incl. 7 context/correction cases), Jev latency avg ≈ 330 ms
-(p50 ≈ 300 ms, 3–6k input tokens per request; the first request of a process is ~700 ms for the
-TLS handshake), last-word→decision ≈ 300 ms including the 200 ms debounce, whole demo ≈ $0.01.
-
-## Notes and limitations
-
-- Web Speech API only in Chrome/Edge; it sends audio to Google. Interim results arrive in bursts, so
-  "acting before you finish" is most visible on longer sentences.
-- One action per utterance; extra words after an executed command are treated as a new command
-  only if there are at least two of them.
-- Element snapshot is capped at 100 items (viewport first) and 60 chars of text each — deep pages
-  need a scroll before "click …" finds below-fold items. Elements inside iframes are not seen.
-- Sites with heavy bot protection (Google consent, some search engines in headless mode) may not
-  render results; the demo uses Wikipedia, example.com, Hacker News and DuckDuckGo.
-- `select_option` matches the option label in code by substring; `switch_tab` cycles.
-- Confidence gates are calibrated on `jev-1.13.0`; re-check `T` if you move the model alias.
+[MIT](LICENSE)

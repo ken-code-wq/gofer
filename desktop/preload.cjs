@@ -1,0 +1,20 @@
+const { contextBridge, ipcRenderer } = require("electron");
+
+contextBridge.exposeInMainWorld("bar", {
+  ensureServer: () => ipcRenderer.invoke("ensure-server"),
+  hide: () => ipcRenderer.send("hide"),
+  toggleSize: () => ipcRenderer.send("toggle-size"),
+  getBrowser: () => ipcRenderer.invoke("get-browser"),
+  browserMenu: () => ipcRenderer.send("browser-menu"),
+  switchBrowser: (id) => ipcRenderer.invoke("switch-browser", id),
+  onBrowserState: (fn) => ipcRenderer.on("browser-state", (_e, s) => fn(s)),
+  onBrowserConfirm: (fn) => ipcRenderer.on("browser-confirm", (_e, b) => fn(b)),
+  openPath: (p) => ipcRenderer.send("open-path", p),
+  getHotkey: () => ipcRenderer.invoke("get-hotkey"),
+  setHotkey: (accel) => ipcRenderer.invoke("set-hotkey", accel),
+  pauseHotkey: (paused) => ipcRenderer.send("pause-hotkey", paused),
+  quit: () => ipcRenderer.send("quit"),
+  openControlPage: () => ipcRenderer.send("open-control-page"),
+  onFocusInput: (fn) => ipcRenderer.on("focus-input", fn),
+  onServerExit: (fn) => ipcRenderer.on("server-exit", (_e, info) => fn(info)),
+});

@@ -12,9 +12,18 @@
  *  - always include a `none` option; never ask Jev to count or generate
  */
 
-export const MODEL = "jev-1.13.0"; // pinned: aliases move on release, thresholds below were tuned on this version
+// Provider: SubQ Snap (same System One API at api.subq.ai) when SUBQ_API_KEY is set, else TypeSafe Jev.
+export const PROVIDERS = {
+  subq: { name: "SubQ Snap", baseURL: "https://api.subq.ai", model: "subq-snap-preview", pricePerMInput: 0.05 },
+  typesafe: { name: "TypeSafe Jev", baseURL: "https://api.typesafe.ai", model: "jev-1.13.0", pricePerMInput: 0.042 },
+};
+export const PROVIDER = process.env.SUBQ_API_KEY ? PROVIDERS.subq : PROVIDERS.typesafe;
 
-export const PRICE_PER_M_INPUT_TOKENS_USD = 0.042; // output tokens are free
+// jev-1.13.0 is pinned: aliases move on release, thresholds below were tuned on this version.
+// Override with MODEL=... if needed.
+export const MODEL = process.env.MODEL || PROVIDER.model;
+
+export const PRICE_PER_M_INPUT_TOKENS_USD = PROVIDER.pricePerMInput; // output tokens are free
 
 // ---------------------------------------------------------------------------
 // Perception limits (state size hurts accuracy + latency; keep it small)
@@ -42,6 +51,8 @@ export const PAYLOAD_SILENCE_MS = 600;
 export const PAYLOAD_INTENTS = new Set(["search_web", "type_into_field", "select_option"]);
 export const HIGHLIGHT_MS = 600; // element flash on the controlled page
 export const CANDIDATE_TTL_MS = 8000; // numbered overlays stay this long
+export const MAX_FINAL_WAITS = 3; // a finished command still unclear after this many requests is given up
+export const CHAIN_SETTLE_MS = 800; // pause after a chain step's page load before the next step
 
 // ---------------------------------------------------------------------------
 // Execution policy thresholds (the "why did it act / wait" numbers shown in the UI)

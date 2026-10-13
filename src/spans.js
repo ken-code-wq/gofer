@@ -86,34 +86,51 @@ export function extractTextCandidates(transcript) {
   return out.slice(0, 8);
 }
 
-/** "example dot com" -> "example.com"; also lowercases and strips spaces around dots. */
+/** "example dot com" -> "example.com"; strips spaces around dots. Case is kept (URL paths are case-sensitive). */
 export function normalizeSpokenUrl(text) {
   return String(text || "")
-    .toLowerCase()
-    .replace(/\s+dot\s+/g, ".")
+    .replace(/\s+dot\s+/gi, ".")
     .replace(/\s*\.\s*/g, ".")
-    .replace(/\s+slash\s+/g, "/")
-    .replace(/\bwww\s+/g, "www.")
-    .replace(/\bh\s*t\s*t\s*p\s*s?\s*:\s*\/\s*\//g, (m) => (m.includes("s") ? "https://" : "http://"));
+    .replace(/\s+slash\s+/gi, "/")
+    .replace(/\bwww\s+/gi, "www.")
+    .replace(/\bh\s*t\s*t\s*p\s*s?\s*:\s*\/\s*\//gi, (m) => (/s\s*:/i.test(m) ? "https://" : "http://"));
 }
 
-/** Domain-looking spans in the transcript (after spoken-url normalisation). */
+/**
+ * Web-address spans in the transcript (after spoken-url normalisation): full http(s) URLs,
+ * localhost / IP addresses with optional port and path, and domains with a known TLD.
+ * Email addresses ("alex@example.com") are not web addresses.
+ */
 export function extractUrlCandidates(transcript) {
   const t = normalizeSpokenUrl(cleanTranscript(transcript));
   if (!t) return [];
-  const re = new RegExp(`(?:https?://)?(?:[a-z0-9-]+\\.)+(?:${TLDS})(?:/[^\\s]*)?`, "gi");
+  const port = "(?::\\d{2,5})?";
+  const path = "(?:/[^\\s'\"“”]*)?";
+  const re = new RegExp(
+    [
+      `https?://[^\\s'"“”]+`,
+      `(?<![@\\w.-])localhost${port}${path}`,
+      `(?<![@\\w.-])\\d{1,3}(?:\\.\\d{1,3}){3}${port}${path}`,
+      `(?<![@\\w.-])(?:[a-z0-9-]+\\.)+(?:${TLDS})\\b${port}${path}`,
+    ].join("|"),
+    "gi",
+  );
   const out = [];
   for (const m of t.matchAll(re)) {
-    const v = m[0].replace(/[.,!?]+$/, "");
+    // Hostnames are case-insensitive: lowercase them, keep the path as written.
+    const v = m[0].replace(/[.,!?;:)]+$/, "").replace(/^(https?:\/\/)?([^/]+)/i, (_, scheme = "", host) => `${scheme.toLowerCase()}${host.toLowerCase()}`);
     if (!out.includes(v)) out.push(v);
   }
   return out.slice(0, 6);
 }
 
+const LOCAL_HOST_RE = /^(?:localhost|127\.\d+\.\d+\.\d+|0\.0\.0\.0|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+|[\w-]+\.local)(?::\d+)?(?:\/|$)/i;
+
+/** Adds a scheme: http:// for local/dev hosts (localhost:3000), https:// otherwise. */
 export function toHttpUrl(domainish) {
   const v = String(domainish).trim();
   if (/^https?:\/\//i.test(v)) return v;
-  return `https://${v}`;
+  return `${LOCAL_HOST_RE.test(v) ? "http" : "https"}://${v}`;
 }
 
 const NUMBER_WORDS = {

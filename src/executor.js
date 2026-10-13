@@ -2,8 +2,12 @@
  * Execute a policy action on the controlled browser with Playwright.
  * Shows overlay feedback (highlight + toast) on the page.
  */
+import fs from "node:fs";
+import path from "node:path";
 import { HIGHLIGHT_MS } from "./constants.js";
 import { describe } from "./policy.js";
+import { resolveSecrets } from "./secrets.js";
+import { DATA_DIR } from "./store.js";
 
 const NAV_TIMEOUT = 15000;
 
@@ -73,10 +77,14 @@ export async function execute(action, browser) {
       const loc = locatorFor(page, action.targetId);
       await loc.click({ timeout: 4000 }).catch(() => loc.focus());
       await loc.fill("").catch(() => {});
-      await loc.pressSequentially(action.text, { delay: 18 }).catch(async () => loc.fill(action.text));
+      // {{secret}} placeholders become Keychain values only here, at the moment of typing.
+      const text = await resolveSecrets(action.text);
+      await loc.pressSequentially(text, { delay: 18 }).catch(async () => loc.fill(text));
       if (action.submit) {
         await page.keyboard.press("Enter");
         await settle(page);
+        // Leave the field so its autocomplete dropdown closes and isn't mistaken for results.
+        await page.evaluate(() => document.activeElement?.blur?.()).catch(() => {});
       }
       return { ok: true, detail: page.url() };
     }
@@ -168,7 +176,66 @@ export async function execute(action, browser) {
       return { ok: true, detail: next.url() };
     }
 
+    case "wait_ms":
+      await browser.overlay("toast", label);
+      await page.waitForTimeout(action.ms);
+      return { ok: true, detail: label };
+
+    case "wait_load":
+      await browser.overlay("toast", label);
+      await page.waitForLoadState("load", { timeout: NAV_TIMEOUT }).catch(() => {});
+      await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+      return { ok: true, detail: "page loaded" };
+
+    case "wait_text":
+    case "wait_text_gone":
+    case "wait_url":
+    case "assert_text":
+    case "assert_no_text":
+    case "assert_url":
+      return runCheck(action, browser, page, label);
+
     default:
       return { ok: false, detail: `unknown action ${action.type}` };
+  }
+}
+
+const pageText = (page) => page.evaluate(() => document.body?.innerText || "").catch(() => "");
+const hasText = async (page, text) => (await pageText(page)).toLowerCase().includes(text.toLowerCase());
+
+/** Waits poll until true or timeout; asserts check once. Failures save a screenshot. */
+async function runCheck(action, browser, page, label) {
+  await browser.overlay("toast", label);
+  const want = String(action.text || "");
+  const test = {
+    wait_text: () => hasText(page, want),
+    assert_text: () => hasText(page, want),
+    wait_text_gone: async () => !(await hasText(page, want)),
+    assert_no_text: async () => !(await hasText(page, want)),
+    wait_url: async () => page.url().toLowerCase().includes(want.toLowerCase()),
+    assert_url: async () => page.url().toLowerCase().includes(want.toLowerCase()),
+  }[action.type];
+  const isWait = action.type.startsWith("wait_");
+  const end = Date.now() + (isWait ? action.timeoutMs || 15000 : 0);
+  do {
+    if (await test()) return { ok: true, detail: `✓ ${label}` };
+    if (isWait) await page.waitForTimeout(300);
+  } while (Date.now() < end);
+
+  const why = isWait ? `timed out after ${Math.round((action.timeoutMs || 15000) / 1000)}s: ${label}` : `check failed: ${label}`;
+  const screenshot = await saveFailureShot(page);
+  await browser.overlay("toast", `✗ ${why}`, 5000);
+  return { ok: false, detail: why, screenshot, url: page.url() };
+}
+
+async function saveFailureShot(page) {
+  try {
+    const dir = path.join(DATA_DIR, "failures");
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `${new Date().toISOString().replace(/[:.]/g, "-")}.png`);
+    await page.screenshot({ path: file, timeout: 5000 });
+    return file;
+  } catch {
+    return null;
   }
 }

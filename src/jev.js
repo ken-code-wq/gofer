@@ -2,22 +2,23 @@
  * The single Jev request per transcript update: build state + speculative question fan-out,
  * call the API, return typed answers with latency / usage / cost.
  *
- * API key stays server-side. Reads TYPESAFE_API_KEY, falling back to JEV_API_KEY.
+ * API key stays server-side. Reads SUBQ_API_KEY (SubQ Snap), else TYPESAFE_API_KEY / JEV_API_KEY.
  */
 import { TypeSafeClient, choice, noul, score, APIUserAbortError } from "@typesafe-ai/sdk";
-import { MODEL, PRICE_PER_M_INPUT_TOKENS_USD, QUESTIONS, MAX_TRANSCRIPT_CHARS, MAX_CONTEXT_ACTIONS } from "./constants.js";
+import { MODEL, PROVIDER, PRICE_PER_M_INPUT_TOKENS_USD, QUESTIONS, MAX_TRANSCRIPT_CHARS, MAX_CONTEXT_ACTIONS } from "./constants.js";
 import { extractTextCandidates, extractUrlCandidates } from "./spans.js";
 
 let _client = null;
 
 export function getClient() {
   if (_client) return _client;
-  const apiKey = process.env.TYPESAFE_API_KEY || process.env.JEV_API_KEY;
+  const apiKey = process.env.SUBQ_API_KEY || process.env.TYPESAFE_API_KEY || process.env.JEV_API_KEY;
   if (!apiKey) {
-    throw new Error("Missing API key: set TYPESAFE_API_KEY (or JEV_API_KEY). See run.sh / .env.example.");
+    throw new Error("Missing API key: set SUBQ_API_KEY or TYPESAFE_API_KEY. See run.sh / .env.example.");
   }
   _client = new TypeSafeClient({
     apiKey,
+    baseURL: PROVIDER.baseURL,
     defaultModel: MODEL,
     timeout: 8000,
     retry: { maxRetries: 1, backoffInitialMs: 150, backoffMaxMs: 600 },
@@ -27,7 +28,7 @@ export function getClient() {
 }
 
 export function hasApiKey() {
-  return Boolean(process.env.TYPESAFE_API_KEY || process.env.JEV_API_KEY);
+  return Boolean(process.env.SUBQ_API_KEY || process.env.TYPESAFE_API_KEY || process.env.JEV_API_KEY);
 }
 
 export function costUsd(usage) {
@@ -119,7 +120,6 @@ export function buildRequest({ transcript, snapshot, pendingConfirmation = null,
 
   const questions = {
     intent: choice(QUESTIONS.intent.instructions, QUESTIONS.intent.criteria),
-    target: choice(QUESTIONS.target.instructions, targetCriteria),
     site: choice(QUESTIONS.site.instructions, QUESTIONS.site.criteria),
     complete: noul(QUESTIONS.complete.instructions, QUESTIONS.complete.criteria),
     is_command: noul(QUESTIONS.is_command.instructions, QUESTIONS.is_command.criteria),
@@ -127,6 +127,8 @@ export function buildRequest({ transcript, snapshot, pendingConfirmation = null,
     scroll_amount: score(QUESTIONS.scroll_amount.instructions, QUESTIONS.scroll_amount.criteria),
     tab_direction: choice(QUESTIONS.tab_direction.instructions, QUESTIONS.tab_direction.criteria),
   };
+  // Choice needs ≥ 2 options; on a page with no elements there is nothing to target.
+  if (elements.length) questions.target = choice(QUESTIONS.target.instructions, targetCriteria);
   if (ctx?.recent_actions?.length) {
     questions.is_correction = noul(QUESTIONS.is_correction.instructions, QUESTIONS.is_correction.criteria);
   }
