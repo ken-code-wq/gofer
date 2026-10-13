@@ -106,10 +106,19 @@ Voice Browser lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd
 | `… ?` · `what's the total due?` · `summarize this` | a question about the current page |
 | `fill the form with …` | fill every matching field, without submitting |
 | `in @[Tab] …` · `go to @[Tab] and …` | switch to that tab first |
+| `screenshot` · `screenshot the whole page` | save a PNG to Downloads, instantly (no model) |
+| `copy url` · `copy title` | copy the current page's address or title to the clipboard |
 
 ### Saved commands & passwords
 
-* **Save** any command from *Recent* with ☆, then run it by typing its name (`login-dev`).
+* **Save** any command from *Recent* with the bookmark, or add one with **New** in *Saved*, then run it by
+  typing its name (`login-dev`).
+* **Values:** put `{}` (or a named slot like `{vendor}`) where a value goes. Saved `yt` =
+  `open youtube, search for {}` runs as `yt lofi beats`. Several slots take comma-separated values
+  (`bill Acme, 120`).
+* **Copy** a result or answer with the copy button on its row, or press `C` on a selected row.
+* **Notifications:** when something that took a while finishes while you're in another app, you get a
+  macOS notification; click it to reopen the bar.
 * **Passwords** tab → stored in your macOS Keychain. Write `{{dev-password}}` in a command; the real
   value is typed into the page at the last moment. Models, history and logs only ever see `{{dev-password}}`,
   and password fields are never read back from pages.

@@ -5,7 +5,7 @@
  * Starts the server itself (reading ../.env) unless one is already running on the port.
  * A global shortcut (default Cmd/Ctrl+Shift+Space, changeable in the bar) shows/focuses it; Esc hides it.
  */
-const { app, BrowserWindow, Menu, Tray, nativeImage, globalShortcut, ipcMain, shell, systemPreferences } = require("electron");
+const { app, BrowserWindow, Menu, Tray, nativeImage, globalShortcut, ipcMain, shell, systemPreferences, Notification } = require("electron");
 const browsers = require("./browsers.cjs");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
@@ -454,6 +454,13 @@ ipcMain.on("toggle-size", () => {
   win.setSize(w, h > COMPACT_HEIGHT + 20 ? COMPACT_HEIGHT : EXPANDED_HEIGHT, true);
 });
 ipcMain.on("quit", () => app.quit());
+// Finished work while the bar was in the background: a notification that reopens the bar.
+ipcMain.on("notify", (_e, { title, body } = {}) => {
+  if (!Notification.isSupported() || (win?.isVisible() && win.isFocused())) return;
+  const n = new Notification({ title: String(title || "Voice Browser").slice(0, 120), body: String(body || "").slice(0, 240) });
+  n.on("click", () => { win?.show(); win?.focus(); });
+  n.show();
+});
 ipcMain.on("open-control-page", () => shell.openExternal(`http://localhost:${PORT}`));
 ipcMain.handle("ensure-server", async () => {
   try {

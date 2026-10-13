@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Saved commands with values: `{}` or `{name}` slots, filled from what you type after the name.
+- **New** button in *Saved* to write a saved command directly.
+- Instant `screenshot` (visible or whole page, saved to Downloads) and `copy url` / `copy title`.
+- Copy button (and `C` key) for results and answers.
+- macOS notification when long work finishes while the bar is in the background.
+
+### Fixed
+- The bar no longer gives up after 30 s when the browser service starts slowly; it waits and retries.
+
 ## 0.2.0 — 2026-10-13
 
 First release of **Voice Browser** (fork of [jev-voice-browser](https://github.com/moritzkremb/jev-voice-browser)).

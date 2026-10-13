@@ -14,6 +14,7 @@ import { parseCheck } from "./checks.js";
 import { resolveSaved } from "./store.js";
 import { routeSmart, answerQuestion, fillForm, nextGoalStep, verifyGoal, resolveFollowUp, toAction, MAX_GOAL_STEPS } from "./smart.js";
 import { hasBrain } from "./brain.js";
+import { parseUtility, runUtility } from "./utility.js";
 import { parseTabMention, matchTab } from "./tabs.js";
 import { fillForm as fillFormFn } from "./smart.js";
 
@@ -81,11 +82,18 @@ export class Controller extends EventEmitter {
   handleCommand(text, opts = {}) {
     if (!opts.inner) this._enterThread(text, opts);
     const saved = resolveSaved(text);
+    if (saved?.missing) {
+      this.emit("smart-error", { kind: "saved", text, error: `"${saved.name}" needs ${saved.missing.map((m) => (m === "value" ? "a value" : m)).join(", ")}. Type it after the name, like: ${saved.name} ${saved.missing.map((m) => `<${m}>`).join(", ")}` });
+      return;
+    }
     if (saved) {
       this._log("info", `saved command "${saved.name}" → ${saved.text}`);
       this.emit("expanded", { name: saved.name, text: saved.text });
       text = saved.text;
     }
+    // "screenshot", "copy url": instant, no model.
+    const util = parseUtility(text);
+    if (util) return this._utility(util);
     // "go to @[Bills - Acme Books] and create a new bill": switch tabs first, then run the rest there.
     const mention = parseTabMention(text);
     if (mention) return this._inTab(mention, opts);
@@ -250,6 +258,18 @@ export class Controller extends EventEmitter {
     this.emit("tab-switched", { title: hit.title, url: hit.url, rest });
     if (rest) return this.handleCommand(rest, { ...opts, inner: true });
     this._note(this.thread, `switched to tab "${hit.title}"`);
+  }
+
+  async _utility(util) {
+    const thread = this.thread;
+    try {
+      const r = await runUtility(this.browser, util);
+      this._note(thread, r.detail);
+      this._log("act", r.detail);
+      this.emit("utility", { kind: util.kind, ...r });
+    } catch (err) {
+      this.emit("smart-error", { kind: "utility", text: util.kind, error: String(err.message || err) });
+    }
   }
 
   // ── smart commands (brain) ──────────────────────────────────

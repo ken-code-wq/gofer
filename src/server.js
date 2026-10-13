@@ -74,7 +74,7 @@ export async function startServer(opts = {}) {
   controller.on("chain", (p) => broadcast("chain", p));
   controller.on("gaveup", (p) => broadcast("gaveup", p));
   controller.on("expanded", (p) => broadcast("expanded", p));
-  for (const ev of ["goal", "goal-confirm", "answer", "fill", "smart-error", "tab-switched", "tab-error", "resolved", "stopped"]) controller.on(ev, (p) => broadcast(ev, p));
+  for (const ev of ["goal", "goal-confirm", "answer", "utility", "fill", "smart-error", "tab-switched", "tab-error", "resolved", "stopped"]) controller.on(ev, (p) => broadcast(ev, p));
 
   wss.on("connection", (ws) => {
     const reply = (type, payload) => ws.readyState === 1 && ws.send(JSON.stringify({ type, payload }));

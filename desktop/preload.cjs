@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld("bar", {
   setHotkey: (accel) => ipcRenderer.invoke("set-hotkey", accel),
   pauseHotkey: (paused) => ipcRenderer.send("pause-hotkey", paused),
   quit: () => ipcRenderer.send("quit"),
+  notify: (title, body) => ipcRenderer.send("notify", { title, body }),
   openControlPage: () => ipcRenderer.send("open-control-page"),
   onFocusInput: (fn) => ipcRenderer.on("focus-input", fn),
   onServerExit: (fn) => ipcRenderer.on("server-exit", (_e, info) => fn(info)),
