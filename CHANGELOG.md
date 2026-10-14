@@ -3,6 +3,11 @@
 ## Unreleased
 
 ### Added
+- **Ask mode** (Tab, or the Ask switch): whatever you type is a question, never an action.
+- Questions across tabs: "which of my tabs …", "across my tabs", or two or more `@` tabs; answers name
+  the tabs they used, without switching tabs.
+- General questions are answered from the AI's own knowledge when the page doesn't cover them, and
+  marked as such.
 - **Save a finished goal as a command**: its steps replay without the AI, typed values become changeable
   values (`new-bill Globex, 99`), risky steps still ask.
 - **Spend meter** in the footer with per-command cost, weekly total and an optional daily limit.

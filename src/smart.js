@@ -26,7 +26,7 @@ export function routeSmart(text) {
   if ((m = t.match(/^(?:ask|q)\s*:\s*(.+)$/is))) return { kind: "ask", question: m[1].trim() };
   if (
     /\?\s*$/.test(t) ||
-    /^(?:what|what's|whats|how many|how much|which|who|when|where|why|is there|are there|does|do i|tell me|summari[sz]e|explain|read me|list all|list the)\b/i.test(t)
+    /^(?:what|what's|whats|how many|how much|which|who|when|where|why|is there|are there|does|do i|tell me|summari[sz]e|explain|compare|read me|list all|list the)\b/i.test(t)
   ) {
     return { kind: "ask", question: t };
   }
@@ -67,24 +67,78 @@ async function pageContext(controller, { textChars = 6000 } = {}) {
 
 const ANSWER_SCHEMA = {
   type: "object",
-  properties: { answer: { type: "string", description: "Direct, concise answer. Plain text, no markdown." } },
-  required: ["answer"],
+  properties: {
+    answer: { type: "string", description: "Direct, concise answer. Plain text, no markdown." },
+    source: { type: "string", enum: ["page", "general", "none"], description: "page: from the page. general: the page doesn't cover it, answered from your own knowledge. none: can't answer." },
+  },
+  required: ["answer", "source"],
 };
 
 const withContext = (context) => (context ? `Conversation so far (earlier requests and what happened):\n${context}\n\n` : "");
 
+const ANSWER_RULES =
+  "Be concise and exact with numbers. If the question is about what's on screen, answer only from the page. " +
+  "If the page doesn't cover it but it's a general question (facts, advice, wording, maths), answer from your own knowledge and set source to general. " +
+  "Never present general knowledge as something the page says.";
+
 export async function answerQuestion(controller, question, context = "") {
   const ctx = await pageContext(controller, { textChars: PAGE_TEXT_CHARS });
   const r = await ask({
-    system:
-      "You answer questions about the web page the user is looking at, using only the page text and screenshot provided. " +
-      "Be concise and exact with numbers. If the page doesn't contain the answer, say so in one sentence.",
+    system: `You answer the user's questions while they browse. You can see the web page they're on (text and screenshot). ${ANSWER_RULES}`,
     text: `${withContext(context)}${ctx.description}\n\nQuestion: ${question}`,
     images: ctx.images,
     schema: ANSWER_SCHEMA,
   });
-  return { answer: String(r.data.answer || "").trim(), model: r.model, ms: r.ms };
+  return { answer: String(r.data.answer || "").trim(), source: r.data.source || "page", model: r.model, ms: r.ms };
 }
+
+// ── questions across tabs ──────────────────────────────────────
+
+const within = (promise, ms, fallback) =>
+  Promise.race([Promise.resolve(promise).catch(() => fallback), new Promise((r) => setTimeout(() => r(fallback), ms))]);
+
+const TABS_ANSWER_SCHEMA = {
+  type: "object",
+  properties: {
+    answer: { type: "string", description: "Direct, concise answer. Plain text, no markdown. Name tabs by their title when it helps." },
+    source: { type: "string", enum: ["tabs", "general", "none"] },
+    tabs: { type: "array", items: { type: "integer" }, description: "Numbers of the tabs the answer came from." },
+  },
+  required: ["answer", "source", "tabs"],
+};
+
+/**
+ * Answer from several open tabs at once, without switching to them. `titles` limits it to the
+ * mentioned tabs; otherwise every open tab (up to 15) is read. Sleeping tabs that don't answer
+ * within 2 s are listed by title only.
+ */
+export async function answerAcrossTabs(controller, question, titles = null, context = "") {
+  const norm = (x) => String(x || "").toLowerCase().replace(/\s+/g, " ").trim();
+  let pages = controller.browser.pages.filter((p) => !p.isClosed());
+  const all = await Promise.all(pages.map(async (p) => ({ p, title: await within(p.title(), 800, ""), url: p.url() })));
+  let tabs = all.filter((t) => /^https?:/.test(t.url));
+  if (titles?.length) {
+    const wanted = titles.map(norm);
+    tabs = all.filter((t) => wanted.some((w) => norm(t.title) === w || norm(t.title).includes(w) || w.includes(norm(t.title))));
+  }
+  tabs = tabs.slice(0, 15);
+  if (!tabs.length) throw new Error(titles?.length ? "None of those tabs are open" : "No web pages are open");
+  const per = Math.max(1500, Math.floor(45000 / tabs.length));
+  const texts = await Promise.all(tabs.map((t) => within(t.p.evaluate(() => document.body?.innerText || ""), 2000, null)));
+  const body = tabs
+    .map((t, i) => `### Tab ${i + 1}: ${t.title || "(untitled)"} (${t.url})\n${texts[i] == null ? "(couldn't read this tab; it may be asleep)" : texts[i].replace(/\n{3,}/g, "\n\n").slice(0, per)}`)
+    .join("\n\n");
+  const r = await ask({
+    system: `You answer the user's questions using the text of their open browser tabs. ${ANSWER_RULES} Here "page" means the tabs: set source to tabs when the answer comes from them, and list which tab numbers you used.`,
+    text: `${withContext(context)}Open tabs:\n\n${body}\n\nQuestion: ${question}`,
+    schema: TABS_ANSWER_SCHEMA,
+  });
+  const used = (r.data.tabs || []).map((n) => tabs[n - 1]?.title).filter(Boolean);
+  return { answer: String(r.data.answer || "").trim(), source: r.data.source || "tabs", tabs: [...new Set(used)], read: tabs.length, model: r.model, ms: r.ms };
+}
+
+/** "which of my tabs …", "across my tabs", "in all tabs": a question about every open tab. */
+export const isTabsQuestion = (t) => /\b(?:(?:my|open|all|these|other|the)\s+(?:open\s+)?tabs|across\s+(?:my\s+)?tabs|which\s+tab|every\s+tab|each\s+tab)\b/i.test(String(t || ""));
 
 // ── form filling ───────────────────────────────────────────────
 

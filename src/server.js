@@ -102,7 +102,7 @@ export async function startServer(opts = {}) {
           controller.handleTranscript({ text: msg.text, final: Boolean(msg.final), utteranceId: msg.utteranceId });
           break;
         case "command":
-          controller.handleCommand(msg.text, { thread: msg.thread, followUp: Boolean(msg.followUp) });
+          controller.handleCommand(msg.text, { thread: msg.thread, followUp: Boolean(msg.followUp), ask: Boolean(msg.ask) });
           break;
         case "tabs:list":
           reply("tab-list", await controller.browser.tabList({ onIcons: pushTabs }).catch(() => []));

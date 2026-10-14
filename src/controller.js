@@ -16,7 +16,7 @@ import { routeSmart, answerQuestion, fillForm, nextGoalStep, verifyGoal, resolve
 import { hasBrain } from "./brain.js";
 import { parseUtility, runUtility, copyToClipboard } from "./utility.js";
 import { parseTableRequest, domTable, toTSV, saveCSV } from "./table.js";
-import { extractTable, replayFill } from "./smart.js";
+import { extractTable, replayFill, answerAcrossTabs, isTabsQuestion } from "./smart.js";
 import { LimitError } from "./usage.js";
 import { stepFromAction, stepFromFill, finalizeRecipe, findElement, describeStep } from "./recipe.js";
 import { parseTabMention, matchTab } from "./tabs.js";
@@ -85,6 +85,18 @@ export class Controller extends EventEmitter {
    */
   handleCommand(text, opts = {}) {
     if (!opts.inner) this._enterThread(text, opts);
+    // Questions: Ask mode in the bar, or worded as a question. Two or more @tabs, or "my tabs",
+    // means read those tabs together; otherwise the current page (or general knowledge).
+    const isAsk = opts.ask || routeSmart(text)?.kind === "ask";
+    if (isAsk && !opts.inner) {
+      const mentions = [...text.matchAll(/@\[([^\]]+)\]/g)].map((m) => m[1]);
+      if (mentions.length >= 2 || isTabsQuestion(text)) return this._askTabs(text, mentions.length >= 2 ? mentions : null);
+    }
+    if (opts.ask && !parseTabMention(text)) {
+      if (!hasBrain()) return this.emit("smart-error", { kind: "ask", text, error: "Questions need an AI model in .env (BRAIN_PROVIDER + BRAIN_API_KEY, or a free GEMINI_API_KEY)" });
+      if (this.goal) this._endGoal(this.goal, "cancelled", "new command");
+      return this._ask(text.replace(/^(?:ask|q)\s*:\s*/i, ""), opts.followUp ? this._threadContext(this.thread) : "");
+    }
     const saved = resolveSaved(text);
     if (saved?.missing) {
       this.emit("smart-error", { kind: "saved", text, error: `"${saved.name}" needs ${saved.missing.map((m) => (m === "value" ? "a value" : m)).join(", ")}. Type it after the name, like: ${saved.name} ${saved.missing.map((m) => `<${m}>`).join(", ")}` });
@@ -305,6 +317,21 @@ export class Controller extends EventEmitter {
   }
 
   // ── smart commands (brain) ──────────────────────────────────
+
+  async _askTabs(question, titles) {
+    if (!hasBrain()) return this.emit("smart-error", { kind: "ask", text: question, error: "Questions need an AI model in .env (BRAIN_PROVIDER + BRAIN_API_KEY, or a free GEMINI_API_KEY)" });
+    const thread = this.thread;
+    const clean = question.replace(/@\[([^\]]+)\]/g, "“$1”");
+    this._log("info", `question across ${titles ? titles.length : "all"} tabs: ${clean}`);
+    try {
+      const r = await answerAcrossTabs(this, clean, titles, this._threadContext(thread));
+      this._note(thread, `answer (from ${r.tabs.join(", ") || "tabs"}): ${r.answer}`);
+      this._log("act", `answer (${r.model}, ${r.ms}ms, ${r.read} tabs): ${r.answer}`);
+      this.emit("answer", { question, ...r, scope: "tabs" });
+    } catch (err) {
+      this.emit("smart-error", { kind: "ask", text: question, error: String(err.message || err) });
+    }
+  }
 
   async _ask(question, context = "") {
     this._log("info", `question: ${question}`);

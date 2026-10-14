@@ -103,7 +103,8 @@ Voice Browser lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd
 | `open youtube, theo t3.gg's channel` | a chain; a step with no verb means *find it* (search, then click) |
 | `wait until "Dashboard" appears` · `check that the url contains /bills` | code-only waits and checks |
 | `goal: …` · `create a new bill with dummy data` · `help me …` | a goal (multi-step, model-planned) |
-| `… ?` · `what's the total due?` · `summarize this` | a question about the current page |
+| `… ?` · `what's the total due?` · `summarize this` | a question about the current page (or general knowledge, marked as such) |
+| `which of my tabs has the cheapest flight?` · `@[Tab A] @[Tab B] compare the prices` | a question across all open tabs, or the tabs you mention |
 | `fill the form with …` | fill every matching field, without submitting |
 | `in @[Tab] …` · `go to @[Tab] and …` | switch to that tab first |
 | `screenshot` · `screenshot the whole page` | save a PNG to Downloads, instantly (no model) |
@@ -118,6 +119,9 @@ Voice Browser lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd
 * **Values:** put `{}` (or a named slot like `{vendor}`) where a value goes. Saved `yt` =
   `open youtube, search for {}` runs as `yt lofi beats`. Several slots take comma-separated values
   (`bill Acme, 120`).
+* **Ask mode:** press `Tab` in the prompt (or click the chevron) to switch to **Ask**. Everything you type is
+  then a question, never an action: about the page, about several tabs at once, or anything else. Answers
+  say where they came from (which tabs, or the AI's general knowledge).
 * **Save a goal:** when a goal finishes, **Save as command** keeps the exact steps it took. Running it again
   uses no AI (fast, nearly free); risky steps still ask. What it typed becomes values you can change:
   `new-bill Globex, 99` or `new-bill amount=99`. If the page changes so a step can't be found, run the goal

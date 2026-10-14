@@ -314,3 +314,24 @@ test("saved goals replay their recorded steps without a model, asking before ris
   assert.equal(events.at(-1).status, "done");
   assert.equal(events.at(-1).recipe, undefined, "a replay doesn't offer to save itself again");
 });
+
+test("Ask mode: anything typed is a question, never a browser action", async () => {
+  const { isTabsQuestion } = await import("../../src/smart.js");
+  assert.ok(isTabsQuestion("which of my tabs has the cheapest flight"));
+  assert.ok(isTabsQuestion("compare the prices across my tabs"));
+  assert.ok(!isTabsQuestion("open a new tab"));
+  const saved = { gemini: process.env.GEMINI_API_KEY, brain: process.env.BRAIN_PROVIDER };
+  delete process.env.GEMINI_API_KEY;
+  delete process.env.BRAIN_PROVIDER;
+  const decide = mockDecide();
+  const c = new Controller({ browser: fakeBrowser(), decideFn: decide.fn ?? decide, executeFn: async () => ({ ok: true }) });
+  const errors = [];
+  c.on("smart-error", (e) => errors.push(e));
+  c.handleCommand("click the delete button", { ask: true });
+  c.handleCommand("which of my tabs is cheapest", {});
+  await sleep(DEBOUNCE_MS + 100);
+  assert.deepEqual(errors.map((e) => e.kind), ["ask", "ask"], "both went to the question path (no AI configured here)");
+  assert.equal((decide.calls || []).length, 0, "SubQ was never asked to act");
+  if (saved.gemini) process.env.GEMINI_API_KEY = saved.gemini;
+  if (saved.brain) process.env.BRAIN_PROVIDER = saved.brain;
+});
