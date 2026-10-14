@@ -3,6 +3,11 @@
 ## Unreleased
 
 ### Added
+- **Save a finished goal as a command**: its steps replay without the AI, typed values become changeable
+  values (`new-bill Globex, 99`), risky steps still ask.
+- **Spend meter** in the footer with per-command cost, weekly total and an optional daily limit.
+- **Table copy**: `copy the table` (no AI) and `copy all … as a table` (AI), to the clipboard as
+  spreadsheet-ready text, or CSV in Downloads with `export … as csv`.
 - Saved commands with values: `{}` or `{name}` slots, filled from what you type after the name.
 - **New** button in *Saved* to write a saved command directly.
 - Instant `screenshot` (visible or whole page, saved to Downloads) and `copy url` / `copy title`.

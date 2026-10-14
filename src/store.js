@@ -6,6 +6,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { bindSlots } from "./recipe.js";
 
 export const DATA_DIR = process.env.VB_DATA_DIR || path.join(os.homedir(), ".voice-browser");
 const FILE = () => path.join(DATA_DIR, "commands.json");
@@ -34,13 +35,13 @@ function write(list) {
   fs.renameSync(tmp, FILE());
 }
 
-export function saveCommand(name, text) {
+export function saveCommand(name, text, recipe = null) {
   const n = normalizeName(name);
   const t = String(text || "").trim();
   if (!n) throw new Error("Give the command a name (letters, numbers, - or _)");
   if (!t) throw new Error("Nothing to save");
   const list = listCommands().filter((c) => c.name !== n);
-  list.push({ name: n, text: t, savedAt: Date.now() });
+  list.push(Array.isArray(recipe) && recipe.length ? { name: n, text: t, recipe, savedAt: Date.now() } : { name: n, text: t, savedAt: Date.now() });
   list.sort((a, b) => a.name.localeCompare(b.name));
   write(list);
   return list;
@@ -68,8 +69,9 @@ export function resolveSaved(text) {
   if (!m) return null;
   const hit = listCommands().find((c) => c.name === normalizeName(m[1]));
   if (!hit) return null;
-  const slots = slotsOf(hit.text);
   const arg = (m[2] || "").trim();
+  if (hit.recipe) return { ...hit, ...bindSlots(hit.recipe, arg) };
+  const slots = slotsOf(hit.text);
   if (!slots.length) return arg ? null : hit;
   const values = slots.length === 1 ? [arg] : arg.split(/\s*,\s*/);
   if (values.length < slots.length || values.some((v) => !v)) return { ...hit, missing: slots.slice(values.filter(Boolean).length) };

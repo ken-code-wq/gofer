@@ -3,6 +3,7 @@
  *
  *   node src/server.js [--port 8787] [--host 127.0.0.1] [--headless] [--cdp ws://127.0.0.1:9222/devtools/browser/...] [--start-url https://...]
  */
+import { usageEvents, summary as usageSummary, setLimit } from "./usage.js";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -78,15 +79,17 @@ export async function startServer(opts = {}) {
     tabTimer = setTimeout(async () => broadcast("tab-list", await browser.tabList({ onIcons: pushTabs }).catch(() => [])), 300);
   };
   controller.on("tabs", pushTabs);
+  usageEvents.on("change", (u) => broadcast("usage", u));
   controller.on("chain", (p) => broadcast("chain", p));
   controller.on("gaveup", (p) => broadcast("gaveup", p));
   controller.on("expanded", (p) => broadcast("expanded", p));
-  for (const ev of ["goal", "goal-confirm", "answer", "utility", "fill", "smart-error", "tab-switched", "tab-error", "resolved", "stopped"]) controller.on(ev, (p) => broadcast(ev, p));
+  for (const ev of ["goal", "goal-confirm", "answer", "utility", "table", "fill", "smart-error", "tab-switched", "tab-error", "resolved", "stopped"]) controller.on(ev, (p) => broadcast(ev, p));
 
   wss.on("connection", (ws) => {
     const reply = (type, payload) => ws.readyState === 1 && ws.send(JSON.stringify({ type, payload }));
     ws.send(JSON.stringify({ type: "hello", payload: controller.uiState() }));
     reply("commands", listCommands());
+    reply("usage", usageSummary());
     ws.on("message", async (raw) => {
       let msg;
       try {
@@ -119,7 +122,7 @@ export async function startServer(opts = {}) {
         // Saved commands: shared by every connected window.
         case "commands:save":
           try {
-            broadcast("commands", saveCommand(msg.name, msg.text));
+            broadcast("commands", saveCommand(msg.name, msg.text, msg.recipe));
           } catch (err) {
             reply("store-error", String(err.message || err));
           }
@@ -142,6 +145,9 @@ export async function startServer(opts = {}) {
         case "secrets:delete":
           await deleteSecret(msg.name);
           broadcast("secrets", await listSecrets());
+          break;
+        case "usage:limit":
+          reply("usage", setLimit(msg.usd));
           break;
         case "state":
           ws.send(JSON.stringify({ type: "hello", payload: controller.uiState() }));

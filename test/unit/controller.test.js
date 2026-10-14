@@ -282,3 +282,35 @@ test("threads: results are recorded per thread; follow-ups use the thread and go
   if (saved) process.env.GEMINI_API_KEY = saved;
   await c.close();
 });
+
+test("saved goals replay their recorded steps without a model, asking before risky ones", async () => {
+  const { stepFromAction, finalizeRecipe } = await import("../../src/recipe.js");
+  const recorded = { elements: [{ id: "e1", role: "button", text: "New bill" }, { id: "e2", role: "textbox", text: "Vendor" }, { id: "e3", role: "button", text: "Delete bill" }] };
+  const recipe = finalizeRecipe([
+    stepFromAction({ type: "click_element", targetId: "e1" }, recorded),
+    stepFromAction({ type: "type_into_field", targetId: "e2", text: "Acme" }, recorded),
+    stepFromAction({ type: "click_element", targetId: "e3" }, recorded),
+  ]);
+  const browser = fakeBrowser();
+  // the live page has different ids
+  browser.snapshot = async () => ({ url: browser.url, title: "Bills", site: "x", elements: [{ id: "z7", role: "textbox", text: "Vendor" }, { id: "z8", role: "button", text: "New bill" }, { id: "z9", role: "button", text: "Delete bill" }], tabs: [] });
+  const done = [];
+  const c = new Controller({
+    browser,
+    decideFn: async () => { throw new Error("no model calls in a replay"); },
+    executeFn: async (a) => { done.push(a); return { ok: true, detail: "ok" }; },
+  });
+  const events = [];
+  c.on("goal", (g) => events.push(g));
+  let confirm = null;
+  c.on("goal-confirm", (p) => (confirm = p));
+  c._replay({ name: "new-bill", text: "create a bill", recipe, values: { vendor: "Globex" } });
+  for (let i = 0; i < 100 && !confirm; i++) await sleep(20);
+  assert.deepEqual(done.map((a) => [a.type, a.targetId, a.text]), [["click_element", "z8", undefined], ["type_into_field", "z7", "Globex"]]);
+  assert.match(confirm.description, /Delete bill/);
+  await c.goalAnswer(true);
+  for (let i = 0; i < 100 && events.at(-1)?.status !== "done"; i++) await sleep(20);
+  assert.equal(done.at(-1).targetId, "z9");
+  assert.equal(events.at(-1).status, "done");
+  assert.equal(events.at(-1).recipe, undefined, "a replay doesn't offer to save itself again");
+});

@@ -14,7 +14,11 @@ import { parseCheck } from "./checks.js";
 import { resolveSaved } from "./store.js";
 import { routeSmart, answerQuestion, fillForm, nextGoalStep, verifyGoal, resolveFollowUp, toAction, MAX_GOAL_STEPS } from "./smart.js";
 import { hasBrain } from "./brain.js";
-import { parseUtility, runUtility } from "./utility.js";
+import { parseUtility, runUtility, copyToClipboard } from "./utility.js";
+import { parseTableRequest, domTable, toTSV, saveCSV } from "./table.js";
+import { extractTable, replayFill } from "./smart.js";
+import { LimitError } from "./usage.js";
+import { stepFromAction, stepFromFill, finalizeRecipe, findElement, describeStep } from "./recipe.js";
 import { parseTabMention, matchTab } from "./tabs.js";
 import { fillForm as fillFormFn } from "./smart.js";
 
@@ -86,6 +90,7 @@ export class Controller extends EventEmitter {
       this.emit("smart-error", { kind: "saved", text, error: `"${saved.name}" needs ${saved.missing.map((m) => (m === "value" ? "a value" : m)).join(", ")}. Type it after the name, like: ${saved.name} ${saved.missing.map((m) => `<${m}>`).join(", ")}` });
       return;
     }
+    if (saved?.recipe) return this._replay(saved);
     if (saved) {
       this._log("info", `saved command "${saved.name}" → ${saved.text}`);
       this.emit("expanded", { name: saved.name, text: saved.text });
@@ -94,6 +99,9 @@ export class Controller extends EventEmitter {
     // "screenshot", "copy url": instant, no model.
     const util = parseUtility(text);
     if (util) return this._utility(util);
+    // "copy the table", "copy all invoice numbers as a table"
+    const tableReq = parseTableRequest(text);
+    if (tableReq) return this._table(tableReq);
     // "go to @[Bills - Acme Books] and create a new bill": switch tabs first, then run the rest there.
     const mention = parseTabMention(text);
     if (mention) return this._inTab(mention, opts);
@@ -272,6 +280,30 @@ export class Controller extends EventEmitter {
     }
   }
 
+  async _table(req) {
+    const thread = this.thread;
+    try {
+      const page = await this.browser.ensurePage();
+      let table = req.plain ? await domTable(page) : null;
+      let via = "page";
+      if (!table) {
+        if (!hasBrain()) throw new Error(req.plain ? "There's no table on this page" : "Copying specific items needs an AI model in .env");
+        table = await extractTable(this, req.what, this._threadContext?.(thread) || "");
+        via = table.model;
+      }
+      if (!table.rows.length) throw new Error(table.note || `Couldn't find ${req.what} on this page`);
+      const copied = await copyToClipboard(toTSV(table));
+      const file = req.file ? saveCSV(table, (await page.title().catch(() => "")) || "table") : null;
+      const n = table.rows.length;
+      const detail = `${copied ? "Copied" : "Found"} ${n} row${n === 1 ? "" : "s"} × ${table.columns.length} column${table.columns.length === 1 ? "" : "s"}${file ? ", saved as CSV" : ""}`;
+      this._note(thread, `${detail}: ${table.columns.join(", ")}`);
+      this._log("act", `${detail} (${via})`);
+      this.emit("table", { what: req.what, columns: table.columns, rows: table.rows.slice(0, 50), total: n, copied, path: file, via, detail });
+    } catch (err) {
+      this.emit("smart-error", { kind: "table", text: req.what, error: String(err.message || err) });
+    }
+  }
+
   // ── smart commands (brain) ──────────────────────────────────
 
   async _ask(question, context = "") {
@@ -307,7 +339,7 @@ export class Controller extends EventEmitter {
 
   _startGoal(goal, context = "") {
     if (this.chain) this._endChain("cancelled", "new goal");
-    const g = { goal, context, thread: this.thread, steps: [], done: [], awaiting: null, cancelled: false, autoApprove: false, invalid: 0, at: Date.now() };
+    const g = { goal, context, thread: this.thread, steps: [], done: [], recipe: [], awaiting: null, cancelled: false, autoApprove: false, invalid: 0, at: Date.now() };
     this.goal = g;
     this._log("info", `goal: ${goal}`);
     this._emitGoal(g, "running");
@@ -315,7 +347,10 @@ export class Controller extends EventEmitter {
   }
 
   _emitGoal(g, status, summary = "") {
-    this.emit("goal", { status, goal: g.goal, steps: g.steps.map((s) => ({ ...s })), summary });
+    // a finished goal hands back the steps it took, so the bar can offer to save them as a command
+    const recipe = status === "done" && !g.replay && g.recipe?.length ? finalizeRecipe(g.recipe) : undefined;
+    const steps = g.steps.map(({ record, ...s }) => ({ ...s }));
+    this.emit("goal", { status, goal: g.goal, steps, summary, recipe, replay: g.replay ? g.replay.name : undefined });
   }
 
   _endGoal(g, status, summary = "") {
@@ -329,6 +364,86 @@ export class Controller extends EventEmitter {
     const did = g.steps.filter((s) => s.status === "ok").map((s) => (s.detail && !/^localhost|^[\w.-]+\.\w+\//.test(s.detail) ? `${s.text} [${s.detail}]` : s.text));
     this._note(g.thread, `goal ${status}: ${summary}${did.length ? ` (steps: ${did.join("; ")})` : ""}`);
     this._emitGoal(g, status, summary);
+  }
+
+  // ── saved goals: replay recorded steps, no model ──
+
+  _replay(saved) {
+    if (this.chain) this._endChain("cancelled", "new command");
+    if (this.goal) this._endGoal(this.goal, "cancelled", "new command");
+    const g = { goal: saved.text, replay: saved, values: saved.values || {}, i: 0, context: "", thread: this.thread, steps: [], done: [], awaiting: null, cancelled: false, autoApprove: false, at: Date.now() };
+    this.goal = g;
+    this._log("info", `replaying "${saved.name}" (${saved.recipe.length} steps, no model)`);
+    this._emitGoal(g, "running");
+    this._replayLoop(g);
+  }
+
+  /** The live element matching a recorded one; waits up to ~6 s for the page to show it. */
+  async _findLive(match, g) {
+    for (let i = 0; i < 12 && !g.cancelled; i++) {
+      await this.refreshSnapshot().catch(() => {});
+      const el = findElement(this.snapshot?.elements || [], match);
+      if (el) return el;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    return null;
+  }
+
+  async _replayLoop(g) {
+    const steps = g.replay.recipe;
+    const val = (x) => (x.slot ? g.values[x.slot] ?? x.value : x.value);
+    while (!g.cancelled && g.i < steps.length) {
+      const s = steps[g.i++];
+      const entry = { text: describeStep(s, g.values), status: "running" };
+      g.steps.push(entry);
+      this._emitGoal(g, "running");
+      if (s.kind === "fill") {
+        const r = await replayFill(this, s.fields.map((f) => ({ label: f.label, value: val(f) }))).catch((err) => ({ filled: [], missing: [], error: err }));
+        if (g.cancelled) return;
+        const bad = r.filled.filter((f) => f.error).map((f) => f.label);
+        if (r.error || r.missing.length || bad.length) {
+          entry.status = "fail";
+          return this._endGoal(g, "failed", `Step ${g.i}: couldn't fill ${[...r.missing, ...bad].join(", ") || "the form"}. The page may have changed; run the goal again and save it again.`);
+        }
+        entry.status = "ok";
+        entry.detail = r.filled.map((f) => `${f.label}: ${f.value}`).join(" · ").slice(0, 160);
+        g.done.push({ description: entry.text, outcome: "filled" });
+        await this.refreshSnapshot().catch(() => {});
+        continue;
+      }
+      let action;
+      if (s.match) {
+        const el = await this._findLive(s.match, g);
+        if (g.cancelled) return;
+        if (!el) {
+          entry.status = "fail";
+          return this._endGoal(g, "failed", `Step ${g.i}: couldn't find "${s.label}" on the page. It may have changed; run the goal again and save it again.`);
+        }
+        const label = `${el.role} "${el.text || el.placeholder || ""}"`;
+        action =
+          s.kind === "click" ? { type: "click_element", targetId: el.id, label }
+          : s.kind === "select" ? { type: "select_option", targetId: el.id, text: val(s), label }
+          : { type: "type_into_field", targetId: el.id, text: val(s), submit: Boolean(s.submit), label };
+      } else {
+        action =
+          s.kind === "navigate" ? { type: "navigate_url", url: s.url, label: s.url }
+          : s.kind === "enter" ? { type: "press_enter", label: "press enter" }
+          : s.kind === "back" ? { type: "go_back", label: "go back" }
+          : s.kind === "wait" ? { type: "wait_ms", ms: s.ms || 1500, label: "wait" }
+          : { type: s.kind, amount: "page", label: s.label };
+      }
+      if (s.risky && !g.autoApprove) {
+        g.awaiting = action;
+        entry.status = "awaiting";
+        this._emitGoal(g, "awaiting");
+        this.emit("goal-confirm", { goal: g.goal, description: entry.text });
+        return; // goalAnswer() resumes
+      }
+      await this._runGoalStep(g, entry, action);
+      if (g.cancelled) return;
+      if (entry.status === "fail") return this._endGoal(g, "failed", `Step ${g.i} didn't work: ${entry.detail}`);
+    }
+    if (!g.cancelled) this._endGoal(g, "done", `Ran ${steps.length} saved step${steps.length === 1 ? "" : "s"} without the AI.`);
   }
 
   async _goalLoop(g, note = "") {
@@ -368,6 +483,7 @@ export class Controller extends EventEmitter {
         continue;
       }
       const entry = { text: step.description || action?.label || "fill the form", status: "running" };
+      if (action) entry.record = stepFromAction(action, r.snap, step.risky);
       if (fill !== undefined) {
         // the whole visible form in one step
         g.steps.push(entry);
@@ -378,6 +494,8 @@ export class Controller extends EventEmitter {
           const ok = r2.filled.filter((f) => !f.error);
           entry.status = ok.length ? "ok" : "fail";
           g.unsavedForm = ok.length > 0;
+          const rec = stepFromFill(r2.filled);
+          if (rec) g.recipe.push(rec);
           entry.detail = ok.map((f) => `${f.label}: ${f.value}`).join(" · ").slice(0, 160);
           g.done.push({ description: entry.text, outcome: `filled ${ok.length} field(s): ${entry.detail}${r2.missing.length ? `; no field for ${r2.missing.join(", ")}` : ""}. NOT submitted yet` });
         } catch (err) {
@@ -409,6 +527,7 @@ export class Controller extends EventEmitter {
     entry.status = ok ? "ok" : "fail";
     entry.detail = ok ? url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 80) : res.detail;
     g.done.push({ description: entry.text, outcome: ok ? `done (now at ${url.slice(0, 120)})` : `failed: ${res.detail}` });
+    if (ok && entry.record && g.recipe && !g.replay) g.recipe.push(entry.record);
     this._emitGoal(g, "running");
     // let the page settle before the next look
     await this.browser.active?.waitForLoadState("load", { timeout: 4000 }).catch(() => {});
@@ -428,7 +547,8 @@ export class Controller extends EventEmitter {
     entry.status = "running";
     this._emitGoal(g, "running");
     await this._runGoalStep(g, entry, action);
-    if (!g.cancelled) this._goalLoop(g);
+    if (g.replay && entry.status === "fail") return this._endGoal(g, "failed", `Step ${g.i} didn't work: ${entry.detail}`);
+    if (!g.cancelled) g.replay ? this._replayLoop(g) : this._goalLoop(g);
   }
 
   /** The current utterance is a step of the running chain. */
@@ -555,7 +675,9 @@ export class Controller extends EventEmitter {
       }
       this._log("error", `Jev error: ${err.message || err}`);
       this.emit("error", err);
-      if (this._isChainStep(utt)) this._endChain("failed", "model request failed");
+      const limit = err instanceof LimitError;
+      if (this._isChainStep(utt)) this._endChain("failed", limit ? err.message : "model request failed");
+      else if (limit) this.emit("smart-error", { kind: "limit", text: textAtRequest, error: err.message });
       return;
     }
     this.inflight = this.inflight.filter((r) => r !== req);

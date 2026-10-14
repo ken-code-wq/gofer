@@ -14,6 +14,8 @@
  * Every answer is a JSON object matching the caller's schema.
  */
 
+import { brainCost, record, checkLimit } from "./usage.js";
+
 const TIMEOUT_MS = Number(process.env.BRAIN_TIMEOUT_MS) || 12000; // per attempt; a healthy call takes ~1-3 s
 const COOLDOWN_MS = 5 * 60 * 1000;
 
@@ -132,7 +134,15 @@ async function callOpenAI(c, { system, text, images, schema, signal }, retryNote
  * @param {{system: string, text: string, images?: Buffer[], schema: object, signal?: AbortSignal}} req
  * @returns {Promise<{data: any, model: string, ms: number, usage: object}>}
  */
-export async function ask({ system, text, images = [], schema, signal }) {
+export async function ask(req) {
+  checkLimit();
+  const r = await askAny(req);
+  const cost = brainCost(r.model, r.usage);
+  record({ source: "brain", model: r.model, ...cost });
+  return { ...r, costUsd: cost.usd };
+}
+
+async function askAny({ system, text, images = [], schema, signal }) {
   const list = modelsToTry();
   if (!list.length) throw new BrainError("No AI model is set up. Add BRAIN_PROVIDER and BRAIN_API_KEY, or GEMINI_API_KEY, to .env");
   let lastErr = null;

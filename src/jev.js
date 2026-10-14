@@ -7,6 +7,7 @@
 import { TypeSafeClient, choice, noul, score, APIUserAbortError } from "@typesafe-ai/sdk";
 import { MODEL, PROVIDER, PRICE_PER_M_INPUT_TOKENS_USD, QUESTIONS, MAX_TRANSCRIPT_CHARS, MAX_CONTEXT_ACTIONS } from "./constants.js";
 import { extractTextCandidates, extractUrlCandidates } from "./spans.js";
+import { record, checkLimit } from "./usage.js";
 
 let _client = null;
 
@@ -152,6 +153,7 @@ export function buildRequest({ transcript, snapshot, pendingConfirmation = null,
  * or rejects with APIUserAbortError when `signal` aborts (newer transcript arrived).
  */
 export async function decide(input, { signal } = {}) {
+  checkLimit();
   const client = getClient();
   const { state, questions, candidates } = buildRequest(input);
   const t0 = performance.now();
@@ -159,6 +161,7 @@ export async function decide(input, { signal } = {}) {
     .systemOne({ state, questions, model: MODEL }, { signal })
     .withResponse();
   const latencyMs = Math.round(performance.now() - t0);
+  record({ source: "snap", model: data.model || MODEL, usd: costUsd(data.usage), inTok: data.usage?.input_tokens ?? 0 });
   return {
     answers: data.answers,
     latencyMs,

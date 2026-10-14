@@ -108,6 +108,8 @@ Voice Browser lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd
 | `in @[Tab] …` · `go to @[Tab] and …` | switch to that tab first |
 | `screenshot` · `screenshot the whole page` | save a PNG to Downloads, instantly (no model) |
 | `copy url` · `copy title` | copy the current page's address or title to the clipboard |
+| `copy the table` · `export the table as csv` | the page's own table to the clipboard (and a CSV in Downloads), no model |
+| `copy all invoice numbers as a table` · `copy all vendors with open bills` | the AI pulls those items out of the page as a table |
 
 ### Saved commands & passwords
 
@@ -116,6 +118,14 @@ Voice Browser lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd
 * **Values:** put `{}` (or a named slot like `{vendor}`) where a value goes. Saved `yt` =
   `open youtube, search for {}` runs as `yt lofi beats`. Several slots take comma-separated values
   (`bill Acme, 120`).
+* **Save a goal:** when a goal finishes, **Save as command** keeps the exact steps it took. Running it again
+  uses no AI (fast, nearly free); risky steps still ask. What it typed becomes values you can change:
+  `new-bill Globex, 99` or `new-bill amount=99`. If the page changes so a step can't be found, run the goal
+  again and save it again.
+* **Spend meter:** the footer shows today's estimated AI spend (SubQ Snap + the brain). Click it to see the
+  week and set a daily limit; once reached, AI calls stop until tomorrow. Brain prices are list-price
+  estimates (free tiers cost nothing); set `BRAIN_PRICE_IN` / `BRAIN_PRICE_OUT` (USD per million tokens)
+  for a model that isn't priced.
 * **Copy** a result or answer with the copy button on its row, or press `C` on a selected row.
 * **Notifications:** when something that took a while finishes while you're in another app, you get a
   macOS notification; click it to reopen the bar.

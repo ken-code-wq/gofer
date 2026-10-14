@@ -291,6 +291,16 @@
   /* ── footer ─────────────────────────────────────────── */
   .foot { display: flex; align-items: center; gap: 14px; height: 32px; padding: 0 12px 0 16px; border-top: 1px solid var(--hair); flex: none; font-size: 11px; color: var(--text-3); }
   .foot .hint { display: inline-flex; align-items: center; gap: 6px; }
+  .spend { -webkit-app-region: no-drag; display: inline-flex; align-items: center; height: 22px; padding: 0 6px; border-radius: 6px; font: inherit; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-3); background: none; border: 0; cursor: default; }
+  .spend:hover { background: var(--hover); color: var(--text-2); }
+  .spend.near { color: var(--warn); }
+  .row .cost { margin-left: 8px; font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tbl { margin-top: 8px; max-width: 100%; overflow-x: auto; border: 1px solid var(--hair); border-radius: 8px; }
+  .tbl table { border-collapse: collapse; font-size: 12px; width: 100%; user-select: text; }
+  .tbl th, .tbl td { padding: 4px 8px; text-align: left; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid var(--hair); }
+  .tbl th { color: var(--text-2); font-weight: 600; }
+  .tbl tr:last-child td { border-bottom: 0; }
+  .tbl .more { padding: 4px 8px; font-size: 11px; color: var(--text-3); }
   .hotkey { -webkit-app-region: no-drag; display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 6px; border-radius: 6px; font-size: 11px; color: var(--text-3); }
   .hotkey:hover { background: var(--hover); color: var(--text-2); }
   .hotkey.recording kbd { color: var(--on-accent); background: var(--accent-fill); box-shadow: none; }
@@ -356,6 +366,7 @@
     <span class="hint extra" id="esc-hint"><kbd>esc</kbd>hide</span>
     <span class="hint extra" title="macOS Dictation: speak instead of typing"><kbd>fn fn</kbd>dictate</span>
     <span class="spacer"></span>
+    <button class="spend" id="spend" type="button" hidden title="AI spending today. Click to set a daily limit."></button>
     <button class="hotkey" id="hotkey" title="Change the shortcut"><kbd id="hotkey-keys">⌘⇧Space</kbd></button>
   </footer>
 
@@ -388,6 +399,43 @@
   let secrets = [];
   let addingSecret = false;
   let addingSaved = false;
+  let usage = null;
+
+  // ── spend meter ─────────────────────────────────────────
+  const money = (usd) => (usd < 0.01 ? `${(usd * 100).toFixed(usd < 0.001 ? 3 : 2)}¢` : `$${usd.toFixed(usd < 0.1 ? 3 : 2)}`);
+  function renderSpend() {
+    const b = $("spend");
+    if (!usage) return;
+    b.hidden = false;
+    const lim = usage.limitUsd;
+    b.textContent = `${money(usage.todayUsd)} today${lim ? ` of $${lim.toFixed(2)}` : ""}`;
+    b.classList.toggle("near", Boolean(lim && usage.todayUsd >= lim * 0.8));
+  }
+  function openSpend() {
+    if (!usage) return;
+    const s = $("status");
+    const models = Object.entries(usage.byModel || {}).sort((a, b) => b[1].usd - a[1].usd).slice(0, 3).map(([m, v]) => `${m} ${money(v.usd)} (${v.calls})`).join(", ");
+    s.className = "status on info";
+    s.innerHTML = `<form class="form" id="limit-form" style="flex:1;padding:0">
+      <span class="msg" style="flex:1 1 auto;min-width:0;white-space:normal;line-height:1.35" title="${esc(models)}">Today ${money(usage.todayUsd)} in ${usage.calls} AI call${usage.calls === 1 ? "" : "s"}, this week ${money(usage.weekUsd)}.<br><span style="color:var(--text-3)">Estimated. Daily limit in dollars:</span></span>
+      <input class="field" id="limit-usd" inputmode="decimal" placeholder="No limit" aria-label="Daily limit in dollars" value="${usage.limitUsd ?? ""}" style="flex:0 0 84px" />
+      <button class="btn primary" type="submit">Set limit</button></form>`;
+    clearTimeout(statusTimer);
+    $("limit-usd").select();
+    $("limit-form").onsubmit = (e) => {
+      e.preventDefault();
+      const v = $("limit-usd").value.trim().replace(/^\$/, "");
+      send({ type: "usage:limit", usd: v ? Number(v) : null });
+      setStatus(v && Number(v) > 0 ? `AI calls stop for the day once they reach $${Number(v).toFixed(2)}.` : "No daily limit.", "ok");
+      caretToEnd();
+    };
+  }
+  function tableHTML(t) {
+    const more = t.total > t.rows.length ? `<div class="more">and ${t.total - t.rows.length} more row${t.total - t.rows.length === 1 ? "" : "s"}</div>` : "";
+    return `<div class="tbl"><table><thead><tr>${t.columns.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${t.rows.map((r) => `<tr>${r.map((c) => `<td title="${esc(c)}">${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>${more}</div>`;
+  }
+  // slots of a saved command: "{}" in its text, or the typed values of a recorded goal
+  const recipeSlots = (c) => (c.recipe || []).flatMap((st) => [st.slot, ...(st.fields || []).map((f) => f.slot)]).filter(Boolean);
   let recall = -1;
   let prompt = null; // keyboard shortcuts for the visible prompt: { primary, cancel, numbered: [fn] }
 
@@ -542,6 +590,7 @@
   function bodyHTML(e) {
     return `${e.resolved ? `<div class="understood"><b>Understood as</b>${esc(e.resolved)}</div>` : ""}
       ${e.detail ? `<p class="result">${esc(e.detail)}</p>` : ""}
+      ${e.table ? tableHTML(e.table) : ""}
       ${e.steps?.length && !(e.status === "running" || e.ask || e.showSteps) ? `<button class="steps-toggle" type="button" data-steps aria-expanded="false">${ICON.chevron}${e.steps.length} step${e.steps.length === 1 ? "" : "s"}</button>` : ""}
       ${e.steps?.length && (e.status === "running" || e.ask || e.showSteps) ? `${e.showSteps && e.status !== "running" && !e.ask ? `<button class="steps-toggle" type="button" data-steps aria-expanded="true">${ICON.chevron}${e.steps.length} step${e.steps.length === 1 ? "" : "s"}</button>` : ""}<ol class="steps">${e.steps.map((s) => `<li class="step ${s.status}">${mark(s.status)}<span class="t">${esc(s.text)}${s.detail ? `<small>${esc(s.detail)}</small>` : ""}</span></li>`).join("")}</ol>` : ""}
       ${e.ask ? `<div class="ask"><p>${esc(e.ask.text)}</p><div class="acts" data-ask></div></div>` : ""}`;
@@ -553,7 +602,7 @@
         aria-expanded="${open}" title="${open ? "Collapse" : "Expand"} (Space). Enter puts it in the prompt.">
       ${mark(h.status)}
       <div class="main">
-        <div class="line"><span class="cmd">${richText(h.text, h.icons)}</span>${summary ? `<span class="sum">${esc(summary)}</span>` : ""}<span class="time">${ago(h.at)}</span></div>
+        <div class="line"><span class="cmd">${richText(h.text, h.icons)}</span>${summary ? `<span class="sum">${esc(summary)}</span>` : ""}${h.cost >= 0.00005 ? `<span class="cost" title="AI cost of this command">${money(h.cost)}</span>` : ""}<span class="time">${ago(h.at)}</span></div>
         ${open ? bodyHTML(h) : ""}
         ${open ? (h.turns || []).map((t) => `
           <div class="turn">${mark(t.status)}<div class="main">
@@ -593,7 +642,7 @@
       ${rows.map((c) => `
       <div class="row" role="listitem" tabindex="0" data-saved="${esc(c.name)}" title="Enter puts it in the prompt">
         <span class="mark">${ICON.bookmark}</span>
-        <div class="main"><div class="line"><span class="cmd name">${esc(c.name)}</span><span class="time">${hasSlots(c.text) ? `Type “${esc(c.name)} …” to run` : `Type “${esc(c.name)}” to run`}</span></div><div class="sub">${esc(c.text)}</div></div>
+        <div class="main"><div class="line"><span class="cmd name">${esc(c.name)}</span><span class="time">${c.recipe ? `${c.recipe.length} step${c.recipe.length === 1 ? "" : "s"}, no AI` : hasSlots(c.text) ? `Type “${esc(c.name)} …” to run` : `Type “${esc(c.name)}” to run`}</span></div><div class="sub">${esc(c.text)}${recipeSlots(c).length ? `<br>Values: ${recipeSlots(c).map((n) => `<span class="token">${esc(n)}</span>`).join(" ")}` : ""}</div></div>
         <div class="acts-row">
           <button class="act" data-act="run-saved" data-name="${esc(c.name)}" title="Run" aria-label="Run">${ICON.play}</button>
           <button class="act" data-act="delete-cmd" data-name="${esc(c.name)}" title="Delete" aria-label="Delete">${ICON.trash}</button>
@@ -651,7 +700,7 @@
       if (act.dataset.act === "reply" && h) setReply(h);
       else if (act.dataset.act === "load" && h) setCmd(h.text);
       else if (act.dataset.act === "copy" && h) copyResult(h);
-      else if (act.dataset.act === "save" && h) askSaveAs(h.text);
+      else if (act.dataset.act === "save" && h) askSaveAs(h.text, h.recipe);
       else if (act.dataset.act === "run-saved") { const c = saved.find((x) => x.name === name); if (c && hasSlots(c.text)) { setCmd(`${name} `); setStatus(`Type ${slotNames(c.text)} after the name, then press Enter.`, "info"); } else run(name); }
       else if (act.dataset.act === "delete-cmd") { send({ type: "commands:delete", name }); setStatus(`Deleted “${name}”.`, "ok"); }
       else if (act.dataset.act === "delete-secret") { send({ type: "secrets:delete", name }); setStatus(`Removed {{${name}}} from your Keychain.`, "ok"); }
@@ -720,8 +769,10 @@
   }
   $("reply-x").onclick = () => { clearReply(); caretToEnd(); };
 
-  function askSaveAs(text) {
-    const suggestion = (text.match(/(?:localhost|[\w-]+\.\w+)[^\s,]*/)?.[0] || text).split(/[/:,\s]/)[0].slice(0, 20).toLowerCase();
+  function askSaveAs(text, recipe) {
+    const suggestion = recipe
+      ? text.toLowerCase().replace(/@\[[^\]]*\]/g, " ").split(/[^a-z0-9]+/).filter((w) => w && !/^(go|to|and|in|on|create|add|make|a|an|the|some|with|dummy|data|please|of|for|it)$/.test(w)).slice(0, 2).join("-") || "goal"
+      : (text.match(/(?:localhost|[\w-]+\.\w+)[^\s,]*/)?.[0] || text).split(/[/:,\s]/)[0].slice(0, 20).toLowerCase();
     const s = $("status");
     s.className = "status on";
     s.innerHTML = `<form class="form" id="save-form" style="flex:1;padding:0">
@@ -733,8 +784,10 @@
       e.preventDefault();
       const name = $("save-name").value.trim();
       if (!name) return;
-      send({ type: "commands:save", name, text });
-      setStatus(`Saved. Type “${name.toLowerCase().replace(/\s+/g, "-")}” to run it.`, "ok");
+      send({ type: "commands:save", name, text, recipe });
+      const slug = name.toLowerCase().replace(/\s+/g, "-");
+      const slots = recipeSlots({ recipe });
+      setStatus(recipe ? `Saved. “${slug}” repeats it without the AI${slots.length ? `; change values with “${slug} ${slots.join(", ")}”` : ""}.` : `Saved. Type “${slug}” to run it.`, "ok");
       tab = "saved";
       render();
       caretToEnd();
@@ -753,14 +806,14 @@
       lastText = text;
       const extra = icons && Object.keys(icons).length ? { icons } : {};
       if (followUp) {
-        current = { text, status: "running", at: Date.now(), ...extra };
+        current = { text, status: "running", at: Date.now(), usd0: usage?.todayUsd, ...extra };
         (replyTo.turns ||= []).push(current);
         replyTo.at = Date.now();
         history.splice(history.indexOf(replyTo), 1);
         history.unshift(replyTo);
         currentRoot = replyTo;
       } else {
-        current = { id: threadId, text, status: "running", at: Date.now(), ...extra };
+        current = { id: threadId, text, status: "running", at: Date.now(), usd0: usage?.todayUsd, ...extra };
         history.unshift(current);
         history.splice(100);
         currentRoot = current;
@@ -773,6 +826,7 @@
   }
   function finish(status, detail) {
     if (current && current.status === "running") notifyDone(current, status, detail);
+    if (current && current.usd0 != null && usage) { current.cost = Math.max(0, usage.todayUsd - current.usd0); delete current.usd0; }
     if (current) {
       current.status = status;
       if (detail !== undefined && detail !== null) current.detail = detail;
@@ -908,6 +962,11 @@
         if (current && !current.steps) finish("fail", "Couldn't work out what to do. Try rephrasing, or run it as a goal.");
         setStatus(`Couldn't work out “${payload.transcript}”.`, "warn", [{ label: "Try as a goal", primary: true, action: () => run(`goal: ${payload.transcript}`) }]);
         break;
+      case "table":
+        if (current) { current.table = { columns: payload.columns, rows: payload.rows.slice(0, 6), total: payload.total }; finish("ok", payload.detail); }
+        setStatus(payload.copied ? "Copied. Paste it into a spreadsheet." : "Here's the table.", "ok", payload.path ? [{ label: "Open CSV", icon: "image", primary: true, action: () => window.bar.openPath(payload.path) }] : []);
+        break;
+      case "usage": usage = payload; renderSpend(); break;
       case "utility":
         if (current) finish("ok", payload.detail);
         if (payload.path) setStatus("Screenshot saved.", "ok", [{ label: "Open", icon: "image", primary: true, action: () => window.bar.openPath(payload.path) }]);
@@ -934,7 +993,17 @@
         if (!current) break;
         current.steps = payload.steps.map((s) => ({ text: s.text, status: s.status, detail: s.detail }));
         if (payload.status === "running") { setProgress(payload.steps.length ? `Step ${payload.steps.length}: ${payload.steps.at(-1).text}` : "Looking at the page"); render(); }
-        else if (payload.status === "done") { finish("ok", payload.summary); setStatus("Goal done.", "ok"); offerFollowUp(currentRoot); }
+        else if (payload.status === "done") {
+          const entry = current;
+          if (entry && payload.recipe) entry.recipe = payload.recipe;
+          finish("ok", payload.summary);
+          if (payload.replay) setStatus("Done. No AI used.", "ok");
+          else if (payload.recipe && entry) {
+            setStatus("Goal done. Save the steps to run it again without the AI?", "ok", [{ label: "Save as command", icon: "bookmark", primary: true, action: () => askSaveAs(entry.text, entry.recipe) }]);
+            clearTimeout(statusTimer);
+          } else setStatus("Goal done.", "ok");
+          offerFollowUp(currentRoot);
+        }
         else if (payload.status === "failed") { finish("fail", payload.summary); setStatus("The goal didn't finish. The reason is below.", "err", [{ label: "Retry", icon: "retry", action: retry }]); }
         else if (payload.status === "cancelled") finish("ignored", payload.summary || "Stopped");
         break;
@@ -1306,6 +1375,7 @@
     document.addEventListener("keydown", onRecordKey, true);
   }
   $("hotkey").onclick = recordHotkey;
+  $("spend").onclick = openSpend;
   window.bar.getHotkey().then(showHotkey);
 
   // ── controlled browser ──────────────────────────────────

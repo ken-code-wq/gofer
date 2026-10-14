@@ -154,9 +154,43 @@ export async function fillForm(controller, spec, context = "") {
     text: `${withContext(context)}Form fields (JSON):\n${JSON.stringify(fields)}\n\nUser: fill the form with ${spec || "(no details given)"}`,
     schema: FILL_SCHEMA,
   });
+  const filled = await applyFills(controller, page, fields, r.data.fills || []);
+  return { filled, missing: r.data.missing || [], model: r.model, ms: r.ms };
+}
+
+// ── tables ─────────────────────────────────────────────────────
+
+const TABLE_SCHEMA = {
+  type: "object",
+  properties: {
+    columns: { type: "array", items: { type: "string" }, description: "Column headings." },
+    rows: { type: "array", items: { type: "array", items: { type: "string" } }, description: "One array of cell values per item, in column order." },
+    note: { type: "string", description: "Empty, or why nothing (or only part) could be found." },
+  },
+  required: ["columns", "rows"],
+};
+
+/** Pull the items the user asked for out of the page as a table. */
+export async function extractTable(controller, what, context = "") {
+  const ctx = await pageContext(controller, { textChars: PAGE_TEXT_CHARS });
+  const r = await ask({
+    system:
+      "You turn what is on a web page into a table. Use only values that appear in the page text (copy them exactly, no invented rows). " +
+      "Pick sensible columns for what the user asked for; if they asked for one kind of value, one column is fine. Keep page order.",
+    text: `${withContext(context)}The user wants: ${what}\n\nPage:\n${ctx.description}`,
+    images: ctx.images,
+    schema: TABLE_SCHEMA,
+  });
+  const columns = (r.data.columns || []).map(String);
+  const rows = (r.data.rows || []).map((row) => columns.map((_, i) => String(row?.[i] ?? "")));
+  return { columns, rows, note: r.data.note || "", model: r.model, ms: r.ms, title: ctx.snap.title };
+}
+
+/** Fill fields by element id: [{ element_id, value, check }] -> [{ label, type, value, error? }] */
+async function applyFills(controller, page, fields, fills) {
   const byId = new Map(fields.map((f) => [f.id, f]));
   const filled = [];
-  for (const f of r.data.fills || []) {
+  for (const f of fills) {
     const field = byId.get(f.element_id);
     if (!field) continue;
     const loc = page.locator(`[data-vb-id="${f.element_id}"]`).first();
@@ -165,21 +199,38 @@ export async function fillForm(controller, spec, context = "") {
       if (field.type === "checkbox" || field.type === "radio") {
         if (f.check === false) await loc.uncheck({ timeout: 3000 });
         else await loc.check({ timeout: 3000 });
-        filled.push({ label: field.label, value: f.check === false ? "unticked" : "ticked" });
+        filled.push({ label: field.label, type: field.type, value: f.check === false ? "unticked" : "ticked" });
       } else if (field.type === "select") {
         const want = String(f.value || "");
         await loc.selectOption({ label: want }, { timeout: 3000 }).catch(() => loc.selectOption(want, { timeout: 3000 }));
-        filled.push({ label: field.label, value: want });
+        filled.push({ label: field.label, type: field.type, value: want });
       } else {
         const shown = String(f.value ?? "");
         await loc.fill(await resolveSecrets(shown), { timeout: 3000 });
-        filled.push({ label: field.label, value: field.type === "password" ? "••••" : shown });
+        const secretRef = /^\{\{[\w.-]+\}\}$/.test(shown);
+        filled.push({ label: field.label, type: field.type, value: field.type === "password" && !secretRef ? "••••" : shown });
       }
     } catch (err) {
-      filled.push({ label: field.label, value: f.value, error: String(err.message || err).split("\n")[0] });
+      filled.push({ label: field.label, type: field.type, value: f.value, error: String(err.message || err).split("\n")[0] });
     }
   }
-  return { filled, missing: r.data.missing || [], model: r.model, ms: r.ms };
+  return filled;
+}
+
+/** Replay a recorded fill: match fields by label on the live page, no model. */
+export async function replayFill(controller, recorded) {
+  await controller.refreshSnapshot();
+  const page = await controller.browser.ensurePage();
+  const fields = await formFields(page);
+  const norm = (x) => String(x || "").toLowerCase().replace(/\s+/g, " ").trim();
+  const fills = [];
+  const missing = [];
+  for (const r of recorded) {
+    const field = fields.find((f) => norm(f.label) === norm(r.label)) || fields.find((f) => norm(f.label).includes(norm(r.label)) && norm(r.label).length > 2);
+    if (!field) { missing.push(r.label); continue; }
+    fills.push({ element_id: field.id, value: r.value, check: r.value !== "unticked" });
+  }
+  return { filled: await applyFills(controller, page, fields, fills), missing };
 }
 
 // ── goals ──────────────────────────────────────────────────────
