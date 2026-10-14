@@ -10,6 +10,8 @@
 - macOS notification when long work finishes while the bar is in the background.
 
 ### Fixed
+- `@` tab list shows instantly: titles arrive first and icons follow, the list refreshes when the bar opens
+  and when tabs change, and a sleeping tab can no longer hold it up.
 - The bar no longer gives up after 30 s when the browser service starts slowly; it waits and retries.
 
 ## 0.2.0 — 2026-10-13

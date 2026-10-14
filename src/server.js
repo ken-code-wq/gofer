@@ -71,6 +71,13 @@ export async function startServer(opts = {}) {
   controller.on("candidates", (p) => broadcast("candidates", p));
   controller.on("pending", (p) => broadcast("pending", p));
   controller.on("tabs", (p) => broadcast("tabs", p));
+  // Keep every bar's "@" list warm: push it whenever tabs open, close or navigate.
+  let tabTimer = null;
+  const pushTabs = () => {
+    clearTimeout(tabTimer);
+    tabTimer = setTimeout(async () => broadcast("tab-list", await browser.tabList({ onIcons: pushTabs }).catch(() => [])), 300);
+  };
+  controller.on("tabs", pushTabs);
   controller.on("chain", (p) => broadcast("chain", p));
   controller.on("gaveup", (p) => broadcast("gaveup", p));
   controller.on("expanded", (p) => broadcast("expanded", p));
@@ -95,7 +102,7 @@ export async function startServer(opts = {}) {
           controller.handleCommand(msg.text, { thread: msg.thread, followUp: Boolean(msg.followUp) });
           break;
         case "tabs:list":
-          reply("tab-list", await controller.browser.tabList().catch(() => []));
+          reply("tab-list", await controller.browser.tabList({ onIcons: pushTabs }).catch(() => []));
           break;
         case "stop":
           controller.stop();

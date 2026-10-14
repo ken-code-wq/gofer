@@ -825,6 +825,7 @@
       setEnabled(true);
       caretToEnd();
       send({ type: "secrets:list" });
+      refreshTabs(true);
       if (/Reconnecting|Can't reach/.test($("status").textContent)) clearStatus();
     };
     ws.onclose = () => {
@@ -838,7 +839,7 @@
   function handle({ type, payload }) {
     switch (type) {
       case "hello": model = payload.model || ""; break;
-      case "tab-list": tabList = payload || []; renderMentions(); break;
+      case "tab-list": tabList = payload || []; tabsLoaded = true; renderMentions(); break;
       case "commands": saved = payload || []; render(); break;
       case "secrets": secrets = payload || []; render(); break;
       case "store-error": setStatus(payload, "err"); break;
@@ -969,6 +970,13 @@
   const cmd = $("cmd");
   let tabList = [];
   let tabListAt = 0;
+  let tabsLoaded = false;
+  // The server also pushes the list when tabs change; this covers opening the bar and typing "@".
+  function refreshTabs(force) {
+    if (!force && Date.now() - tabListAt < 1500) return;
+    tabListAt = Date.now();
+    send({ type: "tabs:list" });
+  }
   let mention = null;
   let mentionSel = 0;
 
@@ -1142,7 +1150,7 @@
           const ic = t.icon ? `<img src="${esc(t.icon)}" alt="">` : `<span class="letter" style="--chip:${hashColor(t.url.replace(/^https?:\/\//, "").split("/")[0] || t.title)}">${esc(letter)}</span>`;
           return `<div class="mention${i === mentionSel ? " on" : ""}" role="option" aria-selected="${i === mentionSel}" data-i="${i}"><span class="ic">${ic}</span><span class="t">${esc(t.title || "Untitled")}${t.active ? '<span class="cur">Current tab</span>' : ""}</span><span class="u">${esc(shortUrl(t.url))}</span></div>`;
         }).join("")
-      : `<div class="none">${tabList.length ? "No open tab matches." : "No tabs are open in the controlled browser."}</div>`;
+      : `<div class="none">${tabList.length ? "No open tab matches." : tabsLoaded ? "No tabs are open in the controlled browser." : "Loading tabs…"}</div>`;
     box.hidden = false;
     box.querySelector(".mention.on")?.scrollIntoView({ block: "nearest" });
   }
@@ -1177,7 +1185,7 @@
   function updateMention() {
     mention = mentionAtCursor();
     if (!mention) return closeMentions();
-    if (Date.now() - tabListAt > 2000) { tabListAt = Date.now(); send({ type: "tabs:list" }); }
+    refreshTabs();
     renderMentions();
   }
   cmd.addEventListener("input", () => { tidy(); syncGo(); updateMention(); if (tab !== "secrets") render(); });
@@ -1330,7 +1338,8 @@
     if (a === "undo") send({ type: "undo" });
     else if (a === "record-hotkey") recordHotkey();
   });
-  window.bar.onFocusInput(() => caretToEnd());
+  window.bar.onFocusInput(() => { caretToEnd(); refreshTabs(); });
+  window.addEventListener("focus", () => refreshTabs());
   window.bar.onServerExit((info) => setStatus(`The browser service stopped (code ${info.code}).`, "err"));
 
   render();

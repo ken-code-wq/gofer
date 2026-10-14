@@ -12,6 +12,9 @@ import { collectElementsInPage, buildSnapshot } from "./snapshot.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_PROFILE_DIR = process.env.BROWSER_PROFILE_DIR || path.join(__dirname, "..", ".browser-profile");
 
+const within = (promise, ms, fallback) =>
+  Promise.race([Promise.resolve(promise).catch(() => fallback), new Promise((r) => setTimeout(() => r(fallback), ms))]);
+
 export class BrowserManager {
   constructor() {
     this.context = null;
@@ -87,18 +90,35 @@ export class BrowserManager {
     this._emit();
   }
 
-  /** Open tabs with titles and favicons (for "@" mentions). */
-  async tabList() {
+  /**
+   * Open tabs for "@" mentions. Returns at once with the icons already known; a sleeping tab can't
+   * hold the list up (title capped at 400 ms). Missing icons load in the background and onIcons()
+   * is called once they're in, so the picker can repaint.
+   */
+  async tabList({ onIcons } = {}) {
     const live = this.pages.filter((p) => !p.isClosed());
-    return Promise.all(
+    this.pageIcons ??= new WeakMap(); // page -> { origin, icon }
+    const originOf = (u) => { try { return new URL(u).origin; } catch { return u; } };
+    const known = (p) => { const k = this.pageIcons.get(p); return k && k.origin === originOf(p.url()) ? k : null; };
+    const tabs = await Promise.all(
       live.map(async (p, i) => ({
         index: i,
-        title: await p.title().catch(() => ""),
+        title: await within(p.title(), 400, ""),
         url: p.url(),
         active: p === this.active,
-        icon: await this.favicon(p),
+        icon: known(p)?.icon ?? null,
       })),
     );
+    const missing = live.filter((p) => !known(p));
+    if (missing.length) {
+      Promise.all(
+        missing.map(async (p) => {
+          const origin = originOf(p.url());
+          this.pageIcons.set(p, { origin, icon: await within(this.favicon(p), 4000, null) });
+        }),
+      ).then(() => onIcons?.(), () => {});
+    }
+    return tabs;
   }
 
   /**
