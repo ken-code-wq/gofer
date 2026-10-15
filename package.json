@@ -1,6 +1,6 @@
 {
   "name": "voice-browser",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Tell a real browser what to do in plain English: a macOS command bar that drives Chromium, Dia, Arc or Chrome \u2014 clicks, chains, goals, page questions, forms and follow-ups.",

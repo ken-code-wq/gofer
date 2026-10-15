@@ -1,15 +1,17 @@
 {
   "name": "voice-browser-desktop",
   "productName": "Voice Browser",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "Voice Browser \u2014 macOS command bar",
+  "description": "Voice Browser command bar",
   "main": "main.cjs",
   "scripts": {
-    "start": "env -u ELECTRON_RUN_AS_NODE electron ."
+    "start": "env -u ELECTRON_RUN_AS_NODE electron .",
+    "dist": "electron-builder --publish never"
   },
   "devDependencies": {
-    "electron": "^38.0.0"
+    "electron": "^38.0.0",
+    "electron-builder": "^26.15.3"
   },
   "allowScripts": {
     "electron@38.8.6": true
@@ -19,5 +21,97 @@
     "type": "git",
     "url": "https://github.com/ken-code-wq/voice-browser.git",
     "directory": "desktop"
+  },
+  "author": "Kenneth Ben-Boulo",
+  "homepage": "https://github.com/ken-code-wq/voice-browser",
+  "build": {
+    "appId": "local.voice-browser",
+    "productName": "Voice Browser",
+    "artifactName": "Voice-Browser-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "browsers.cjs",
+      "bar.html",
+      "package.json",
+      "build/trayTemplate*.png"
+    ],
+    "extraResources": [
+      {
+        "from": "../src",
+        "to": "server/src"
+      },
+      {
+        "from": "../server-deps/node_modules",
+        "to": "server/node_modules"
+      },
+      {
+        "from": "../package.json",
+        "to": "server/package.json"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "identity": null,
+      "extendInfo": {
+        "LSUIElement": true,
+        "NSAppleEventsUsageDescription": "Voice Browser quits and reopens your browser so it can control it."
+      }
+    },
+    "win": {
+      "icon": "build/icon-1024.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    },
+    "linux": {
+      "icon": "build/icon-1024.png",
+      "category": "Utility",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "maintainer": "Kenneth Ben-Boulo"
+    }
   }
 }

@@ -8,3 +8,5 @@ test-results/
 .browser-profile*/
 .DS_Store
 *.tmp
+desktop/dist/
+server-deps/

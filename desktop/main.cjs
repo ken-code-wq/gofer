@@ -11,8 +11,12 @@ const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
-// The project folder (server + .env). Installed apps carry a root.json pointing at it.
+// The project folder (server + .env). Installed apps carry a root.json pointing at it;
+// packaged builds carry the server in resources/server and keep .env in ~/.voice-browser.
 function projectRoot() {
+  if (app.isPackaged && fs.existsSync(path.join(process.resourcesPath, "server", "src", "server.js"))) {
+    return path.join(process.resourcesPath, "server");
+  }
   try {
     return JSON.parse(fs.readFileSync(path.join(__dirname, "root.json"), "utf8")).root;
   } catch {
@@ -20,6 +24,9 @@ function projectRoot() {
   }
 }
 const ROOT = projectRoot();
+const PACKAGED = ROOT === path.join(process.resourcesPath || "", "server");
+const DATA_DIR = path.join(require("node:os").homedir(), ".voice-browser");
+const ENV_FILE = PACKAGED ? path.join(DATA_DIR, ".env") : path.join(ROOT, ".env");
 const PORT = Number(process.env.PORT) || 8787;
 const BASE = `http://127.0.0.1:${PORT}`;
 const DEFAULT_HOTKEY = "CommandOrControl+Shift+Space";
@@ -225,11 +232,21 @@ async function stopServer() {
 }
 
 async function startServer(cdpUrl = null) {
-  const env = { ...process.env, ...readEnv(path.join(ROOT, ".env")), ELECTRON_RUN_AS_NODE: "1", PORT: String(PORT) };
+  const env = { ...process.env, ...readEnv(ENV_FILE), ELECTRON_RUN_AS_NODE: "1", PORT: String(PORT) };
   env.CDP_URL = cdpUrl || ""; // overrides .env: the bar's browser menu is the source of truth
-  if (!env.SUBQ_API_KEY && !env.TYPESAFE_API_KEY && !env.JEV_API_KEY) {
-    throw new Error("No API key. Add SUBQ_API_KEY to .env in the project folder.");
+  if (PACKAGED) {
+    // The app bundle is read-only: the browser profile and Chromium download live in ~/.voice-browser.
+    env.BROWSER_PROFILE_DIR ||= path.join(DATA_DIR, "browser-profile");
+    env.PLAYWRIGHT_BROWSERS_PATH ||= path.join(DATA_DIR, "chromium");
   }
+  if (!env.SUBQ_API_KEY && !env.TYPESAFE_API_KEY && !env.JEV_API_KEY) {
+    if (PACKAGED && !fs.existsSync(ENV_FILE)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+      fs.writeFileSync(ENV_FILE, "# Voice Browser keys. Fill these in, then reopen the app.\nSUBQ_API_KEY=\nGEMINI_API_KEY=\n");
+    }
+    throw new Error(`No API key. Add SUBQ_API_KEY to ${ENV_FILE}`);
+  }
+  if (PACKAGED && !cdpUrl) await ensureChromium(env);
   // Electron's own binary runs as plain Node here, so no separate Node install is needed.
   server = spawn(process.execPath, [path.join(ROOT, "src", "server.js")], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] });
   let stderr = "";
@@ -250,6 +267,19 @@ async function startServer(cdpUrl = null) {
     await new Promise((r) => setTimeout(r, 250));
   }
   throw new Error("The browser service is taking longer than usual to start. It keeps trying in the background.");
+}
+
+/** Packaged builds download Playwright's Chromium on first use (about 150 MB). */
+async function ensureChromium(env) {
+  const dir = env.PLAYWRIGHT_BROWSERS_PATH;
+  if (fs.existsSync(dir) && fs.readdirSync(dir).some((d) => d.startsWith("chromium"))) return;
+  sendBrowserState({ busy: "Downloading Chromium (first run only)…" });
+  const cli = path.join(ROOT, "node_modules", "playwright", "cli.js");
+  await new Promise((resolve, reject) => {
+    const p = spawn(process.execPath, [cli, "install", "chromium"], { cwd: ROOT, env, stdio: "inherit" });
+    p.on("exit", (code) => (code === 0 ? resolve() : reject(new Error("Couldn't download Chromium. Check your connection and reopen the app."))));
+  });
+  sendBrowserState();
 }
 
 // Window size/position persist between launches. "compact" = prompt only, "expanded" = with activity.

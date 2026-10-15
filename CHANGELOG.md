@@ -1,8 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
 ### Added
+- Downloadable builds for macOS (Apple silicon and Intel), Windows and Linux, attached to each GitHub release.
+  Packaged apps keep keys in `~/.voice-browser/.env` and download Chromium on first run.
+  Attaching to Dia, Arc, Chrome, Brave or Edge is macOS-only for now; other systems use the built-in Chromium.
 - **Ask mode** (Tab, or the Ask switch): whatever you type is a question, never an action.
 - Questions across tabs: "which of my tabs …", "across my tabs", or two or more `@` tabs; answers name
   the tabs they used, without switching tabs.

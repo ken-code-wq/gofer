@@ -44,6 +44,7 @@ function run(cmd, args, timeout = 10000) {
 }
 
 function installedBrowsers() {
+  if (process.platform !== "darwin") return []; // attaching to Dia/Arc/Chrome is macOS-only for now
   const dirs = ["/Applications", path.join(os.homedir(), "Applications")];
   const out = [];
   for (const b of KNOWN) {
