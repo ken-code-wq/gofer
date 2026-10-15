@@ -1,7 +1,7 @@
 {
   "name": "voice-browser-desktop",
   "productName": "Voice Browser",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Voice Browser command bar",
   "main": "main.cjs",

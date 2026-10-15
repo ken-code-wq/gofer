@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1
+
+### Fixed
+- "Can't reach the browser service" when attached to Dia, Arc or Chrome with sleeping tabs: tabs that don't
+  answer are skipped while connecting and added once they wake up.
+- The browser service restarts itself if it stops, and logs to `~/.voice-browser/server.log`.
+
 ## 0.3.0
 
 ### Added
