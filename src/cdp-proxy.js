@@ -64,12 +64,21 @@ export async function startCdpProxy(cdpHttpUrl, { recheckMs = 4000, log = () => 
   const wss = new WebSocketServer({ host: "127.0.0.1", port: 0, perMessageDeflate: false });
   await new Promise((resolve) => wss.once("listening", resolve));
   const timers = new Set();
+  // Focus emulation stays on for one tab only: the one the agent works in, so it renders even when
+  // the browser window is behind other apps. Every other tab reports its real visibility and focus.
+  const render = { want: null, on: null, sessions: new Map(), apply: () => {} };
 
   wss.on("connection", async (client) => {
     // Hold Playwright's first messages while the tabs are checked.
     const queue = [];
     client.on("message", (raw) => {
       const m = raw.toString(); // DevTools only accepts text frames
+      // Playwright makes every tab act as if it's on screen ("focus emulation"), which hides which tab
+      // you're actually looking at. Answer it here instead, so tabs keep their real visibility.
+      if (m.includes('"Emulation.setFocusEmulationEnabled"')) {
+        const d = JSON.parse(m);
+        if (d.method === "Emulation.setFocusEmulationEnabled") return client.send(JSON.stringify({ id: d.id, result: {}, sessionId: d.sessionId }));
+      }
       upstream?.readyState === 1 ? upstream.send(m) : queue.push(m);
     });
     let upstream = null;
@@ -78,7 +87,15 @@ export async function startCdpProxy(cdpHttpUrl, { recheckMs = 4000, log = () => 
     const dropped = new Set(); // session ids we detached on Playwright's behalf
     upstream = new WebSocket(upstreamUrl, { perMessageDeflate: false, maxPayload: 256 * 1024 * 1024 });
     let ownId = OWN;
-    const own = (method, params) => upstream.readyState === 1 && upstream.send(JSON.stringify({ id: ++ownId, method, params }));
+    const own = (method, params, sessionId) => upstream.readyState === 1 && upstream.send(JSON.stringify({ id: ++ownId, method, params, sessionId }));
+    render.apply = () => {
+      if (render.on === render.want) return;
+      const prev = render.sessions.get(render.on);
+      if (prev) own("Emulation.setFocusEmulationEnabled", { enabled: false }, prev);
+      const next = render.sessions.get(render.want);
+      if (next) own("Emulation.setFocusEmulationEnabled", { enabled: true }, next);
+      render.on = next ? render.want : null;
+    };
     upstream.on("open", () => queue.splice(0).forEach((m) => upstream.send(m)));
     upstream.on("message", (raw) => {
       const d = JSON.parse(raw);
@@ -89,6 +106,15 @@ export async function startCdpProxy(cdpHttpUrl, { recheckMs = 4000, log = () => 
         return;
       }
       if (d.method === "Target.targetDestroyed") hidden.delete(d.params.targetId);
+      if (d.method === "Target.attachedToTarget" && !d.sessionId && d.params.targetInfo.type === "page") {
+        // Playwright's own session for the tab (it attaches before any CDPSession we open)
+        const id = d.params.targetInfo.targetId;
+        if (!render.sessions.has(id)) render.sessions.set(id, d.params.sessionId);
+        if (id === render.want) setTimeout(render.apply, 0);
+      }
+      if (d.method === "Target.detachedFromTarget") {
+        for (const [id, sid] of render.sessions) if (sid === d.params.sessionId) render.sessions.delete(id), render.on === id && (render.on = null);
+      }
       if (d.sessionId && dropped.has(d.sessionId)) return;
       if (d.method === "Target.detachedFromTarget" && dropped.has(d.params.sessionId)) return;
       client.send(raw.toString());
@@ -122,6 +148,11 @@ export async function startCdpProxy(cdpHttpUrl, { recheckMs = 4000, log = () => 
 
   return {
     wsUrl: `ws://127.0.0.1:${wss.address().port}/`,
+    /** Keep this tab (DevTools target id) rendering as if on screen; others go back to real state. */
+    keepRendering: (targetId) => {
+      render.want = targetId;
+      render.apply();
+    },
     close: () => {
       for (const t of timers) clearInterval(t);
       for (const c of wss.clients) c.close();

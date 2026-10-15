@@ -104,7 +104,12 @@ export async function startServer(opts = {}) {
         case "command":
           controller.handleCommand(msg.text, { thread: msg.thread, followUp: Boolean(msg.followUp), ask: Boolean(msg.ask) });
           break;
+        case "tab:select":
+          await controller.selectTab(Number(msg.index)).catch(() => {});
+          break;
         case "tabs:list":
+          // the bar just opened: show the tab you were on in the browser
+          if (msg.sync) await controller.browser.syncActive().catch(() => {});
           reply("tab-list", await controller.browser.tabList({ onIcons: pushTabs }).catch(() => []));
           break;
         case "stop":

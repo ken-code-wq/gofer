@@ -3,6 +3,7 @@
  * (so it feels like "your browser"), or attach to a running Chrome via --cdp ws://...
  * Tracks tabs and exposes the active page.
  */
+import { execFile } from "node:child_process";
 import { startCdpProxy } from "./cdp-proxy.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,6 +12,63 @@ import { installOverlay } from "./overlay.js";
 import { collectElementsInPage, buildSnapshot } from "./snapshot.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Runs in every page: tells the server when this tab is the one you're looking at.
+const FOCUS_HOOK = `(() => {
+  if (window.top !== window || window.__vbFocusHook) return;
+  window.__vbFocusHook = true;
+  const ping = () => { if (document.visibilityState === "visible" && document.hasFocus()) window.__vbFocused?.().catch?.(() => {}); };
+  addEventListener("focus", ping);
+  document.addEventListener("visibilitychange", () => setTimeout(ping, 60)); // switching tabs shows this one
+  addEventListener("pointerdown", ping, true);
+})()`;
+
+/**
+ * The tab the attached browser's front window shows, from AppleScript (Dia, Arc, Chrome, Brave,
+ * Edge all support "active tab"). -> { url, name } or null. macOS only; 1.5 s cap.
+ */
+export function frontTab() {
+  const app = process.env.VB_BROWSER_APP;
+  if (!app || process.platform !== "darwin") return Promise.resolve(null);
+  const script = `tell application "${app.replace(/"/g, "")}"
+    if (count of windows) is 0 then return ""
+    set t to active tab of front window
+    set u to ""
+    try
+      set u to URL of t
+    end try
+    if u is missing value then set u to ""
+    if u is "" then
+      try
+        set u to (execute t javascript "location.href")
+      end try
+      if u is missing value then set u to ""
+    end if
+    set n to ""
+    try
+      set n to (name of t)
+    on error
+      try
+        set n to (title of t)
+      end try
+    end try
+    return u & linefeed & n
+  end tell`;
+  return new Promise((resolve) => {
+    execFile("/usr/bin/osascript", ["-e", script], { timeout: 4000 }, (err, out) => {
+      if (err) {
+        if (!frontTab.warned) console.warn(`couldn't ask ${app} for its current tab: ${err.killed ? "timed out" : `${err.code} ${String(err.message).replace(/\s+/g, " ").slice(-200)}`}`);
+        frontTab.warned = true;
+        return resolve(null);
+      }
+      const [url = "", name = ""] = String(out).replace(/\n$/, "").split("\n");
+      resolve(url || name ? { url, name } : null);
+    });
+  });
+}
+
+// Browser-internal pages (Dia's chat panel, extensions, DevTools) aren't tabs you work in.
+const followable = (page) => !/^(?:chrome-extension|chrome-untrusted|devtools):/.test(page.url());
+
 export const DEFAULT_PROFILE_DIR = process.env.BROWSER_PROFILE_DIR || path.join(__dirname, "..", ".browser-profile");
 
 const within = (promise, ms, fallback) =>
@@ -30,6 +88,10 @@ export class BrowserManager {
     return () => this.listeners.delete(fn);
   }
   _emit() {
+    if (this.proxy && this.active !== this._rendering) {
+      this._rendering = this.active;
+      this._keepRendering(this.active);
+    }
     for (const fn of this.listeners) fn(this);
   }
 
@@ -52,11 +114,18 @@ export class BrowserManager {
       });
     }
     await this.context.addInitScript(installOverlay);
+    // Attached browsers: follow the tab you're looking at (pages report when they get focus). The
+    // built-in Chromium makes every tab look focused, so there the agent stays where it is.
+    if (this.proxy) {
+      await this.context.exposeBinding("__vbFocused", ({ page }) => this._focused(page)).catch(() => {});
+      await this.context.addInitScript(FOCUS_HOOK);
+    }
 
     this.context.on("page", (page) => this._track(page));
     for (const p of this.context.pages()) this._track(p);
     if (this.pages.length === 0) await this.context.newPage();
     this.active = this.pages[this.pages.length - 1];
+    if (cdp) await this.syncActive().catch(() => {}); // start on the tab you're looking at
     if (startUrl && startUrl !== "about:blank") {
       await this.active.goto(startUrl, { waitUntil: "domcontentloaded" }).catch(() => {});
     }
@@ -68,6 +137,7 @@ export class BrowserManager {
     if (this.pages.includes(page)) return;
     this.pages.push(page);
     this.active = page;
+    if (this.proxy) page.evaluate(FOCUS_HOOK).catch(() => {}); // tabs that were open before we connected
     page.on("close", () => {
       this.pages = this.pages.filter((p) => p !== page);
       if (this.active === page) this.active = this.pages[this.pages.length - 1] || null;
@@ -77,6 +147,56 @@ export class BrowserManager {
       if (frame === page.mainFrame()) this._emit();
     });
     this._emit();
+  }
+
+  /** Attached browsers: the agent's tab keeps rendering even if the window is behind other apps. */
+  async _keepRendering(page) {
+    if (!page || page.isClosed()) return;
+    this.targetIds ??= new WeakMap();
+    let id = this.targetIds.get(page);
+    if (!id) {
+      const s = await this.context.newCDPSession(page).catch(() => null);
+      id = (await s?.send("Target.getTargetInfo").catch(() => null))?.targetInfo?.targetId;
+      s?.detach().catch(() => {});
+      if (!id) return;
+      this.targetIds.set(page, id);
+    }
+    if (this.active === page) this.proxy.keepRendering(id);
+  }
+
+  /** A page reported focus. While a goal runs (canFollow() false) the agent stays on its tab. */
+  _focused(page) {
+    if (page === this.active || page.isClosed() || !this.pages.includes(page) || !followable(page)) return;
+    if (this.canFollow && !this.canFollow()) return;
+    this.active = page;
+    this._emit();
+  }
+
+  /**
+   * Make `active` the tab you're on in the browser: the one its front window shows (asked via
+   * AppleScript), else another tab that has focus. Sleeping tabs can't hold it up.
+   */
+  async syncActive() {
+    if (this.canFollow && !this.canFollow()) return this.active;
+    const live = this.pages.filter((p) => !p.isClosed() && followable(p));
+    let next = null;
+    const shown = await frontTab();
+    if (shown) {
+      const titles = shown.url ? [] : await Promise.all(live.map((p) => within(p.title(), 400, "")));
+      next = (shown.url && live.find((p) => p.url() === shown.url)) || (shown.name && live.find((_, i) => titles[i] === shown.name));
+    }
+    if (!next && !shown) {
+      // The agent's own tab always looks focused (it's kept rendering), so look for another one.
+      const states = await Promise.all(
+        live.map((p) => within(p.evaluate(() => document.visibilityState === "visible" && document.hasFocus()), 500, false)),
+      );
+      next = live.find((p, i) => p !== this.active && states[i]);
+    }
+    if (next && next !== this.active) {
+      this.active = next;
+      this._emit();
+    }
+    return this.active;
   }
 
   get page() {

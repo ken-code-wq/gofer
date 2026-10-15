@@ -58,3 +58,33 @@ export function matchTab(tabs, query) {
   }
   return null;
 }
+
+// "in the current tab", "on the active page", "in this tab", "in the tab I'm on", "in my open tab", "here"
+const CURRENT_WORDS = "current|active|open|opened|focused|selected|front|frontmost|visible|this|same|present";
+const CURRENT_RE = new RegExp(
+  String.raw`\b(?:in|on|inside|within|from|for|using|at|of)\s+(?:(?:the|my|this|that)\s+)?` +
+    String.raw`(?:(?:${CURRENT_WORDS})(?:ly)?\s+(?:open\s+)?(?:tab|window|page|site)|(?:tab|window|page)\s+(?:i(?:'m| am)\s+(?:on|in|at|looking at|viewing|using)|(?:that\s+)?(?:is|that's)\s+(?:open|active|focused|showing)))\b`,
+  "i",
+);
+const CURRENT_LEAD_RE = new RegExp(String.raw`^(?:please\s+)?(?:(?:use|stay\s+(?:in|on))\s+(?:the\s+)?(?:${CURRENT_WORDS})\s+(?:tab|page)\b\s*[,:;-]?|here\s*[,:;-])\s*(?:and\s+(?:then\s+)?|then\s+)?`, "i");
+
+/**
+ * "in the current tab, play the next video" -> { rest: "play the next video" }. Only phrases that
+ * name the tab you're on; returns null otherwise. `rest` can be "" ("use the current tab").
+ */
+export function parseCurrentTab(text) {
+  const t = String(text || "").trim();
+  let m = t.match(CURRENT_LEAD_RE);
+  if (m && m[0].trim()) return { rest: t.slice(m[0].length).trim() };
+  m = t.match(CURRENT_RE);
+  if (!m) return null;
+  const rest = `${t.slice(0, m.index)} ${t.slice(m.index + m[0].length)}`
+    .replace(/^\s*[,:;-]\s*/, "")
+    .replace(/\s*[,:;-]\s*$/, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.;!?])/g, "$1")
+    .trim();
+  // "what's on this page" is still a question about the page: keep it whole.
+  if (/\bpage\b|\bsite\b/i.test(m[0]) && rest.split(" ").length < 2) return { rest: t, keep: true };
+  return { rest };
+}

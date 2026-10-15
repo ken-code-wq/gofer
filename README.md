@@ -107,10 +107,18 @@ Voice Browser lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd
 | `which of my tabs has the cheapest flight?` · `@[Tab A] @[Tab B] compare the prices` | a question across all open tabs, or the tabs you mention |
 | `fill the form with …` | fill every matching field, without submitting |
 | `in @[Tab] …` · `go to @[Tab] and …` | switch to that tab first |
+| `in the current tab, …` · `… in the active tab` · `here, …` | run it in the tab you're on in the browser |
 | `screenshot` · `screenshot the whole page` | save a PNG to Downloads, instantly (no model) |
 | `copy url` · `copy title` | copy the current page's address or title to the clipboard |
 | `copy the table` · `export the table as csv` | the page's own table to the clipboard (and a CSV in Downloads), no model |
 | `copy all invoice numbers as a table` · `copy all vendors with open bills` | the AI pulls those items out of the page as a table |
+
+### The current tab
+
+The bar's header shows the tab commands run in. With an attached browser (Dia, Arc, Chrome, Brave,
+Edge) it follows the tab you switch to; click it to pick another tab. While a goal is running the agent
+stays in its tab. "In the current tab", "in the active tab", "on the tab I'm on" and similar phrases make
+sure a command runs in the tab you're looking at.
 
 ### Saved commands & passwords
 

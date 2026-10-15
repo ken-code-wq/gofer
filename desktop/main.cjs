@@ -201,6 +201,7 @@ async function resolveSavedBrowser(env) {
   try {
     const r = await browsers.connect(b, { prev: saved, allowRestart: false });
     browserState = { id: b.id, name: b.name, port: r.port, separate: r.separate };
+    attachedApp = b.path;
     saveSettings({ browser: { id: b.id, port: r.port, separate: r.separate } });
     return r.cdpUrl;
   } catch (err) {
@@ -232,6 +233,7 @@ async function stopServer() {
 }
 
 let crashes = 0;
+let attachedApp = null; // the attached browser's .app, so the server can ask it which tab is showing
 let quitting = false;
 /** Server output goes to ~/.voice-browser/server.log (kept small) so crashes can be diagnosed. */
 function serverLog() {
@@ -248,6 +250,7 @@ function serverLog() {
 async function startServer(cdpUrl = null) {
   const env = { ...process.env, ...readEnv(ENV_FILE), ELECTRON_RUN_AS_NODE: "1", PORT: String(PORT) };
   env.CDP_URL = cdpUrl || ""; // overrides .env: the bar's browser menu is the source of truth
+  env.VB_BROWSER_APP = cdpUrl && attachedApp ? attachedApp : "";
   if (PACKAGED) {
     // The app bundle is read-only: the browser profile and Chromium download live in ~/.voice-browser.
     env.BROWSER_PROFILE_DIR ||= path.join(DATA_DIR, "browser-profile");
@@ -468,6 +471,7 @@ async function switchBrowser(id) {
       const r = await browsers.connect(b, { prev: saved?.id === id ? saved : null, allowRestart: true, onProgress: progress });
       cdpUrl = r.cdpUrl;
       next = { id: b.id, name: b.name, port: r.port, separate: r.separate };
+      attachedApp = b.path;
     }
     progress("Connecting…");
     restarting = true;

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Current tab**: the header shows the tab commands run in, follows the tab you switch to in an attached
+  browser, and opens a picker on click. "In the current / active / open tab, …" runs a command there.
+
 ## 0.3.1
 
 ### Fixed

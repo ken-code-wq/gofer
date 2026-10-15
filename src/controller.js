@@ -19,7 +19,7 @@ import { parseTableRequest, domTable, toTSV, saveCSV } from "./table.js";
 import { extractTable, replayFill, answerAcrossTabs, isTabsQuestion } from "./smart.js";
 import { LimitError } from "./usage.js";
 import { stepFromAction, stepFromFill, finalizeRecipe, findElement, describeStep } from "./recipe.js";
-import { parseTabMention, matchTab } from "./tabs.js";
+import { parseTabMention, parseCurrentTab, matchTab } from "./tabs.js";
 import { fillForm as fillFormFn } from "./smart.js";
 
 const avg = (xs) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
@@ -58,6 +58,8 @@ export class Controller extends EventEmitter {
     // the page before the last navigation and the last few executed actions.
     this.context = { previousPage: null, recentActions: [] };
     browser.onChange(() => this.emit("tabs", browser.tabInfo()));
+    // Follow the tab you switch to in the browser, except while a goal is working in its own tab.
+    browser.canFollow = () => !this.goal;
   }
 
   async start() {
@@ -85,6 +87,9 @@ export class Controller extends EventEmitter {
    */
   handleCommand(text, opts = {}) {
     if (!opts.inner) this._enterThread(text, opts);
+    // "in the current tab, …": make sure we're on the tab the browser is showing, then run the rest.
+    const current = !opts.inner && parseCurrentTab(text);
+    if (current) return this._inCurrentTab(current, opts);
     // Questions: Ask mode in the bar, or worded as a question. Two or more @tabs, or "my tabs",
     // means read those tabs together; otherwise the current page (or general knowledge).
     const isAsk = opts.ask || routeSmart(text)?.kind === "ask";
@@ -260,6 +265,24 @@ export class Controller extends EventEmitter {
       this._log("warn", `couldn't rewrite the follow-up (${err.message}); using it as written`);
     }
     return this._startGoal(goal, context);
+  }
+
+  async _inCurrentTab({ rest }, opts = {}) {
+    const page = await this.browser.syncActive().catch(() => this.browser.page);
+    const title = page ? await page.title().catch(() => "") : "";
+    const url = page?.url() || "";
+    this._log("info", `using the current tab "${title || url}"`);
+    this.emit("tab-switched", { title: title || url, url, rest, current: true });
+    if (rest) return this.handleCommand(rest, { ...opts, inner: true });
+    this._note(this.thread, `using the current tab "${title || url}"`);
+  }
+
+  /** The bar's tab picker: work in this tab from now on (and show it in the browser). */
+  async selectTab(index) {
+    const page = this.browser.pages.filter((p) => !p.isClosed())[index];
+    if (!page) return;
+    await this.browser.setActive(page);
+    await this.refreshSnapshot().catch(() => {});
   }
 
   async _inTab({ query, rest }, opts = {}) {

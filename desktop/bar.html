@@ -88,6 +88,10 @@
   .pill .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pill .caret { width: 11px; height: 11px; color: var(--text-3); }
   .pill[data-state="off"] .name { color: var(--warn); }
+  .tabpill { max-width: 230px; color: var(--text); }
+  .tabpill .b-ic img, .tabpill .b-ic .letter { width: 16px; height: 16px; border-radius: 4px; object-fit: contain; }
+  .tabpill .b-ic .letter { display: grid; place-items: center; font: 700 10px/1 -apple-system, system-ui, sans-serif; color: #fff; background: rgb(var(--chip)); }
+  .mentions .head { padding: 5px 9px 4px; font-size: 11px; color: var(--text-3); }
   .icon { width: 28px; height: 26px; border-radius: 8px; display: grid; place-items: center; color: var(--text-2); }
   .icon:hover { background: var(--hover); color: var(--text); }
   .icon:active { background: var(--press); }
@@ -339,6 +343,9 @@
   <header class="top">
     <span class="brand">Voice Browser</span>
     <span class="spacer"></span>
+    <button class="pill tabpill" id="curtab" type="button" hidden title="Commands run in this tab. It follows the tab you switch to; click to pick another." aria-haspopup="listbox">
+      <span class="b-ic" id="curtab-ic"></span><span class="name" id="curtab-name"></span><span class="caret" id="curtab-caret"></span>
+    </button>
     <button class="pill" id="browser" data-state="off" title="Choose the browser to control" aria-haspopup="menu">
       <span class="b-ic" id="browser-ic"></span><span class="name" id="browser-name">Connecting…</span><span class="caret" id="caret"></span>
     </button>
@@ -400,6 +407,7 @@
   $("go").innerHTML = ICON.enter;
   $("more").innerHTML = ICON.more;
   $("caret").innerHTML = ICON.caretDown;
+  $("curtab-caret").innerHTML = ICON.caretDown;
   $("browser-ic").innerHTML = ICON.globe;
   $("reply-ic").innerHTML = ICON.reply;
   $("reply-x").innerHTML = ICON.x;
@@ -914,13 +922,13 @@
   function handle({ type, payload }) {
     switch (type) {
       case "hello": model = payload.model || ""; break;
-      case "tab-list": tabList = payload || []; tabsLoaded = true; renderMentions(); break;
+      case "tab-list": tabList = payload || []; tabsLoaded = true; renderMentions(); renderCurTab(); break;
       case "commands": saved = payload || []; render(); break;
       case "secrets": secrets = payload || []; render(); break;
       case "store-error": setStatus(payload, "err"); break;
       case "stopped": break;
       case "tab-switched":
-        if (current && !payload.rest) { finish("ok", `Switched to ${payload.title}`); setStatus(`Switched to “${payload.title}”.`, "ok"); }
+        if (current && !payload.rest) { const w = payload.current ? "Using" : "Switched to"; finish("ok", `${w} ${payload.title}`); setStatus(`${w} “${payload.title}”.`, "ok"); }
         else setProgress(`In “${payload.title}”`);
         break;
       case "tab-error":
@@ -1070,7 +1078,7 @@
   function refreshTabs(force) {
     if (!force && Date.now() - tabListAt < 1500) return;
     tabListAt = Date.now();
-    send({ type: "tabs:list" });
+    send({ type: "tabs:list", sync: Boolean(force) });
   }
   let mention = null;
   let mentionSel = 0;
@@ -1230,6 +1238,7 @@
   }
   const mentionMatches = () => {
     const q = (mention?.query || "").toLowerCase();
+    if (mention?.pick) return tabList;
     return tabList.filter((t) => !q || `${t.title} ${t.url}`.toLowerCase().includes(q)).slice(0, 12);
   };
   function closeMentions() { mention = null; $("mentions").hidden = true; }
@@ -1239,18 +1248,45 @@
     const items = mentionMatches();
     mentionSel = Math.min(mentionSel, Math.max(0, items.length - 1));
     box.style.top = `${$("form").getBoundingClientRect().bottom - 6}px`;
-    box.innerHTML = items.length
+    box.innerHTML = (mention.pick ? `<div class="head">Run commands in…</div>` : "") + (items.length
       ? items.map((t, i) => {
-          const letter = ((t.title || "").replace(/^\(\d+\+?\)\s*/, "").match(/[\p{L}\p{N}]/u)?.[0] || "?").toUpperCase();
-          const ic = t.icon ? `<img src="${esc(t.icon)}" alt="">` : `<span class="letter" style="--chip:${hashColor(t.url.replace(/^https?:\/\//, "").split("/")[0] || t.title)}">${esc(letter)}</span>`;
+          const ic = tabIconHTML(t);
           return `<div class="mention${i === mentionSel ? " on" : ""}" role="option" aria-selected="${i === mentionSel}" data-i="${i}"><span class="ic">${ic}</span><span class="t">${esc(t.title || "Untitled")}${t.active ? '<span class="cur">Current tab</span>' : ""}</span><span class="u">${esc(shortUrl(t.url))}</span></div>`;
         }).join("")
-      : `<div class="none">${tabList.length ? "No open tab matches." : tabsLoaded ? "No tabs are open in the controlled browser." : "Loading tabs…"}</div>`;
+      : `<div class="none">${tabList.length ? "No open tab matches." : tabsLoaded ? "No tabs are open in the controlled browser." : "Loading tabs…"}</div>`);
     box.hidden = false;
     box.querySelector(".mention.on")?.scrollIntoView({ block: "nearest" });
   }
+  function tabIconHTML(t) {
+    const letter = ((t.title || "").replace(/^\(\d+\+?\)\s*/, "").match(/[\p{L}\p{N}]/u)?.[0] || "?").toUpperCase();
+    return t.icon ? `<img src="${esc(t.icon)}" alt="">` : `<span class="letter" style="--chip:${hashColor(t.url.replace(/^https?:\/\//, "").split("/")[0] || t.title)}">${esc(letter)}</span>`;
+  }
+  // The tab commands run in, shown in the header. It follows the browser; click to pick another.
+  function renderCurTab() {
+    const t = tabList.find((x) => x.active);
+    $("curtab").hidden = !t;
+    if (!t) return;
+    $("curtab-ic").innerHTML = tabIconHTML(t);
+    $("curtab-name").textContent = t.title || shortUrl(t.url) || "Untitled";
+    $("curtab").title = `Commands run in “${t.title || shortUrl(t.url)}”. It follows the tab you switch to in the browser. Click to pick another tab.`;
+  }
+  function openTabPicker() {
+    if (mention?.pick) return closeMentions();
+    refreshTabs(true);
+    mention = { pick: true, query: "" };
+    mentionSel = Math.max(0, tabList.findIndex((t) => t.active));
+    cmd.focus();
+    renderMentions();
+  }
+  $("curtab").addEventListener("mousedown", (e) => e.preventDefault()); // keep focus in the prompt
+  $("curtab").addEventListener("click", openTabPicker);
+
   function pickMention(i) {
     const t = mentionMatches()[i];
+    if (mention?.pick) {
+      if (t) send({ type: "tab:select", index: t.index });
+      return closeMentions();
+    }
     const at = mentionAtCursor() || mention;
     if (!t || !at) return closeMentions();
     const title = (t.title || shortUrl(t.url)).replace(/[\[\]]/g, "");
@@ -1278,6 +1314,7 @@
     cmd.focus();
   }
   function updateMention() {
+    if (mention?.pick && !cmdText()) return;
     mention = mentionAtCursor();
     if (!mention) return closeMentions();
     refreshTabs();
@@ -1435,8 +1472,8 @@
     if (a === "undo") send({ type: "undo" });
     else if (a === "record-hotkey") recordHotkey();
   });
-  window.bar.onFocusInput(() => { caretToEnd(); refreshTabs(); });
-  window.addEventListener("focus", () => refreshTabs());
+  window.bar.onFocusInput(() => { caretToEnd(); refreshTabs(true); });
+  window.addEventListener("focus", () => refreshTabs(true));
   window.bar.onServerExit((info) => setStatus(`The browser service keeps stopping (code ${info.code}). Details are in ~/.voice-browser/server.log. Reopen the app to try again.`, "err"));
 
   setAsk(askMode);

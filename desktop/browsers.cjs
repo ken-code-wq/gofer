@@ -144,7 +144,9 @@ async function connect(b, { prev = null, allowRestart = false, onProgress = () =
     await sleep(600);
   }
   onProgress(`Starting ${b.name} with remote control…`);
-  launch(b, [`--remote-debugging-port=${port}`]);
+  // Dia only reports some tabs' URLs to AppleScript if it may run JavaScript there (read-only use:
+  // the bar asks which tab you're on).
+  launch(b, [`--remote-debugging-port=${port}`, ...(b.id === "dia" ? ["--enable-applescript-javascript"] : [])]);
   if (await waitFor(() => debugReady(port), 12000, 400)) return { cdpUrl: `http://127.0.0.1:${port}`, port, separate: false };
 
   // The browser is up but ignored the flag on its main profile (Chrome 136+ policy).
