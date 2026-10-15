@@ -74,9 +74,13 @@ export async function startServer(opts = {}) {
   controller.on("tabs", (p) => broadcast("tabs", p));
   // Keep every bar's "@" list warm: push it whenever tabs open, close or navigate.
   let tabTimer = null;
+  // At most one tab-list every 300 ms, and never starved by a stream of changes.
   const pushTabs = () => {
-    clearTimeout(tabTimer);
-    tabTimer = setTimeout(async () => broadcast("tab-list", await browser.tabList({ onIcons: pushTabs }).catch(() => [])), 300);
+    if (tabTimer) return;
+    tabTimer = setTimeout(async () => {
+      tabTimer = null;
+      broadcast("tab-list", await browser.tabList({ onIcons: pushTabs }).catch(() => []));
+    }, 300);
   };
   controller.on("tabs", pushTabs);
   usageEvents.on("change", (u) => broadcast("usage", u));

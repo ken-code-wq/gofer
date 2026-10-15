@@ -91,9 +91,9 @@ function launch(b, args, { newInstance = false } = {}) {
   child.unref();
 }
 
-async function debugReady(port) {
+async function debugReady(port, ms = 800) {
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(800) });
+    const res = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(ms) });
     return res.ok;
   } catch {
     return false;
@@ -123,7 +123,12 @@ async function freePort(start = 9333) {
  * Resolves { cdpUrl, port, separate } or throws.
  */
 async function connect(b, { prev = null, allowRestart = false, onProgress = () => {} } = {}) {
-  if (prev?.port && (await debugReady(prev.port))) return { cdpUrl: `http://127.0.0.1:${prev.port}`, port: prev.port, separate: Boolean(prev.separate) };
+  // A busy browser (many tabs) can take a few seconds to answer; don't mistake that for "not running".
+  const remembered = async () => {
+    for (let i = 0; i < 3; i++) if (await debugReady(prev.port, 3000)) return true;
+    return false;
+  };
+  if (prev?.port && (await remembered())) return { cdpUrl: `http://127.0.0.1:${prev.port}`, port: prev.port, separate: Boolean(prev.separate) };
 
   const port = await freePort();
   const profileDir = path.join(PROFILE_ROOT, b.id);

@@ -161,13 +161,20 @@ export class BrowserManager {
       if (!id) return;
       this.targetIds.set(page, id);
     }
-    if (this.active === page) this.proxy.keepRendering(id);
+    if (this.active === page) {
+      if (this._renderingPage && this._renderingPage !== page) this._left = { page: this._renderingPage, until: Date.now() + 400 };
+      this._renderingPage = page;
+      this.proxy.keepRendering(id);
+    }
   }
 
   /** A page reported focus. While a goal runs (canFollow() false) the agent stays on its tab. */
   _focused(page) {
     if (page === this.active || page.isClosed() || !this.pages.includes(page) || !followable(page)) return;
     if (this.canFollow && !this.canFollow()) return;
+    // Moving the "keep rendering" emulation off a tab makes it fire focus/visibility events itself;
+    // ignore that tab for a moment so two tabs can't keep handing it back and forth.
+    if (page === this._left?.page && Date.now() < this._left.until) return;
     this.active = page;
     this._emit();
   }

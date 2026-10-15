@@ -27,8 +27,9 @@ test("phrases that mean the tab you're on", () => {
   assert.equal(parseCurrentTab("click login"), null);
 });
 
-// Needs a real window (headless tabs never get focus), so it runs on a Mac, not in CI.
-test("follows the tab you switch to, but not while a goal runs", { timeout: 60000, skip: process.env.CI || process.platform !== "darwin" }, async () => {
+// Needs a real window that gets focus (headless tabs never do), and anything else you click while it
+// runs can steal that focus, so it's opt-in: VB_FOCUS_TEST=1 npm test (macOS, hands off).
+test("follows the tab you switch to, but not while a goal runs", { timeout: 60000, skip: !process.env.VB_FOCUS_TEST || process.platform !== "darwin" }, async () => {
   const port = 9900 + Math.floor(Math.random() * 90);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vb-follow-"));
   const proc = spawn(chromium.executablePath(), [`--remote-debugging-port=${port}`, `--user-data-dir=${dir}`, "--no-first-run", "--no-default-browser-check", "--window-position=-3000,-3000", "about:blank"], { stdio: "ignore" });
@@ -42,6 +43,7 @@ test("follows the tab you switch to, but not while a goal runs", { timeout: 6000
     const sw = async (t) => { await fetch(`http://127.0.0.1:${port}/json/activate/${t.id}`); await new Promise((r) => setTimeout(r, 800)); };
     await sw(yt);
     await b.launch({ cdp: `http://127.0.0.1:${port}`, startUrl: null });
+    await new Promise((r) => setTimeout(r, 600)); // the tab it just left is ignored briefly
     const cur = () => b.page.title();
     await sw(bills);
     assert.equal(await cur(), "Bills");
