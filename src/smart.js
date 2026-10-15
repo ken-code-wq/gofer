@@ -298,13 +298,14 @@ const STEP_SCHEMA = {
     action: {
       type: "object",
       properties: {
-        type: { type: "string", enum: ["click", "type", "select", "fill_form", "press_enter", "navigate", "scroll_down", "scroll_up", "go_back", "wait"] },
+        type: { type: "string", enum: ["click", "type", "select", "fill_form", "press_enter", "navigate", "new_tab", "switch_tab", "close_tab", "scroll_down", "scroll_up", "go_back", "wait"] },
         element_id: { type: "string", description: "Id from the element list (click/type/select)." },
         text: {
           type: "string",
           description: "type: the text. select: the option label. fill_form: every value to enter, e.g. 'vendor Acme Ltd, amount 1250.00, due date 2026-11-15, category Utilities'. Copy {{placeholders}} unchanged.",
         },
-        url: { type: "string", description: "For navigate." },
+        url: { type: "string", description: "For navigate. For new_tab: the address to open in it (optional)." },
+        tab: { type: "integer", description: "For switch_tab: the number of the tab in the open tabs list." },
         submit: { type: "boolean", description: "For type: press Enter afterwards." },
       },
       required: ["type"],
@@ -317,7 +318,10 @@ const STEP_SCHEMA = {
 const GOAL_SYSTEM =
   "You operate a web browser to achieve the user's goal, one step at a time. Each turn you get the current page " +
   "(URL, numbered elements, visible text, screenshot) and the steps already taken. Choose exactly ONE next action, " +
-  "using only element ids that exist in the list. Prefer the most direct path. If the goal is achieved, return status 'done' " +
+  "using only element ids that exist in the list. Prefer the most direct path. " +
+  "You are not limited to the current tab: open a new tab (new_tab, with a url to load in it), switch to any open tab " +
+  "(switch_tab with its number) or close the current tab (close_tab) whenever the goal calls for it. Opening a new tab " +
+  "leaves the user's other tabs untouched, so prefer it when asked for a new tab. If the goal is achieved, return status 'done' " +
   "with a short summary of what was done; if it can't be achieved on this site, return 'impossible' and say why. " +
   "When a form is visible, prefer ONE fill_form action with all the values instead of typing field by field. " +
   "When asked for dummy, test or sample data, invent realistic, plausible values (names, amounts, dates in the near future, " +
@@ -330,8 +334,8 @@ const GOAL_SYSTEM =
   "Never invent ids. Mark risky=true for anything that submits, pays, sends, approves, deletes or can't be undone, " +
   "unless the user's goal explicitly asks for exactly that action.";
 
-/** Turn one brain step into an executor action. Returns { action } or { error }. */
-export function toAction(step, snap) {
+/** Turn one brain step into an executor action. Returns { action } or { error }. `tabs` = goalTabs(). */
+export function toAction(step, snap, tabs = []) {
   const a = step.action || {};
   const ids = new Set((snap?.elements || []).map((e) => e.id));
   const el = (snap?.elements || []).find((e) => e.id === a.element_id);
@@ -352,6 +356,19 @@ export function toAction(step, snap) {
     case "navigate":
       if (!a.url) return { error: "navigate without a url" };
       return { action: { type: "navigate_url", url: toHttpUrl(a.url), label: a.url } };
+    case "new_tab":
+      return a.url
+        ? { action: { type: "open_new_tab", url: toHttpUrl(a.url), label: `new tab: ${a.url}` } }
+        : { action: { type: "open_new_tab", label: "new tab" } };
+    case "switch_tab": {
+      const t = tabs.find((x) => x.n === Number(a.tab));
+      if (!t) return { error: `tab ${a.tab ?? "(none)"} is not open` };
+      const action = { type: "switch_tab", title: t.title, label: `switch to tab "${t.title || t.url}"` };
+      Object.defineProperty(action, "page", { value: t.page }); // not enumerable: actions are sent to the bar as JSON
+      return { action };
+    }
+    case "close_tab":
+      return { action: { type: "close_tab", label: "close this tab" } };
     case "scroll_down":
     case "scroll_up":
       return { action: { type: a.type, amount: "page", label: a.type.replace("_", " ") } };
@@ -415,14 +432,24 @@ export async function verifyGoal(controller, goal, done, context = "") {
 }
 
 /** Ask the brain for the next step of a goal. `done` = [{ description, outcome }]. */
+/** The open tabs a goal can switch to, numbered from 1. Sleeping tabs can't hold it up. */
+export async function goalTabs(browser) {
+  const live = (browser.pages || []).filter((p) => !p.isClosed() && /^(?:https?:|about:blank)/.test(p.url()));
+  const title = (p) => Promise.race([p.title().catch(() => ""), new Promise((r) => setTimeout(() => r(""), 400))]);
+  const titles = await Promise.all(live.map(title));
+  return live.map((page, i) => ({ n: i + 1, page, title: titles[i], url: page.url(), current: page === browser.active }));
+}
+
 export async function nextGoalStep(controller, goal, done, note = "", context = "") {
   const ctx = await pageContext(controller);
+  const tabs = await goalTabs(controller.browser).catch(() => []);
+  const tabLines = tabs.map((t) => `  ${t.n}. ${(t.title || "(untitled)").slice(0, 80)} (${t.url.slice(0, 120)})${t.current ? " ← current" : ""}`);
   const history = done.length ? done.map((d, i) => `${i + 1}. ${d.description} → ${d.outcome}`).join("\n") : "(none yet)";
   const r = await ask({
     system: GOAL_SYSTEM,
-    text: `${withContext(context)}Goal: ${goal}\n\nSteps taken so far:\n${history}\n${note ? `\nNote: ${note}\n` : ""}\nCurrent page:\n${ctx.description}`,
+    text: `${withContext(context)}Goal: ${goal}\n\nSteps taken so far:\n${history}\n${note ? `\nNote: ${note}\n` : ""}\nOpen tabs:\n${tabLines.join("\n") || "  (only this one)"}\n\nCurrent page:\n${ctx.description}`,
     images: ctx.images,
     schema: STEP_SCHEMA,
   });
-  return { step: r.data, snap: ctx.snap, model: r.model, ms: r.ms };
+  return { step: r.data, snap: ctx.snap, tabs, model: r.model, ms: r.ms };
 }

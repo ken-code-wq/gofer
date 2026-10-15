@@ -480,6 +480,9 @@ export class Controller extends EventEmitter {
           : s.kind === "enter" ? { type: "press_enter", label: "press enter" }
           : s.kind === "back" ? { type: "go_back", label: "go back" }
           : s.kind === "wait" ? { type: "wait_ms", ms: s.ms || 1500, label: "wait" }
+          : s.kind === "new_tab" ? { type: "open_new_tab", url: s.url, label: s.label }
+          : s.kind === "close_tab" ? { type: "close_tab", label: s.label }
+          : s.kind === "switch_tab" ? { type: "switch_tab", title: s.title, label: s.label }
           : { type: s.kind, amount: "page", label: s.label };
       }
       if (s.risky && !g.autoApprove) {
@@ -526,7 +529,7 @@ export class Controller extends EventEmitter {
         return this._endGoal(g, "done", step.summary);
       }
       if (step.status === "impossible") return this._endGoal(g, "failed", step.summary);
-      const { action, fill, error } = toAction(step, r.snap);
+      const { action, fill, error } = toAction(step, r.snap, r.tabs);
       if (error) {
         if (++g.invalid > 2) return this._endGoal(g, "failed", `the model kept choosing invalid steps (${error})`);
         note = `Your last choice was invalid: ${error}. Choose again from the element list.`;

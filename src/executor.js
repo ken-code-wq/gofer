@@ -152,8 +152,12 @@ export async function execute(action, browser) {
     case "open_new_tab": {
       const p = await browser.context.newPage();
       await browser.setActive(p);
+      if (action.url) {
+        await p.goto(action.url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT }).catch(() => {});
+        await settle(p, 800);
+      }
       await browser.overlay("toast", "new tab");
-      return { ok: true, detail: `tabs=${browser.pages.length}` };
+      return { ok: true, detail: action.url ? p.url() : `tabs=${browser.pages.length}` };
     }
 
     case "close_tab": {
@@ -164,6 +168,17 @@ export async function execute(action, browser) {
     }
 
     case "switch_tab": {
+      // a goal names the tab (a page, or its title when a saved goal replays)
+      if (action.page || action.title) {
+        let target = action.page && !action.page.isClosed() ? action.page : null;
+        if (!target && action.title) {
+          for (const p of browser.pages) if (!p.isClosed() && (await p.title().catch(() => "")) === action.title) { target = p; break; }
+        }
+        if (!target) return { ok: false, detail: `tab "${action.title || "?"}" is not open` };
+        await browser.setActive(target);
+        await browser.overlay("toast", "switched tab");
+        return { ok: true, detail: target.url() };
+      }
       const pages = browser.pages;
       if (pages.length < 2) return { ok: false, detail: "only one tab" };
       const i = pages.indexOf(browser.page);

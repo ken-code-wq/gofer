@@ -44,6 +44,12 @@ export function stepFromAction(action, snap, risky = false) {
       return { kind: "back", label: "go back" };
     case "wait_ms":
       return { kind: "wait", ms: action.ms || 1500, label: "wait" };
+    case "open_new_tab":
+      return { kind: "new_tab", url: action.url || "", label: action.label || "new tab" };
+    case "close_tab":
+      return { kind: "close_tab", label: "close this tab" };
+    case "switch_tab":
+      return action.title ? { kind: "switch_tab", title: action.title, label: action.label } : null;
     default:
       return null;
   }
