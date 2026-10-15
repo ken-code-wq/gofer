@@ -3,6 +3,7 @@
  * (so it feels like "your browser"), or attach to a running Chrome via --cdp ws://...
  * Tracks tabs and exposes the active page.
  */
+import { startCdpProxy } from "./cdp-proxy.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
@@ -34,7 +35,13 @@ export class BrowserManager {
 
   async launch({ headless = false, cdp = null, profileDir = DEFAULT_PROFILE_DIR, startUrl = "about:blank" } = {}) {
     if (cdp) {
-      this.browser = await chromium.connectOverCDP(cdp);
+      // Sleeping tabs never answer and would stall connectOverCDP forever: go through the relay.
+      let endpoint = cdp;
+      if (/^https?:/.test(cdp)) {
+        this.proxy = await startCdpProxy(cdp, { log: (m) => console.log(m) });
+        endpoint = this.proxy.wsUrl;
+      }
+      this.browser = await chromium.connectOverCDP(endpoint, { timeout: 90000 });
       this.context = this.browser.contexts()[0] || (await this.browser.newContext());
     } else {
       this.context = await chromium.launchPersistentContext(profileDir, {
@@ -198,6 +205,7 @@ export class BrowserManager {
     if (this.browser) {
       // Attached to the user's own browser: only disconnect. Closing its context would close their tabs.
       await this.browser.close().catch(() => {});
+      this.proxy?.close();
       return;
     }
     await this.context?.close().catch(() => {});

@@ -1437,7 +1437,7 @@
   });
   window.bar.onFocusInput(() => { caretToEnd(); refreshTabs(); });
   window.addEventListener("focus", () => refreshTabs());
-  window.bar.onServerExit((info) => setStatus(`The browser service stopped (code ${info.code}).`, "err"));
+  window.bar.onServerExit((info) => setStatus(`The browser service keeps stopping (code ${info.code}). Details are in ~/.voice-browser/server.log. Reopen the app to try again.`, "err"));
 
   setAsk(askMode);
   render();

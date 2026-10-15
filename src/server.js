@@ -175,6 +175,9 @@ export async function startServer(opts = {}) {
   };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
+  // A closed tab or a dropped browser connection can reject a stray promise; log it, keep serving.
+  process.on("unhandledRejection", (err) => console.error("unhandled rejection:", err?.stack || err));
+  process.on("uncaughtException", (err) => console.error("uncaught exception:", err?.stack || err));
   return { app, server, controller, browser, url };
 }
 

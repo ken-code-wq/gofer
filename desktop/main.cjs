@@ -231,6 +231,20 @@ async function stopServer() {
   server = null;
 }
 
+let crashes = 0;
+let quitting = false;
+/** Server output goes to ~/.voice-browser/server.log (kept small) so crashes can be diagnosed. */
+function serverLog() {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const file = path.join(DATA_DIR, "server.log");
+  try {
+    if (fs.statSync(file).size > 2_000_000) fs.renameSync(file, file + ".1");
+  } catch {}
+  const s = fs.createWriteStream(file, { flags: "a" });
+  s.write(`\n[${new Date().toISOString()}] starting server\n`);
+  return s;
+}
+
 async function startServer(cdpUrl = null) {
   const env = { ...process.env, ...readEnv(ENV_FILE), ELECTRON_RUN_AS_NODE: "1", PORT: String(PORT) };
   env.CDP_URL = cdpUrl || ""; // overrides .env: the bar's browser menu is the source of truth
@@ -250,15 +264,24 @@ async function startServer(cdpUrl = null) {
   // Electron's own binary runs as plain Node here, so no separate Node install is needed.
   server = spawn(process.execPath, [path.join(ROOT, "src", "server.js")], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] });
   let stderr = "";
-  server.stdout.on("data", (d) => process.stdout.write(d));
+  const log = serverLog();
+  server.stdout.on("data", (d) => (process.stdout.write(d), log.write(d)));
   server.stderr.on("data", (d) => {
     stderr += d;
     process.stderr.write(d);
+    log.write(d);
   });
   const child = server;
-  child.on("exit", (code) => {
+  const startedAt = Date.now();
+  child.on("exit", (code, signal) => {
+    log.write(`\n[${new Date().toISOString()}] server exited (code ${code}, signal ${signal})\n`);
+    log.end();
     if (server === child) server = null;
-    if (!restarting) win?.webContents.send("server-exit", { code, stderr: stderr.slice(-400) });
+    if (restarting || quitting) return;
+    // Unexpected exit: start it again on the same browser, unless it keeps dying right away.
+    crashes = Date.now() - startedAt < 60000 ? crashes + 1 : 0;
+    if (crashes >= 3) return win?.webContents.send("server-exit", { code, stderr: stderr.slice(-400) });
+    setTimeout(() => startServer(cdpUrl).catch(() => {}), 1000 * crashes);
   });
   // Attaching to a browser with many tabs (Dia, Arc) can take a while: allow up to 2 minutes.
   for (let i = 0; i < 480; i++) {
@@ -515,6 +538,7 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => app.quit());
 app.on("will-quit", () => {
+  quitting = true;
   globalShortcut.unregisterAll();
   if (server) server.kill("SIGTERM"); // server closes the controlled Chromium on SIGTERM
 });
