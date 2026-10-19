@@ -374,6 +374,30 @@ function glassSupported() {
   }
 }
 
+/**
+ * The panel records voice requests: grant microphone access (audio only, nothing else) to our own
+ * bar.html, and let macOS ask the user the first time.
+ */
+let micAllowed = false;
+function allowMicrophone(ses) {
+  if (micAllowed) return;
+  micAllowed = true;
+  const ours = (url) => String(url || "").startsWith("file://") && String(url).includes("bar.html");
+  const audioOnly = (details) => {
+    const types = details?.mediaTypes || [];
+    return types.length > 0 && types.every((t) => t === "audio");
+  };
+  ses.setPermissionRequestHandler((wc, permission, callback, details) => {
+    if (permission !== "media" || !ours(details?.requestingUrl || wc.getURL()) || !audioOnly(details)) return callback(false);
+    if (process.platform !== "darwin") return callback(true);
+    systemPreferences.askForMediaAccess("microphone").then(callback, () => callback(false));
+  });
+  ses.setPermissionCheckHandler((wc, permission, origin, details) => {
+    if (permission !== "media") return false;
+    return (details?.mediaType === "audio" || details?.mediaType === undefined) && ours(wc?.getURL() || details?.requestingUrl || origin);
+  });
+}
+
 function createWindow() {
   const b = loadBounds();
   const glass = glassSupported();
@@ -393,6 +417,7 @@ function createWindow() {
     show: false,
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, sandbox: true },
   });
+  allowMicrophone(win.webContents.session);
   if (b.x === undefined) win.center();
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   win.loadFile(path.join(__dirname, "bar.html"), { query: { ws: `ws://127.0.0.1:${PORT}`, port: String(PORT), glass: glass ? "1" : "" } });

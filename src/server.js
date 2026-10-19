@@ -17,6 +17,7 @@ import { listCommands, saveCommand, deleteCommand } from "./store.js";
 import { listSecrets, setSecret, deleteSecret } from "./secrets.js";
 import { deleteChat } from "./memory.js";
 import { listModels, setPreferred, PROVIDERS } from "./brain.js";
+import { mountVoice } from "./voice.js";
 import fs from "node:fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -68,6 +69,7 @@ export async function startServer(opts = {}) {
   app.use(express.static(path.join(__dirname, "public")));
   app.get("/api/state", (_req, res) => res.json(controller.uiState()));
   app.get("/api/questions", (_req, res) => res.json({ model: MODEL, thresholds: T, questions: QUESTIONS }));
+  mountVoice(app); // POST /api/transcribe, /api/speak (Groq Whisper / Orpheus)
 
   const server = http.createServer(app);
   const wss = new WebSocketServer({ server });

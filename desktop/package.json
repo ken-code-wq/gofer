@@ -76,7 +76,8 @@
       "identity": null,
       "extendInfo": {
         "LSUIElement": true,
-        "NSAppleEventsUsageDescription": "Voice Browser quits and reopens your browser so it can control it."
+        "NSAppleEventsUsageDescription": "Voice Browser quits and reopens your browser so it can control it.",
+        "NSMicrophoneUsageDescription": "Voice Browser listens when you hold Option or click the mic, to turn your voice into a request."
       }
     },
     "win": {
