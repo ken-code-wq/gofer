@@ -16,6 +16,7 @@ import { MODEL, PROVIDER, QUESTIONS, T } from "./constants.js";
 import { listCommands, saveCommand, deleteCommand } from "./store.js";
 import { listSecrets, setSecret, deleteSecret } from "./secrets.js";
 import { deleteChat } from "./memory.js";
+import { listSites, addNote, deleteNote, siteKey, siteNoteEvents } from "./sitenotes.js";
 import { listModels, setPreferred, PROVIDERS } from "./brain.js";
 import { mountVoice } from "./voice.js";
 import fs from "node:fs";
@@ -103,6 +104,14 @@ export async function startServer(opts = {}) {
   controller.on("gaveup", (p) => broadcast("gaveup", p));
   controller.on("expanded", (p) => broadcast("expanded", p));
   for (const ev of ["goal", "goal-confirm", "answer", "utility", "table", "fill", "smart-error", "tab-switched", "tab-error", "resolved", "stopped"]) controller.on(ev, (p) => broadcast(ev, p));
+
+  // Site notes: every window sees the same list, with the controlled tab's site first.
+  const siteNotes = () => {
+    const current = siteKey(controller.browser.page?.url?.() || "");
+    return { current, sites: listSites(current) };
+  };
+  siteNoteEvents.on("change", () => broadcast("sitenotes", siteNotes()));
+  controller.on("sitenotes-learned", (p) => broadcast("sitenotes-learned", p));
 
   wss.on("connection", (ws) => {
     const reply = (type, payload) => ws.readyState === 1 && ws.send(JSON.stringify({ type, payload }));
@@ -197,6 +206,19 @@ export async function startServer(opts = {}) {
         case "secrets:delete":
           await deleteSecret(msg.name);
           broadcast("secrets", await listSecrets());
+          break;
+        case "sitenotes:list":
+          reply("sitenotes", siteNotes());
+          break;
+        case "sitenotes:add":
+          try {
+            addNote(String(msg.site || "") || siteNotes().current, msg.text, "user");
+          } catch (err) {
+            reply("store-error", String(err.message || err));
+          }
+          break;
+        case "sitenotes:delete":
+          deleteNote(String(msg.site || ""), String(msg.id || ""));
           break;
         case "usage:limit":
           reply("usage", setLimit(msg.usd));

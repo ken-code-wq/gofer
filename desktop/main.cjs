@@ -468,6 +468,7 @@ ipcMain.on("app-menu", (_e, { model } = {}) => {
     { label: "Past chats", accelerator: "Command+4", click: send("view-chats") },
     { label: "Saved commands", accelerator: "Command+2", click: send("view-saved") },
     { label: "Passwords", accelerator: "Command+3", click: send("view-secrets") },
+    { label: "Site notes", accelerator: "Command+5", click: send("view-sitenotes") },
     { label: "AI models…", click: send("models") },
     { type: "separator" },
     { label: "Undo last action", click: send("undo") },
