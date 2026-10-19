@@ -16,9 +16,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FOCUS_HOOK = `(() => {
   if (window.top !== window || window.__vbFocusHook) return;
   window.__vbFocusHook = true;
-  const ping = () => { if (document.visibilityState === "visible" && document.hasFocus()) window.__vbFocused?.().catch?.(() => {}); };
+  const ping = (e) => { if (document.visibilityState === "visible" && document.hasFocus()) window.__vbFocused?.(e?.type || "").catch?.(() => {}); };
   addEventListener("focus", ping);
-  document.addEventListener("visibilitychange", () => setTimeout(ping, 60)); // switching tabs shows this one
+  document.addEventListener("visibilitychange", (e) => setTimeout(() => ping(e), 60)); // switching tabs shows this one
   addEventListener("pointerdown", ping, true);
 })()`;
 
@@ -78,7 +78,10 @@ export class BrowserManager {
   constructor() {
     this.context = null;
     this.browser = null;
-    this.active = null;
+    this.active = null; // the tab the agent works in
+    // The tab you're looking at. The agent works in `active`, which is often a background tab; only
+    // show() (Show / Take over / picking a tab in the panel) changes what you see.
+    this.shown = null;
     this.pages = [];
     this.listeners = new Set();
   }
@@ -117,7 +120,7 @@ export class BrowserManager {
     // Attached browsers: follow the tab you're looking at (pages report when they get focus). The
     // built-in Chromium makes every tab look focused, so there the agent stays where it is.
     if (this.proxy) {
-      await this.context.exposeBinding("__vbFocused", ({ page }) => this._focused(page)).catch(() => {});
+      await this.context.exposeBinding("__vbFocused", ({ page }, kind) => this._focused(page, kind)).catch(() => {});
       await this.context.addInitScript(FOCUS_HOOK);
     }
 
@@ -125,6 +128,7 @@ export class BrowserManager {
     for (const p of this.context.pages()) this._track(p);
     if (this.pages.length === 0) await this.context.newPage();
     this.active = this.pages[this.pages.length - 1];
+    this.shown = this.active;
     if (cdp) await this.syncActive().catch(() => {}); // start on the tab you're looking at
     if (startUrl && startUrl !== "about:blank") {
       await this.active.goto(startUrl, { waitUntil: "domcontentloaded" }).catch(() => {});
@@ -143,6 +147,7 @@ export class BrowserManager {
     page.on("close", () => {
       this.pages = this.pages.filter((p) => p !== page);
       if (this.active === page) this.active = this.pages[this.pages.length - 1] || null;
+      if (this.shown === page) this.shown = null;
       this._emit();
     });
     page.on("framenavigated", (frame) => {
@@ -154,15 +159,8 @@ export class BrowserManager {
   /** Attached browsers: the agent's tab keeps rendering even if the window is behind other apps. */
   async _keepRendering(page) {
     if (!page || page.isClosed()) return;
-    this.targetIds ??= new WeakMap();
-    let id = this.targetIds.get(page);
-    if (!id) {
-      const s = await this.context.newCDPSession(page).catch(() => null);
-      id = (await s?.send("Target.getTargetInfo").catch(() => null))?.targetInfo?.targetId;
-      s?.detach().catch(() => {});
-      if (!id) return;
-      this.targetIds.set(page, id);
-    }
+    const id = await this._targetId(page);
+    if (!id) return;
     if (this.active === page) {
       if (this._renderingPage && this._renderingPage !== page) this._left = { page: this._renderingPage, until: Date.now() + 400 };
       this._renderingPage = page;
@@ -170,15 +168,35 @@ export class BrowserManager {
     }
   }
 
-  /** A page reported focus. While a goal runs (canFollow() false) the agent stays on its tab. */
-  _focused(page) {
-    if (page === this.active || page.isClosed() || !this.pages.includes(page) || !followable(page)) return;
-    if (this.canFollow && !this.canFollow()) return;
+  /** DevTools target id of a page (cached). */
+  async _targetId(page) {
+    this.targetIds ??= new WeakMap();
+    let id = this.targetIds.get(page);
+    if (!id) {
+      const s = await this.context.newCDPSession(page).catch(() => null);
+      id = (await s?.send("Target.getTargetInfo").catch(() => null))?.targetInfo?.targetId;
+      s?.detach().catch(() => {});
+      if (id) this.targetIds.set(page, id);
+    }
+    return id || null;
+  }
+
+  /**
+   * A page reported focus (`kind`: focus | visibilitychange | pointerdown). It's the tab you're
+   * looking at; while a goal runs (canFollow() false) the agent stays on its own tab.
+   */
+  _focused(page, kind = "") {
+    if (page.isClosed() || !this.pages.includes(page) || !followable(page)) return;
     // Moving the "keep rendering" emulation off a tab makes it fire focus/visibility events itself;
     // ignore that tab for a moment so two tabs can't keep handing it back and forth.
     if (page === this._left?.page && Date.now() < this._left.until) return;
-    this.active = page;
-    this._emit();
+    // The agent's background tab is kept "focused" by emulation and can report focus on its own;
+    // only a click in it or it becoming visible means you're actually looking at it.
+    const emulated = page === this._renderingPage && page !== this.shown && kind === "focus";
+    let changed = false;
+    if (!emulated && this.shown !== page) (this.shown = page), (changed = true);
+    if (page !== this.active && !emulated && !(this.canFollow && !this.canFollow())) (this.active = page), (changed = true);
+    if (changed) this._emit();
   }
 
   /**
@@ -186,7 +204,33 @@ export class BrowserManager {
    * AppleScript), else another tab that has focus. Sleeping tabs can't hold it up.
    */
   async syncActive() {
+    const next = await this._frontPage();
+    if (next && next !== this.shown) (this.shown = next), this._emit();
     if (this.canFollow && !this.canFollow()) return this.active;
+    if (next && next !== this.active) {
+      this.active = next;
+      this._emit();
+    }
+    return this.active;
+  }
+
+  /** The tab you're looking at, asked fresh where the browser can tell (attached browsers). */
+  async visiblePage() {
+    const p = await this._frontPage().catch(() => null);
+    if (p && p !== this.shown) (this.shown = p), this._emit();
+    const live = (x) => x && !x.isClosed() && this.pages.includes(x);
+    return live(this.shown) ? this.shown : this.page;
+  }
+
+  /** Is the agent's tab the one you're looking at? */
+  isShown(page = this.active) {
+    return Boolean(page) && page === this.shown;
+  }
+
+  /** The tab the browser's front window shows, or null if it can't tell. */
+  async _frontPage() {
+    // The built-in Chromium makes every tab look visible and focused: what you see is what was last shown.
+    if (!this.proxy) return this.shown && !this.shown.isClosed() ? this.shown : null;
     const live = this.pages.filter((p) => !p.isClosed() && followable(p));
     let next = null;
     const shown = await frontTab();
@@ -201,11 +245,7 @@ export class BrowserManager {
       );
       next = live.find((p, i) => p !== this.active && states[i]);
     }
-    if (next && next !== this.active) {
-      this.active = next;
-      this._emit();
-    }
-    return this.active;
+    return next || null;
   }
 
   get page() {
@@ -220,10 +260,64 @@ export class BrowserManager {
     return this.page;
   }
 
-  async setActive(page) {
+  /**
+   * Work in this tab from now on. It stays in the background unless `show` is set: only an
+   * explicit request from you (Show, Take over, picking a tab in the panel) changes what you see.
+   */
+  async setActive(page, { show = false } = {}) {
     this.active = page;
-    await page.bringToFront().catch(() => {});
+    if (show) return this.show(page);
     this._emit();
+  }
+
+  /** Bring a tab to the front of the browser (you asked to see it). */
+  async show(page = this.active) {
+    if (!page || page.isClosed()) return;
+    await page.bringToFront().catch(() => {});
+    this.shown = page;
+    this._emit();
+  }
+
+  /**
+   * A new tab for the agent. In the background (CDP Target.createTarget, background: true, works in
+   * Chromium-based browsers) so the tab you're looking at doesn't change; a plain new page otherwise.
+   */
+  async newTab({ background = true } = {}) {
+    if (background) {
+      const p = await this._backgroundTab().catch(() => {
+        this._bsession = null; // the browser connection may have been replaced: open a new session next time
+        return null;
+      });
+      if (p) return p;
+    }
+    return this.context.newPage();
+  }
+
+  async _backgroundTab() {
+    const b = this.browser || this.context.browser?.();
+    if (!b?.newBrowserCDPSession) return null;
+    this._bsession ??= await b.newBrowserCDPSession();
+    const before = new Set(this.pages);
+    const { targetId } = await this._bsession.send("Target.createTarget", { url: "about:blank", background: true });
+    for (let i = 0; i < 100; i++) {
+      for (const p of this.pages) if (!before.has(p) && (await this._targetId(p)) === targetId) return p;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    return null;
+  }
+
+  /**
+   * A link the agent clicked opened a tab and the browser put it in front of you: show the tab you
+   * were looking at again. Attached browsers only (the built-in one has no front tab to restore).
+   */
+  async keepShown(prev, opened) {
+    if (!this.proxy || !prev || prev === opened || prev.isClosed()) return;
+    const front = await this._frontPage().catch(() => null);
+    if (front === opened) {
+      await prev.bringToFront().catch(() => {});
+      this.shown = prev;
+      this._emit();
+    }
   }
 
   /**
@@ -242,6 +336,7 @@ export class BrowserManager {
         title: await within(p.title(), 400, ""),
         url: p.url(),
         active: p === this.active,
+        shown: p === this.shown,
         icon: known(p)?.icon ?? null,
       })),
     );
@@ -301,9 +396,9 @@ export class BrowserManager {
     }
   }
 
-  /** Snapshot the active page (URL, title, compact element list, search box, site). */
-  async snapshot() {
-    const page = await this.ensurePage();
+  /** Snapshot the active page, or `page` (URL, title, compact element list, search box, site). */
+  async snapshot(page = null) {
+    page ||= await this.ensurePage();
     try {
       await page.waitForLoadState("domcontentloaded", { timeout: 1500 }).catch(() => {});
       const data = await page.evaluate(collectElementsInPage);

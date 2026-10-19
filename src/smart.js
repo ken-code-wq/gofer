@@ -46,9 +46,10 @@ async function screenshot(page) {
 }
 
 /** What the brain sees: URL, title, numbered elements, visible text, and a screenshot. */
-async function pageContext(controller, { textChars = 6000 } = {}) {
-  const snap = await controller.refreshSnapshot();
-  const page = await controller.browser.ensurePage();
+async function pageContext(controller, { textChars = 6000, page: only = null } = {}) {
+  // `only`: read that tab without touching the agent's own snapshot (a question asked while a task runs)
+  const snap = only ? await controller.browser.snapshot(only) : await controller.refreshSnapshot();
+  const page = only || (await controller.browser.ensurePage());
   const text = await page.evaluate(() => document.body?.innerText || "").catch(() => "");
   const shot = await screenshot(page);
   const host = hostOf(snap.url);
@@ -84,8 +85,9 @@ const ANSWER_RULES =
   "If the page doesn't cover it but it's a general question (facts, advice, wording, maths), answer from your own knowledge and set source to general. " +
   "Never present general knowledge as something the page says.";
 
-export async function answerQuestion(controller, question, context = "") {
-  const ctx = await pageContext(controller, { textChars: PAGE_TEXT_CHARS });
+/** `page`: answer about that tab (the one you're looking at) instead of the agent's. */
+export async function answerQuestion(controller, question, context = "", { page = null } = {}) {
+  const ctx = await pageContext(controller, { textChars: PAGE_TEXT_CHARS, page });
   const r = await ask({
     system: `You answer the user's questions while they browse. You can see the web page they're on (text and screenshot). ${ANSWER_RULES}`,
     text: `${withContext(context)}${ctx.description}\n\nQuestion: ${question}`,
@@ -295,10 +297,10 @@ export async function replayFill(controller, recorded) {
 const STEP_SCHEMA = {
   type: "object",
   properties: {
-    status: { type: "string", enum: ["continue", "done", "impossible"] },
+    status: { type: "string", enum: ["continue", "done", "impossible", "need_user"] },
     summary: {
       type: "string",
-      description: "When done/impossible: your reply to the user, in first person, one or two short friendly sentences saying what you did (naming the specific result, e.g. the song or item) or why it can't be done. Otherwise: what you see.",
+      description: "When done/impossible: your reply to the user, in first person, one or two short friendly sentences saying what you did (naming the specific result, e.g. the song or item) or why it can't be done. When need_user: one short sentence telling the user what to do (e.g. 'Please sign in to GitHub, then hand back.'). Otherwise: what you see.",
     },
     description: { type: "string", description: "The next step in a few words, e.g. 'click Approve on PR-105'." },
     action: {
@@ -332,6 +334,9 @@ const GOAL_SYSTEM =
   "using only element ids that exist in the list. Prefer the most direct path. " +
   "Work in the current tab (marked '← current') unless the goal names another tab, needs a new one, or the current tab " +
   "clearly isn't where it can be done; never move into one of the user's other tabs just because it looks relevant. " +
+  "The user keeps working while you do: never take over the tab they are looking at (marked 'user is looking at this') to go " +
+  "somewhere else. If the goal is about that page ('this page', 'here', 'summarize this') work on it; if it needs a different " +
+  "site, open it with new_tab (new tabs open in the background, so the user isn't disturbed) and work there. " +
   "You are not limited to the current tab: open a new tab (new_tab, with a url to load in it), switch to any open tab " +
   "(switch_tab with its number) or close the current tab (close_tab) whenever the goal calls for it. Opening a new tab " +
   "leaves the user's other tabs untouched, so prefer it when asked for a new tab. " +
@@ -344,6 +349,9 @@ const GOAL_SYSTEM =
   "Stop as soon as the goal is achieved and return 'done': never take extra steps 'to make sure' (each extra 'next' skips " +
   "another item). Don't press play/pause unless asked; a video that just opened is already playing. If the goal is achieved, return status 'done' " +
   "with a short summary of what was done; if it can't be achieved on this site, return 'impossible' and say why. " +
+  "If you hit something only the user can do (a login or password you don't have, a captcha, two-factor code, a payment " +
+  "confirmation), return status 'need_user' with a one-sentence summary of what they need to do; they'll hand control back " +
+  "when done and you continue. Never guess passwords. " +
   "When a form is visible, prefer ONE fill_form action with all the values instead of typing field by field. " +
   "When asked for dummy, test or sample data, invent realistic, plausible values (names, amounts, dates in the near future, " +
   "valid-looking emails/phones) and pick sensible options from dropdowns. " +
@@ -473,13 +481,13 @@ export async function goalTabs(browser) {
   const live = (browser.pages || []).filter((p) => !p.isClosed() && /^(?:https?:|about:blank)/.test(p.url()));
   const title = (p) => Promise.race([p.title().catch(() => ""), new Promise((r) => setTimeout(() => r(""), 400))]);
   const titles = await Promise.all(live.map(title));
-  return live.map((page, i) => ({ n: i + 1, page, title: titles[i], url: page.url(), current: page === browser.active }));
+  return live.map((page, i) => ({ n: i + 1, page, title: titles[i], url: page.url(), current: page === browser.active, shown: page === browser.shown }));
 }
 
 export async function nextGoalStep(controller, goal, done, note = "", context = "") {
   const ctx = await pageContext(controller);
   const tabs = await goalTabs(controller.browser).catch(() => []);
-  const tabLines = tabs.map((t) => `  ${t.n}. ${(t.title || "(untitled)").slice(0, 80)} (${t.url.slice(0, 120)})${t.current ? " ← current" : ""}`);
+  const tabLines = tabs.map((t) => `  ${t.n}. ${(t.title || "(untitled)").slice(0, 80)} (${t.url.slice(0, 120)})${t.current ? " ← current" : ""}${t.shown ? " (user is looking at this)" : ""}`);
   const history = done.length ? done.map((d, i) => `${i + 1}. ${d.description} → ${d.outcome}`).join("\n") : "(none yet)";
   const r = await ask({
     system: GOAL_SYSTEM,

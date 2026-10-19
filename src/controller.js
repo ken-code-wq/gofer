@@ -22,6 +22,8 @@ import { LimitError } from "./usage.js";
 import { stepFromAction, stepFromFill, finalizeRecipe, findElement, describeStep } from "./recipe.js";
 import { parseTabMention, parseCurrentTab, matchTab } from "./tabs.js";
 import { fillForm as fillFormFn } from "./smart.js";
+import { TaskRunner } from "./tasks.js";
+import { HANDBACK_NOTE } from "./takeover.js";
 
 const avg = (xs) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
 
@@ -69,8 +71,15 @@ export class Controller extends EventEmitter {
     // the page before the last navigation and the last few executed actions.
     this.context = { previousPage: null, recentActions: [] };
     browser.onChange(() => this.emit("tabs", browser.tabInfo()));
-    // Follow the tab you switch to in the browser, except while a goal is working in its own tab.
-    browser.canFollow = () => !this.goal;
+    // Messages sent while a task runs wait their turn (see tasks.js); take over, undo, background tabs.
+    this.tasks = new TaskRunner(this);
+    // Follow the tab you switch to in the browser, except while a task is working in its own tab.
+    browser.canFollow = () => !this.goal && this.tasks.queue.idle;
+  }
+
+  /** A message from the panel (or a scheduler): runs now, or after the running task. See tasks.js. */
+  enqueue(task) {
+    return this.tasks.enqueue(task);
   }
 
   async start() {
@@ -385,11 +394,11 @@ export class Controller extends EventEmitter {
     this._note(this.thread, `using the current tab "${title || url}"`);
   }
 
-  /** The bar's tab picker: work in this tab from now on (and show it in the browser). */
-  async selectTab(index) {
+  /** The bar's tab picker: work in this tab from now on (and show it in the browser if `show`). */
+  async selectTab(index, { show = false } = {}) {
     const page = this.browser.pages.filter((p) => !p.isClosed())[index];
     if (!page) return;
-    await this.browser.setActive(page);
+    await this.browser.setActive(page, { show });
     await this.refreshSnapshot().catch(() => {});
   }
 
@@ -403,7 +412,8 @@ export class Controller extends EventEmitter {
       this.emit("tab-error", { query, error: `No open tab matches “${query}”. Open tabs: ${names || "none"}` });
       return;
     }
-    await this.browser.setActive(live[hit.index]);
+    // "go to @[X]" alone means show it; "… and do something" works there in the background
+    await this.browser.setActive(live[hit.index], { show: !rest });
     await this.refreshSnapshot().catch(() => {});
     this._log("act", `switched to tab "${hit.title}"`);
     this.emit("tab-switched", { title: hit.title, url: hit.url, rest });
@@ -468,7 +478,9 @@ export class Controller extends EventEmitter {
     this._log("info", `question: ${question}`);
     const thread = this.thread;
     try {
-      const r = await answerQuestion(this, question, context);
+      // questions are about the tab you're looking at, even while the agent works in another one
+      const page = await Promise.resolve(this.browser.visiblePage?.()).catch(() => null);
+      const r = await answerQuestion(this, question, context, { page: page && page !== this.browser.page ? page : null });
       this._note(thread, `answer: ${r.answer}`);
       if (thread?.avoid) thread.avoid.push(String(r.answer).slice(0, 200));
       this._log("act", `answer (${r.model}, ${r.ms}ms): ${r.answer}`);
@@ -618,6 +630,10 @@ export class Controller extends EventEmitter {
 
   async _goalLoop(g, note = "") {
     while (!g.cancelled) {
+      // Take over / the goal asked for the user: wait for them to hand back
+      const turn = await this.tasks.pauseIfWanted(g);
+      if (turn?.cancelled || g.cancelled) return;
+      if (turn) note = note ? `${note} ${HANDBACK_NOTE}` : HANDBACK_NOTE;
       if (g.done.length >= MAX_GOAL_STEPS) return this._endGoal(g, "failed", `stopped after ${MAX_GOAL_STEPS} steps without finishing`);
       let r;
       try {
@@ -670,7 +686,12 @@ export class Controller extends EventEmitter {
         }
         return this._endGoal(g, "failed", step.summary);
       }
-      const { action, fill, error } = toAction(step, r.snap, r.tabs);
+      if (step.status === "need_user") {
+        this.tasks.needUser(step.summary);
+        continue;
+      }
+      let { action, fill, error } = toAction(step, r.snap, r.tabs);
+      action = this.tasks.place(action); // never navigate the tab you're looking at away
       if (error) {
         if (++g.invalid > 2) return this._endGoal(g, "failed", `the model kept choosing invalid steps (${error})`);
         note = `Your last choice was invalid: ${error}. Choose again from the element list.`;
@@ -1009,6 +1030,7 @@ export class Controller extends EventEmitter {
     const pageBefore = this.snapshot ? { url: this.snapshot.url, title: this.snapshot.title, site: this.snapshot.site } : null;
     let ok = false;
     let res = {};
+    const mark = this.tasks.beforeAction(); // what this task changes, for "Go back to where I was"
     try {
       res = await this._execute(action, this.browser);
       ok = res.ok !== false;
@@ -1041,6 +1063,7 @@ export class Controller extends EventEmitter {
       res = { detail: String(err.message || err) };
       this.emit("action", { action, ok: false, detail: res.detail });
     } finally {
+      this.tasks.afterAction(mark);
       this.busy = false;
       await this.refreshSnapshot().catch(() => {});
     }
@@ -1075,8 +1098,8 @@ export class Controller extends EventEmitter {
   }
 
   /** Stop whatever is running (Esc / Stop in the bar): goal, chain, pending confirmation, open requests. */
-  stop() {
-    if (this.goal) this._endGoal(this.goal, "cancelled", "Stopped");
+  stop(reason = "Stopped") {
+    if (this.goal) this._endGoal(this.goal, "cancelled", reason);
     if (this.chain) this._endChain("cancelled", "Stopped");
     this.pending = null;
     this.candidates = null;
@@ -1126,6 +1149,7 @@ export class Controller extends EventEmitter {
       candidates: this.candidates?.list ?? null,
       chain: this.chain && { steps: this.chain.steps, index: this.chain.i, awaiting: this.chain.awaiting },
       log: this.log.slice(-60),
+      queue: this.tasks.state(),
     };
   }
 

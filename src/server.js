@@ -100,11 +100,14 @@ export async function startServer(opts = {}) {
   controller.on("chain", (p) => broadcast("chain", p));
   controller.on("gaveup", (p) => broadcast("gaveup", p));
   controller.on("expanded", (p) => broadcast("expanded", p));
-  for (const ev of ["goal", "goal-confirm", "answer", "utility", "table", "fill", "smart-error", "tab-switched", "tab-error", "resolved", "stopped"]) controller.on(ev, (p) => broadcast(ev, p));
+  for (const ev of ["goal", "goal-confirm", "answer", "utility", "table", "fill", "smart-error", "tab-switched", "tab-error", "resolved", "stopped", "task-undo"]) controller.on(ev, (p) => broadcast(ev, p));
+  // running task, queued messages, take over, background tab, undo (see src/tasks.js)
+  controller.tasks.on("change", (s) => broadcast("queue", s));
 
   wss.on("connection", (ws) => {
     const reply = (type, payload) => ws.readyState === 1 && ws.send(JSON.stringify({ type, payload }));
     ws.send(JSON.stringify({ type: "hello", payload: controller.uiState() }));
+    reply("queue", controller.tasks.state());
     reply("commands", listCommands());
     reply("usage", usageSummary());
     reply("models", listModels());
@@ -120,7 +123,23 @@ export async function startServer(opts = {}) {
           controller.handleTranscript({ text: msg.text, final: Boolean(msg.final), utteranceId: msg.utteranceId });
           break;
         case "command":
-          controller.handleCommand(msg.text, { thread: msg.thread, followUp: Boolean(msg.followUp), ask: Boolean(msg.ask), chat: Boolean(msg.chat) });
+          // runs now, or waits for the running task; `id` is the panel's message id
+          controller.enqueue({ id: msg.id, text: msg.text, thread: msg.thread, opts: { followUp: Boolean(msg.followUp), ask: Boolean(msg.ask), chat: Boolean(msg.chat), reply: Boolean(msg.reply) } });
+          break;
+        case "queue:remove":
+          controller.tasks.remove(String(msg.id || ""));
+          break;
+        case "task:takeover":
+          controller.tasks.takeOver();
+          break;
+        case "task:handback":
+          controller.tasks.handBack();
+          break;
+        case "task:undo":
+          await controller.tasks.undoTask(msg.id || null).catch((err) => reply("store-error", `Couldn't go back: ${err.message}`));
+          break;
+        case "tab:show":
+          await controller.browser.show(controller.browser.page).catch(() => {});
           break;
         case "models:list":
           reply("models", listModels());
@@ -150,7 +169,7 @@ export async function startServer(opts = {}) {
           deleteChat(String(msg.thread || ""));
           break;
         case "tab:select":
-          await controller.selectTab(Number(msg.index)).catch(() => {});
+          await controller.selectTab(Number(msg.index), { show: Boolean(msg.show) }).catch(() => {});
           break;
         case "tabs:list":
           // the bar just opened: show the tab you were on in the browser
@@ -158,7 +177,7 @@ export async function startServer(opts = {}) {
           reply("tab-list", await controller.browser.tabList({ onIcons: pushTabs }).catch(() => []));
           break;
         case "stop":
-          controller.stop();
+          controller.tasks.stop(); // and drop the queue
           break;
         case "goal:answer":
           controller.goalAnswer(Boolean(msg.ok), Boolean(msg.all));

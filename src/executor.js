@@ -32,13 +32,17 @@ export function normalizeKey(k) {
   return out.includes(null) ? null : out.join("+");
 }
 
-/** Wait for a possible new tab after a click (target=_blank). */
+/** Wait for a possible new tab after a click (target=_blank). The agent moves there; you don't. */
 async function maybeNewTab(browser, before, from = browser.page) {
   await new Promise((r) => setTimeout(r, 400));
   // only a tab this page opened, not one of yours that woke up meanwhile
   for (const p of browser.pages.filter((x) => !before.includes(x))) {
     const opener = await Promise.race([p.opener().catch(() => null), new Promise((r) => setTimeout(() => r(null), 300))]);
-    if (opener === from) return browser.setActive(p);
+    if (opener === from) {
+      const shown = browser.shown;
+      await browser.setActive(p);
+      return browser.keepShown?.(shown, p);
+    }
   }
 }
 
@@ -179,7 +183,8 @@ export async function execute(action, browser) {
       return { ok: true, detail: page.url() };
 
     case "open_new_tab": {
-      const p = await browser.context.newPage();
+      // in the background: the tab you're looking at stays in front
+      const p = browser.newTab ? await browser.newTab({ background: true }) : await browser.context.newPage();
       await browser.setActive(p);
       if (action.url) {
         await p.goto(action.url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT }).catch(() => {});
