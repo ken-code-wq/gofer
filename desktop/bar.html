@@ -348,6 +348,10 @@
   .mention.on { background: var(--accent-fill); }
   .mention.on .t, .mention.on .u, .mention.on .cur { color: var(--on-accent); }
   .mentions, .picker { backdrop-filter: blur(28px) saturate(1.7); }
+  /* While a list is open, the conversation behind it blurs. backdrop-filter alone doesn't reach
+     through Electron's transparent (glass) window, so the chat itself is blurred. */
+  .chat { transition: filter .18s var(--ease), opacity .18s var(--ease); }
+  body.veiled .chat { filter: blur(10px) saturate(1.15); opacity: .55; pointer-events: none; }
   .mentions .none, .mentions .head { padding: 6px 9px; font-size: 11px; color: var(--text-3); }
 
   /* ── side views: past chats, saved commands, passwords ── */
@@ -1329,10 +1333,12 @@
     if (mention?.pick) return tabList;
     return tabList.filter((t) => !q || `${t.title} ${t.url}`.toLowerCase().includes(q)).slice(0, 12);
   };
-  function closeMentions() { mention = null; $("mentions").hidden = true; }
+  function closeMentions() { mention = null; $("mentions").hidden = true; veil(); }
+  // blur the chat while a popover (tab list, model or browser picker) is open
+  const veil = () => document.body.classList.toggle("veiled", !$("mentions").hidden || !$("picker").hidden);
   function renderMentions() {
     const box = $("mentions");
-    if (!mention) return (box.hidden = true);
+    if (!mention) { box.hidden = true; return veil(); }
     const items = mentionMatches();
     mentionSel = Math.min(mentionSel, Math.max(0, items.length - 1));
     if (mention.pick) { box.style.top = `${document.querySelector(".top").getBoundingClientRect().bottom}px`; box.style.bottom = "auto"; box.style.transformOrigin = "top"; }
@@ -1341,6 +1347,7 @@
       ? items.map((t, i) => `<div class="mention${i === mentionSel ? " on" : ""}" role="option" aria-selected="${i === mentionSel}" data-i="${i}"><span class="ic">${tabIconHTML(t)}</span><span class="t">${esc(t.title || "Untitled")}${t.active ? '<span class="cur">Current tab</span>' : ""}</span><span class="u">${esc(shortUrl(t.url))}</span></div>`).join("")
       : `<div class="none">${tabList.length ? "No open tab matches." : tabsLoaded ? "No tabs are open in the controlled browser." : "Loading tabs…"}</div>`);
     box.hidden = false;
+    veil();
     box.querySelector(".mention.on")?.scrollIntoView({ block: "nearest" });
   }
   function tabIconHTML(t) {
@@ -1569,7 +1576,7 @@
     const box = $("picker");
     $("model").setAttribute("aria-expanded", String(Boolean(picker)));
     $("browser").setAttribute("aria-expanded", String(picker?.kind === "browser"));
-    if (!picker || (picker.kind !== "browser" && !models)) return (box.hidden = true);
+    if (!picker || (picker.kind !== "browser" && !models)) { box.hidden = true; return veil(); }
     const items = pickerItems();
     picker.sel = Math.max(0, Math.min(picker.sel, items.length - 1));
     const check = (on) => `<span class="ck">${on ? ICON.check : ""}</span>`;
@@ -1613,6 +1620,7 @@
     if (picker.kind === "browser") { box.style.top = `${document.querySelector(".top").getBoundingClientRect().bottom}px`; box.style.bottom = "auto"; }
     else { box.style.top = "auto"; box.style.bottom = `${innerHeight - $("form").getBoundingClientRect().top + 6}px`; }
     box.hidden = false;
+    veil();
     if (!picker.adding) box.querySelector(".pk-row.on")?.scrollIntoView({ block: "nearest" });
     const f = $("pk-form");
     if (f) {
