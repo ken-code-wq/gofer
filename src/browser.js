@@ -136,7 +136,9 @@ export class BrowserManager {
   _track(page) {
     if (this.pages.includes(page)) return;
     this.pages.push(page);
-    this.active = page;
+    // A tab that appears isn't necessarily one to work in: attached browsers wake sleeping tabs at any
+    // time. Tabs the agent opens are made active by whoever opened them (open_new_tab, a click).
+    if (!this.active || this.active.isClosed()) this.active = page;
     if (this.proxy) page.evaluate(FOCUS_HOOK).catch(() => {}); // tabs that were open before we connected
     page.on("close", () => {
       this.pages = this.pages.filter((p) => p !== page);

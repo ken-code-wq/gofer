@@ -249,6 +249,7 @@ function serverLog() {
 
 async function startServer(cdpUrl = null) {
   const env = { ...process.env, ...readEnv(ENV_FILE), ELECTRON_RUN_AS_NODE: "1", PORT: String(PORT) };
+  env.VB_ENV_FILE = ENV_FILE; // keys added from the panel are written here
   env.CDP_URL = cdpUrl || ""; // overrides .env: the bar's browser menu is the source of truth
   env.VB_BROWSER_APP = cdpUrl && attachedApp ? attachedApp : "";
   if (PACKAGED) {
@@ -310,14 +311,14 @@ async function ensureChromium(env) {
 
 // Window size/position persist between launches. "compact" = prompt only, "expanded" = with activity.
 const COMPACT_HEIGHT = 128;
-const EXPANDED_HEIGHT = 420;
-const boundsFile = () => path.join(app.getPath("userData"), "window.json");
+const EXPANDED_HEIGHT = 660;
+const boundsFile = () => path.join(app.getPath("userData"), "window-chat.json");
 
 function loadBounds() {
   try {
     return JSON.parse(fs.readFileSync(boundsFile(), "utf8"));
   } catch {
-    return { width: 680, height: EXPANDED_HEIGHT };
+    return { width: 440, height: EXPANDED_HEIGHT };
   }
 }
 
@@ -360,17 +361,30 @@ function setHotkey(accel) {
   return false;
 }
 
+// macOS 26+: the panel sits on Apple's Liquid Glass (NSGlassEffectView). Older systems keep the blur.
+let liquidGlass = null;
+function glassSupported() {
+  if (process.platform !== "darwin" || process.env.VB_NO_GLASS) return false;
+  try {
+    liquidGlass ??= require("electron-liquid-glass");
+    return liquidGlass.isGlassSupported();
+  } catch (err) {
+    console.warn(`Liquid Glass unavailable: ${err.message}`);
+    return false;
+  }
+}
+
 function createWindow() {
   const b = loadBounds();
+  const glass = glassSupported();
   win = new BrowserWindow({
     ...b,
-    minWidth: 460,
+    minWidth: 360,
     minHeight: COMPACT_HEIGHT,
     frame: false,
-    transparent: false,
+    transparent: glass, // the glass view sits behind the page, so the page must be see-through
     backgroundColor: "#00000000",
-    vibrancy: "under-window",
-    visualEffectState: "active",
+    ...(glass ? {} : { vibrancy: "under-window", visualEffectState: "active" }),
     roundedCorners: true,
     resizable: true,
     alwaysOnTop: true,
@@ -381,7 +395,16 @@ function createWindow() {
   });
   if (b.x === undefined) win.center();
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  win.loadFile(path.join(__dirname, "bar.html"), { query: { ws: `ws://127.0.0.1:${PORT}`, port: String(PORT) } });
+  win.loadFile(path.join(__dirname, "bar.html"), { query: { ws: `ws://127.0.0.1:${PORT}`, port: String(PORT), glass: glass ? "1" : "" } });
+  if (glass) {
+    win.webContents.once("did-finish-load", () => {
+      try {
+        liquidGlass.addView(win.getNativeWindowHandle(), { cornerRadius: 22 });
+      } catch (err) {
+        console.warn(`Liquid Glass failed: ${err.message}`);
+      }
+    });
+  }
   // Started at login: stay in the menu bar until summoned.
   const hidden = !createdOnce && app.getLoginItemSettings().wasOpenedAtLogin;
   createdOnce = true;
@@ -416,6 +439,12 @@ ipcMain.handle("get-accent", () => {
 ipcMain.on("app-menu", (_e, { model } = {}) => {
   const send = (action) => () => win?.webContents.send("menu-action", action);
   Menu.buildFromTemplate([
+    { label: "New chat", accelerator: "Command+N", click: send("new-chat") },
+    { label: "Past chats", accelerator: "Command+4", click: send("view-chats") },
+    { label: "Saved commands", accelerator: "Command+2", click: send("view-saved") },
+    { label: "Passwords", accelerator: "Command+3", click: send("view-secrets") },
+    { label: "AI models…", click: send("models") },
+    { type: "separator" },
     { label: "Undo last action", click: send("undo") },
     { label: "Open control page", click: () => shell.openExternal(`http://localhost:${PORT}`) },
     { label: "Compact / expanded", click: () => ipcMain.emit("toggle-size") },
@@ -425,6 +454,10 @@ ipcMain.on("app-menu", (_e, { model } = {}) => {
     { label: "Hide", accelerator: "Esc", click: () => win?.hide() },
     { label: "Quit Voice Browser", accelerator: "Command+Q", click: () => app.quit() },
   ]).popup({ window: win });
+});
+
+ipcMain.on("open-url", (_e, url) => {
+  if (/^https:\/\/[\w.-]+\//.test(String(url))) shell.openExternal(String(url));
 });
 
 /** Native menu of installed browsers; choosing one asks the bar to confirm the restart. */

@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld("bar", {
   openPath: (p) => ipcRenderer.send("open-path", p),
   getAccent: () => ipcRenderer.invoke("get-accent"),
   appMenu: (info) => ipcRenderer.send("app-menu", info),
+  openUrl: (url) => ipcRenderer.send("open-url", url),
   onMenuAction: (fn) => ipcRenderer.on("menu-action", (_e, a) => fn(a)),
   getHotkey: () => ipcRenderer.invoke("get-hotkey"),
   setHotkey: (accel) => ipcRenderer.invoke("set-hotkey", accel),

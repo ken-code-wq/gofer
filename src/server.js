@@ -15,8 +15,21 @@ import { hasApiKey } from "./jev.js";
 import { MODEL, PROVIDER, QUESTIONS, T } from "./constants.js";
 import { listCommands, saveCommand, deleteCommand } from "./store.js";
 import { listSecrets, setSecret, deleteSecret } from "./secrets.js";
+import { deleteChat } from "./memory.js";
+import { listModels, setPreferred, PROVIDERS } from "./brain.js";
+import fs from "node:fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/** Set KEY=value in the .env the app reads (replacing an existing line), so a key added in the panel survives restarts. */
+function saveEnvKey(name, value) {
+  const file = process.env.VB_ENV_FILE || path.join(__dirname, "..", ".env");
+  const lines = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n") : [];
+  const at = lines.findIndex((l) => new RegExp(`^\\s*#?\\s*${name}\\s*=`).test(l));
+  if (at >= 0) lines[at] = `${name}=${value}`;
+  else lines.push(`${name}=${value}`);
+  fs.writeFileSync(file, lines.join("\n").replace(/\n*$/, "\n"), { mode: 0o600 });
+}
 
 export function parseArgs(argv) {
   const out = {
@@ -94,6 +107,7 @@ export async function startServer(opts = {}) {
     ws.send(JSON.stringify({ type: "hello", payload: controller.uiState() }));
     reply("commands", listCommands());
     reply("usage", usageSummary());
+    reply("models", listModels());
     ws.on("message", async (raw) => {
       let msg;
       try {
@@ -106,7 +120,34 @@ export async function startServer(opts = {}) {
           controller.handleTranscript({ text: msg.text, final: Boolean(msg.final), utteranceId: msg.utteranceId });
           break;
         case "command":
-          controller.handleCommand(msg.text, { thread: msg.thread, followUp: Boolean(msg.followUp), ask: Boolean(msg.ask) });
+          controller.handleCommand(msg.text, { thread: msg.thread, followUp: Boolean(msg.followUp), ask: Boolean(msg.ask), chat: Boolean(msg.chat) });
+          break;
+        case "models:list":
+          reply("models", listModels());
+          break;
+        case "models:pick":
+          setPreferred(String(msg.id || "auto"));
+          broadcast("models", listModels());
+          break;
+        case "provider:key": {
+          const prov = PROVIDERS[String(msg.provider || "")];
+          const key = String(msg.key || "").trim();
+          if (!prov || !/^[\x21-\x7e]{8,300}$/.test(key)) {
+            reply("store-error", "That doesn't look like an API key.");
+            break;
+          }
+          try {
+            saveEnvKey(prov.env, key);
+            process.env[prov.env] = key;
+            broadcast("models", listModels());
+          } catch (err) {
+            reply("store-error", `Couldn't save the key: ${err.message}`);
+          }
+          break;
+        }
+        case "chat:delete":
+          controller.threads.delete(String(msg.thread || ""));
+          deleteChat(String(msg.thread || ""));
           break;
         case "tab:select":
           await controller.selectTab(Number(msg.index)).catch(() => {});

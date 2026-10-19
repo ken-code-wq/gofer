@@ -113,5 +113,8 @@
       ],
       "maintainer": "Kenneth Ben-Boulo"
     }
+  },
+  "dependencies": {
+    "electron-liquid-glass": "^1.1.1"
   }
 }

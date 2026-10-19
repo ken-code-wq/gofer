@@ -12,6 +12,7 @@ import { approxTokens } from "./snapshot.js";
 import { planChain } from "./chain.js";
 import { parseCheck } from "./checks.js";
 import { resolveSaved } from "./store.js";
+import { loadChats, saveChats, listFacts, rememberFact, forgetFacts, parseMemoryCommand } from "./memory.js";
 import { routeSmart, answerQuestion, fillForm, nextGoalStep, verifyGoal, resolveFollowUp, toAction, MAX_GOAL_STEPS } from "./smart.js";
 import { hasBrain } from "./brain.js";
 import { parseUtility, runUtility, copyToClipboard } from "./utility.js";
@@ -24,12 +25,16 @@ import { fillForm as fillFormFn } from "./smart.js";
 
 const avg = (xs) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
 
+/** "another one", "no, a different one", "something else", "next one", "try another" */
+export const isAnotherOne = (t) =>
+  /^(?:(?:no|nah|nope|ok|okay|hmm|great|nice|thanks)\b[,.!]?\s*)?(?:please[,!]?\s*)?(?:(?:give me|show me|play|find|try|get|do|pick|tell me|suggest)\s+)?(?:another(?:\s+(?!tab\b|window\b)\w+)?|a different(?:\s+\w+)?|different one|something else|(?:the\s+)?next one|not (?:that|this) one|one more|a new one)(?:[,!]?\s*please)?[.!]?$/i.test(String(t || "").trim());
+
 export class Controller extends EventEmitter {
   /**
    * @param {{browser: import('./browser.js').BrowserManager, decideFn?: Function, executeFn?: Function}} opts
    *   decideFn / executeFn are injectable for tests (default: real Jev + Playwright).
    */
-  constructor({ browser, decideFn = decide, executeFn = execute }) {
+  constructor({ browser, decideFn = decide, executeFn = execute, persist = true }) {
     super();
     this.browser = browser;
     this._decide = decideFn;
@@ -46,6 +51,9 @@ export class Controller extends EventEmitter {
     // Conversation threads from the bar: a follow-up ("delete the first 10") runs with what happened
     // earlier in its thread, in the tab that thread was using.
     this.threads = new Map(); // id -> { turns: [{ role: "user"|"result", text }], page }
+    // chats from earlier sessions, so a conversation picks up where it left off after a restart
+    for (const [id, turns] of Object.entries(persist ? loadChats() : {})) this.threads.set(id, { turns, page: null });
+    this.persist = persist;
     this.thread = null; // thread of the command being handled
     this.debounceTimer = null;
     this.silenceTimer = null;
@@ -122,6 +130,9 @@ export class Controller extends EventEmitter {
     // "go to @[Bills - Acme Books] and create a new bill": switch tabs first, then run the rest there.
     const mention = parseTabMention(text);
     if (mention) return this._inTab(mention, opts);
+
+    // Chat: every message is a goal (or a question) that sees the whole conversation.
+    if (opts.chat) return this._chat(text);
 
     // Follow-up in a thread: back to that thread's tab, and let the brain use the conversation so far.
     if (opts.followUp && !opts.inner && this.thread?.turns.length > 1) return this._followUp(text);
@@ -217,13 +228,17 @@ export class Controller extends EventEmitter {
     }
     t.turns.push({ role: "user", text: String(text).slice(0, 400) });
     this.thread = t;
+    this.threads.delete(id); // most recently used last, so the oldest chats are dropped first
+    this.threads.set(id, t);
+    if (this.persist) saveChats(this.threads);
   }
 
   /** Record what a command led to, in the thread it belongs to. */
   _note(thread, text) {
     if (!thread) return;
     thread.turns.push({ role: "result", text: String(text).slice(0, 600) });
-    if (thread.turns.length > 24) thread.turns.splice(0, thread.turns.length - 24);
+    if (thread.turns.length > 40) thread.turns.splice(0, thread.turns.length - 40);
+    if (this.persist) saveChats(this.threads);
     const page = this.browser.page;
     if (page && !page.isClosed?.()) thread.page = page;
   }
@@ -265,6 +280,86 @@ export class Controller extends EventEmitter {
       this._log("warn", `couldn't rewrite the follow-up (${err.message}); using it as written`);
     }
     return this._startGoal(goal, context);
+  }
+
+  /**
+   * A chat message. Questions are answered, everything else runs as a goal with the conversation
+   * (and remembered facts) as context, so "no, another one" redoes the last request differently.
+   */
+  async _chat(text) {
+    const t = this.thread;
+    if (this.goal?.awaiting && /^(?:confirm|yes|ok|okay|go ahead|do it|allow)$/i.test(text.trim())) return this.goalAnswer(true);
+    if (this.goal?.awaiting && /^(?:cancel|no|stop|don'?t)$/i.test(text.trim())) return this.goalAnswer(false);
+    if (this.goal) this._endGoal(this.goal, "cancelled", "new message");
+    if (this.chain) this._endChain("cancelled", "new message");
+    const mem = parseMemoryCommand(text);
+    if (mem) return this._memory(mem);
+    if (!hasBrain()) {
+      return this.emit("smart-error", { kind: "goal", text, error: "Chat needs an AI model in .env (BRAIN_PROVIDER + BRAIN_API_KEY, or a free GEMINI_API_KEY). Direct mode works without one." });
+    }
+    const earlier = Boolean(t && t.turns.length > 1);
+    const facts = listFacts();
+    let context = facts.length ? `Things the user asked you to remember:\n${facts.map((f) => `- ${f}`).join("\n")}\n\n` : "";
+    if (earlier) {
+      context += `${this._threadContext(t)}\n\n(The new message continues this conversation. "Another one", "a different one" or "no, not that" ` +
+        "mean: do the previous request again, but with a different result than the one already given. 'Them', 'those', 'the first 2' mean the items named above.)";
+    }
+    const smart = routeSmart(text) || { kind: "goal", goal: text };
+    this._log("info", `chat (${smart.kind})${earlier ? ` with ${t.turns.length - 1} earlier turn(s)` : ""}`);
+    if (earlier && t.base && t.baseKind === "ask" && isAnotherOne(text)) {
+      this.emit("resolved", { text, goal: `${t.base}, but a different answer` });
+      return this._ask(`${t.base} Give a different answer than: ${t.avoid.join(" | ") || "the one above"}`, context);
+    }
+    if (smart.kind === "ask") {
+      const mentions = [...text.matchAll(/@\[([^\]]+)\]/g)].map((m) => m[1]);
+      if (mentions.length >= 2 || isTabsQuestion(text)) return this._askTabs(text, mentions.length >= 2 ? mentions : null);
+      if (t) Object.assign(t, { base: smart.question, baseKind: "ask", avoid: [] });
+      return this._ask(smart.question, context);
+    }
+    if (smart.kind === "fill") return this._fill(smart.spec, context);
+    let goal = smart.goal;
+    // "another one" / "a different one": the earlier request again, avoiding every result so far
+    if (earlier && t.base && t.baseKind === "goal" && isAnotherOne(text)) {
+      goal = `${t.base}. Pick a different result than before; already given: ${t.avoid.join(" | ") || "(see the conversation)"}`;
+      this._log("info", `understood as: ${goal}`);
+      this.emit("resolved", { text, goal: `${t.base}, but a different one` });
+      return this._startGoal(goal, context.trim(), { another: true });
+    }
+    if (earlier) {
+      try {
+        goal = await resolveFollowUp(context, smart.goal);
+        if (goal !== smart.goal) {
+          this._log("info", `understood as: ${goal}`);
+          this.emit("resolved", { text: smart.goal, goal });
+        }
+      } catch (err) {
+        this._log("warn", `couldn't rewrite the message (${err.message}); using it as written`);
+      }
+    }
+    if (t) Object.assign(t, { base: goal, baseKind: "goal", avoid: [] });
+    return this._startGoal(goal, context.trim());
+  }
+
+  _memory({ kind, text }) {
+    const thread = this.thread;
+    let answer;
+    try {
+      if (kind === "remember") {
+        rememberFact(text);
+        const you = text.replace(/[.!]+$/, "").replace(/\b(?:I am|I'm|mine|my|me|I)\b/g, (w) => ({ my: "your", mine: "yours", me: "you", I: "you", "I'm": "you're", "I am": "you are" })[w]);
+        answer = `Got it. I'll remember that ${you}.`;
+      } else if (kind === "forget") {
+        const n = forgetFacts(text);
+        answer = n ? `Forgotten (${n} thing${n === 1 ? "" : "s"}).` : "I didn't have anything like that saved.";
+      } else {
+        const facts = listFacts();
+        answer = facts.length ? `Here's what I remember:\n${facts.map((f) => `• ${f}`).join("\n")}` : "Nothing yet. Say \"remember that …\" and I'll keep it for every chat.";
+      }
+    } catch (err) {
+      return this.emit("smart-error", { kind: "memory", text, error: `Couldn't update memory: ${err.message || err}` });
+    }
+    this._note(thread, answer);
+    this.emit("answer", { question: text, answer, source: "memory", ms: 0 });
   }
 
   async _inCurrentTab({ rest }, opts = {}) {
@@ -362,6 +457,7 @@ export class Controller extends EventEmitter {
     try {
       const r = await answerQuestion(this, question, context);
       this._note(thread, `answer: ${r.answer}`);
+      if (thread?.avoid) thread.avoid.push(String(r.answer).slice(0, 200));
       this._log("act", `answer (${r.model}, ${r.ms}ms): ${r.answer}`);
       this.emit("answer", { question, ...r });
     } catch (err) {
@@ -387,9 +483,9 @@ export class Controller extends EventEmitter {
     }
   }
 
-  _startGoal(goal, context = "") {
+  _startGoal(goal, context = "", { another = false } = {}) {
     if (this.chain) this._endChain("cancelled", "new goal");
-    const g = { goal, context, thread: this.thread, steps: [], done: [], recipe: [], awaiting: null, cancelled: false, autoApprove: false, invalid: 0, at: Date.now() };
+    const g = { goal, context, another, thread: this.thread, steps: [], done: [], recipe: [], awaiting: null, cancelled: false, autoApprove: false, invalid: 0, at: Date.now() };
     this.goal = g;
     this._log("info", `goal: ${goal}`);
     this._emitGoal(g, "running");
@@ -400,7 +496,7 @@ export class Controller extends EventEmitter {
     // a finished goal hands back the steps it took, so the bar can offer to save them as a command
     const recipe = status === "done" && !g.replay && g.recipe?.length ? finalizeRecipe(g.recipe) : undefined;
     const steps = g.steps.map(({ record, ...s }) => ({ ...s }));
-    this.emit("goal", { status, goal: g.goal, steps, summary, recipe, replay: g.replay ? g.replay.name : undefined });
+    this.emit("goal", { status, goal: g.goal, steps, summary, recipe, replay: g.replay ? g.replay.name : undefined, models: g.models || [] });
   }
 
   _endGoal(g, status, summary = "") {
@@ -413,6 +509,8 @@ export class Controller extends EventEmitter {
     // what was done, with the values used, so a follow-up can refer to "them" / "the first 2"
     const did = g.steps.filter((s) => s.status === "ok").map((s) => (s.detail && !/^localhost|^[\w.-]+\.\w+\//.test(s.detail) ? `${s.text} [${s.detail}]` : s.text));
     this._note(g.thread, `goal ${status}: ${summary}${did.length ? ` (steps: ${did.join("; ")})` : ""}`);
+    // what this chat has already been given, so the next "another one" avoids it
+    if (status === "done" && g.thread?.avoid && summary) g.thread.avoid.push(String(summary).slice(0, 200));
     this._emitGoal(g, status, summary);
   }
 
@@ -510,6 +608,7 @@ export class Controller extends EventEmitter {
       }
       note = "";
       if (g.cancelled) return;
+      g.models = [...new Set([...(g.models || []), r.model])];
       const { step } = r;
       if (step.status === "done" && g.unsavedForm && (g.unsavedChecks = (g.unsavedChecks || 0) + 1) <= 2) {
         // it filled a form and never saved it: not done yet

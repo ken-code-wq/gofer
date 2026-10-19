@@ -21,10 +21,13 @@ async function settle(page, ms = 2500) {
 }
 
 /** Wait for a possible new tab after a click (target=_blank). */
-async function maybeNewTab(browser, before) {
+async function maybeNewTab(browser, before, from = browser.page) {
   await new Promise((r) => setTimeout(r, 400));
-  const fresh = browser.pages.find((p) => !before.includes(p));
-  if (fresh) await browser.setActive(fresh);
+  // only a tab this page opened, not one of yours that woke up meanwhile
+  for (const p of browser.pages.filter((x) => !before.includes(x))) {
+    const opener = await Promise.race([p.opener().catch(() => null), new Promise((r) => setTimeout(() => r(null), 300))]);
+    if (opener === from) return browser.setActive(p);
+  }
 }
 
 /**
@@ -66,7 +69,7 @@ export async function execute(action, browser) {
         await loc.evaluate((el) => el.click());
       }
       await settle(page);
-      await maybeNewTab(browser, before);
+      await maybeNewTab(browser, before, page);
       return { ok: true, detail: browser.page.url() };
     }
 

@@ -68,7 +68,7 @@ async function pageContext(controller, { textChars = 6000 } = {}) {
 const ANSWER_SCHEMA = {
   type: "object",
   properties: {
-    answer: { type: "string", description: "Direct, concise answer. Plain text, no markdown." },
+    answer: { type: "string", description: "The reply, in full sentences. Plain text, no markdown; use line breaks and • for lists." },
     source: { type: "string", enum: ["page", "general", "none"], description: "page: from the page. general: the page doesn't cover it, answered from your own knowledge. none: can't answer." },
   },
   required: ["answer", "source"],
@@ -77,7 +77,8 @@ const ANSWER_SCHEMA = {
 const withContext = (context) => (context ? `Conversation so far (earlier requests and what happened):\n${context}\n\n` : "");
 
 const ANSWER_RULES =
-  "Be concise and exact with numbers. If the question is about what's on screen, answer only from the page. " +
+  "Answer in full sentences like a helpful person in a chat: usually one to three sentences, more only when asked for a list or detail. " +
+  "Be exact with numbers. If the question is about what's on screen, answer only from the page. " +
   "If the page doesn't cover it but it's a general question (facts, advice, wording, maths), answer from your own knowledge and set source to general. " +
   "Never present general knowledge as something the page says.";
 
@@ -89,7 +90,7 @@ export async function answerQuestion(controller, question, context = "") {
     images: ctx.images,
     schema: ANSWER_SCHEMA,
   });
-  return { answer: String(r.data.answer || "").trim(), source: r.data.source || "page", model: r.model, ms: r.ms };
+  return { answer: String(r.data.answer || "").trim(), source: r.data.source || "page", model: r.modelLabel || r.model, ms: r.ms };
 }
 
 // ── questions across tabs ──────────────────────────────────────
@@ -134,7 +135,7 @@ export async function answerAcrossTabs(controller, question, titles = null, cont
     schema: TABS_ANSWER_SCHEMA,
   });
   const used = (r.data.tabs || []).map((n) => tabs[n - 1]?.title).filter(Boolean);
-  return { answer: String(r.data.answer || "").trim(), source: r.data.source || "tabs", tabs: [...new Set(used)], read: tabs.length, model: r.model, ms: r.ms };
+  return { answer: String(r.data.answer || "").trim(), source: r.data.source || "tabs", tabs: [...new Set(used)], read: tabs.length, model: r.modelLabel || r.model, ms: r.ms };
 }
 
 /** "which of my tabs …", "across my tabs", "in all tabs": a question about every open tab. */
@@ -209,7 +210,7 @@ export async function fillForm(controller, spec, context = "") {
     schema: FILL_SCHEMA,
   });
   const filled = await applyFills(controller, page, fields, r.data.fills || []);
-  return { filled, missing: r.data.missing || [], model: r.model, ms: r.ms };
+  return { filled, missing: r.data.missing || [], model: r.modelLabel || r.model, ms: r.ms };
 }
 
 // ── tables ─────────────────────────────────────────────────────
@@ -237,7 +238,7 @@ export async function extractTable(controller, what, context = "") {
   });
   const columns = (r.data.columns || []).map(String);
   const rows = (r.data.rows || []).map((row) => columns.map((_, i) => String(row?.[i] ?? "")));
-  return { columns, rows, note: r.data.note || "", model: r.model, ms: r.ms, title: ctx.snap.title };
+  return { columns, rows, note: r.data.note || "", model: r.modelLabel || r.model, ms: r.ms, title: ctx.snap.title };
 }
 
 /** Fill fields by element id: [{ element_id, value, check }] -> [{ label, type, value, error? }] */
@@ -293,7 +294,10 @@ const STEP_SCHEMA = {
   type: "object",
   properties: {
     status: { type: "string", enum: ["continue", "done", "impossible"] },
-    summary: { type: "string", description: "When done/impossible: what was achieved or why it can't be done. Otherwise: what you see." },
+    summary: {
+      type: "string",
+      description: "When done/impossible: your reply to the user, in first person, one or two short friendly sentences saying what you did (naming the specific result, e.g. the song or item) or why it can't be done. Otherwise: what you see.",
+    },
     description: { type: "string", description: "The next step in a few words, e.g. 'click Approve on PR-105'." },
     action: {
       type: "object",
@@ -332,7 +336,10 @@ const GOAL_SYSTEM =
   "to the items the earlier requests created or touched (named in the conversation), in the order they were created — " +
   "not to whatever happens to be first on the page. Leave items the conversation never mentioned alone. " +
   "Never invent ids. Mark risky=true for anything that submits, pays, sends, approves, deletes or can't be undone, " +
-  "unless the user's goal explicitly asks for exactly that action.";
+  "unless the user's goal explicitly asks for exactly that action. " +
+  "If the message needs no browser action (a greeting, thanks, or something you can simply answer), return 'done' right away " +
+  "with your reply in summary. If the goal asks for a different result than before ('another one'), pick one that the conversation " +
+  "hasn't already used. Never say you did something the steps taken don't show.";
 
 /** Turn one brain step into an executor action. Returns { action } or { error }. `tabs` = goalTabs(). */
 export function toAction(step, snap, tabs = []) {
@@ -408,6 +415,8 @@ export async function resolveFollowUp(context, text) {
       "Rewrite a follow-up request into a standalone browser goal. References like 'them', 'those', 'the first 2', 'the last one' " +
       "refer to the items created or changed in the conversation (in the order they were created), never to other items on the page. " +
       "Name those items explicitly with their distinguishing details. Keep the user's intent and wording otherwise. " +
+      "'Another one', 'a different one', 'no, not that' or 'something else' mean: the previous request again, but with a different " +
+      "result; name the earlier result(s) to avoid (e.g. 'play a different Prince of Egypt song than When You Believe'). " +
       "If the request doesn't refer to earlier items, return it unchanged.",
     text: `${withContext(context)}Follow-up request: ${text}`,
     schema: RESOLVE_SCHEMA,
@@ -423,7 +432,8 @@ export async function verifyGoal(controller, goal, done, context = "") {
     system:
       "You check whether a browser task is really finished. Judge only by the current page (text, elements, screenshot) " +
       "and the steps actually taken. Counts matter: if the goal asks for N items, all N must be done and visible. " +
-      "A filled but unsaved form is not done.",
+      "A filled but unsaved form is not done. If the goal needs no browser action at all (a greeting, thanks, a question answered " +
+      "from knowledge), it is complete. If the goal asks for a different result than before, the page must show a different one than those already given.",
     text: `${withContext(context)}Goal: ${goal}\n\nSteps taken:\n${history}\n\nCurrent page:\n${ctx.description}`,
     images: ctx.images,
     schema: VERIFY_SCHEMA,
@@ -451,5 +461,5 @@ export async function nextGoalStep(controller, goal, done, note = "", context = 
     images: ctx.images,
     schema: STEP_SCHEMA,
   });
-  return { step: r.data, snap: ctx.snap, tabs, model: r.model, ms: r.ms };
+  return { step: r.data, snap: ctx.snap, tabs, model: r.modelLabel || r.model, ms: r.ms };
 }

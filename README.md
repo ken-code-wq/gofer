@@ -25,16 +25,25 @@
 
 ## What it does
 
-Press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd> anywhere, type what you want, and watch the browser do it.
+Press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd> anywhere and chat with your browser. Say what you want, it
+does it, and you follow up like you would with a person:
 
 ```text
-go to wikipedia, search for alan turing, then click the first result
-in @[Bills - Acme Books] create 3 bills with dummy data
-  ↪ now delete the first 2
-how many purchase requests are pending, and what's their total?
-fill the form with vendor Northwind, amount 220.50, due next Friday
-login-dev                      ← a saved command
+you   open youtube and play a prince of egypt song
+it    I opened YouTube and played "When You Believe".
+you   no please, another one
+it    I played "Deliver Us" instead.
+you   another one
+it    Now playing "Through Heaven's Eyes".
 ```
+
+The panel has two modes (<kbd>Tab</kbd> switches):
+
+* **Chat** (default): every message is done step by step by the AI, which sees the whole conversation.
+  "Another one", "no, the second", "now delete them" all work. Chats are kept between launches
+  (*⋯ → Past chats*), and "remember that …" saves a fact for every chat ("what do you remember?", "forget …").
+* **Direct:** instant one-step commands with no back-and-forth ("scroll down", "click sign in", "next tab"),
+  decided in about a second by a model that picks options instead of writing text.
 
 | | |
 |---|---|
@@ -43,7 +52,7 @@ login-dev                      ← a saved command
 | **Goals** | `goal: approve every pending request under $500` — a small multimodal model looks at the page + a screenshot, acts, and repeats until a second check agrees it's done. |
 | **Questions** | Anything ending in `?` is answered from the current page. |
 | **Forms** | `fill the form with …` fills text fields, dropdowns, dates and checkboxes in one go — and never submits by itself. |
-| **Follow-ups** | ↩ on a finished command continues the conversation in the same tab: "now delete the first 2" is rewritten to name the exact items first. |
+| **Follow-ups** | In Chat, the next message continues the conversation: "now delete the first 2" is rewritten to name the exact items first, and "another one" redoes the request while avoiding every earlier result. |
 | **@ tabs** | Type `@` to pick any open tab; it becomes a chip with the site's icon and colour. |
 | **Your browser** | Drive the built-in Chromium, or connect Dia, Arc, Brave, Chrome or Edge — it shows their real icon. |
 | **Safe by default** | Anything that saves, pays, sends or deletes asks **Allow / Allow all / Stop**. Passwords live in the macOS Keychain as `{{name}}` and never reach a model. |
@@ -72,18 +81,19 @@ cd desktop && npm install
 open "/Applications/Voice Browser.app"
 ```
 
-Voice Browser lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd> shows or hides the bar
-(click the shortcut in the footer to change it) and the menu-bar icon has **Start at login**.
+Voice Browser lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd> shows or hides the panel
+(*⋯ → Change shortcut…* to change it) and the menu-bar icon has **Start at login**.
 
-| Key | In the bar |
+| Key | In the panel |
 |---|---|
-| <kbd>↵</kbd> | run the command, or answer **Allow** / **Confirm** when the prompt is empty |
-| <kbd>Esc</kbd> | cancel a prompt, **stop** what's running, leave a follow-up, then hide the bar |
+| <kbd>↵</kbd> | send, or answer **Allow** / **Confirm** when the box is empty |
+| <kbd>Tab</kbd> | switch between Chat and Direct |
+| <kbd>Esc</kbd> | cancel a prompt, **stop** what's running, close a list, then hide the panel |
 | <kbd>@</kbd> | pick an open tab |
-| <kbd>↑</kbd> / <kbd>↓</kbd> | recall earlier commands / move into the list (<kbd>↵</kbd> puts a command back in the prompt, <kbd>Space</kbd> expands, <kbd>R</kbd> follows up) |
+| <kbd>↑</kbd> / <kbd>↓</kbd> | recall earlier messages of this chat |
 | <kbd>1</kbd>–<kbd>9</kbd> | pick an option when it asks "Which one?" |
-| <kbd>/</kbd> | search your history, e.g. `/bills` |
-| <kbd>⌘</kbd><kbd>1</kbd>–<kbd>3</kbd> | Recent, Saved, Passwords |
+| <kbd>⌘</kbd><kbd>N</kbd> | new chat |
+| <kbd>⌘</kbd><kbd>1</kbd>–<kbd>4</kbd> | chat, saved commands, passwords, past chats |
 | `fn fn` | macOS Dictation, to speak instead of typing |
 
 > **Prefer the terminal?** `./run.sh` starts the server and opens a control page at
@@ -115,22 +125,22 @@ Voice Browser lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd
 
 ### The current tab
 
-The bar's header shows the tab commands run in. With an attached browser (Dia, Arc, Chrome, Brave,
-Edge) it follows the tab you switch to; click it to pick another tab. While a goal is running the agent
-stays in its tab. "In the current tab", "in the active tab", "on the tab I'm on" and similar phrases make
+The panel's header shows the tab the agent is working in, so a tab switch never takes you by surprise.
+With an attached browser (Dia, Arc, Chrome, Brave, Edge) it follows the tab you switch to; click it to pick
+another tab. The agent isn't limited to that tab: a request can open a new tab, switch to another one or
+close one. "In the current tab", "in the active tab", "on the tab I'm on" and similar phrases make
 sure a command runs in the tab you're looking at.
 
 ### Saved commands & passwords
 
-* **Save** any command from *Recent* with the bookmark, or add one with **New** in *Saved*, then run it by
+* **Save** any message with the bookmark next to it, or add one with **New** in *Saved*, then run it by
   typing its name (`login-dev`).
 * **Values:** put `{}` (or a named slot like `{vendor}`) where a value goes. Saved `yt` =
   `open youtube, search for {}` runs as `yt lofi beats`. Several slots take comma-separated values
   (`bill Acme, 120`).
-* **Ask mode:** press `Tab` in the prompt (or click the chevron) to switch to **Ask**. Everything you type is
-  then a question, never an action: about the page, about several tabs at once, or anything else. Answers
-  say where they came from (which tabs, or the AI's general knowledge).
-* **Save a goal:** when a goal finishes, **Save as command** keeps the exact steps it took. Running it again
+* **Questions** in Chat are answered from the page, several tabs at once ("which of my tabs …"), or general
+  knowledge. Answers say where they came from.
+* **Save a request:** when a request finishes, the bookmark under the reply keeps the exact steps it took. Running it again
   uses no AI (fast, nearly free); risky steps still ask. What it typed becomes values you can change:
   `new-bill Globex, 99` or `new-bill amount=99`. If the page changes so a step can't be found, run the goal
   again and save it again.
@@ -160,11 +170,21 @@ server — the UI never sees your keys.
 | Variable | Needed for | Notes |
 |---|---|---|
 | `SUBQ_API_KEY` | single actions & chains | [SubQ Snap](https://console.subq.ai) — or `TYPESAFE_API_KEY` for [TypeSafe Jev](https://console.typesafe.ai/keys) |
-| `GEMINI_API_KEY` | goals, questions, forms | free key from [Google AI Studio](https://aistudio.google.com); also the fallback for the options below |
-| `BRAIN_PROVIDER` + `BRAIN_API_KEY` | goals, questions, forms (optional) | `zai` (GLM 5.3 Flash, vision), `deepseek`, `openrouter` or `custom` — tried before Gemini |
+| `GROQ_API_KEY` | chat, goals, questions, forms | [Groq](https://console.groq.com/keys): GPT-OSS 120B / 20B and Qwen 3.8 27B (reads screenshots), under a second per step |
+| `GEMINI_API_KEY` | the same | free key from [Google AI Studio](https://aistudio.google.com); reads screenshots, slower |
+| `ZAI_API_KEY`, `DEEPSEEK_API_KEY`, `OPENROUTER_API_KEY` | the same (optional) | GLM 5.3 Flash, DeepSeek, any OpenRouter model (`OPENROUTER_MODEL`) |
+| `BRAIN_PROVIDER` + `BRAIN_API_KEY` | optional | the older single-provider setting (`zai`, `deepseek`, `openrouter`, `groq`, `custom`), tried first |
 | `BRAIN_MODEL`, `BRAIN_BASE_URL`, `BRAIN_VISION` | optional | override a preset / point `custom` at any OpenAI-compatible API |
 | `CDP_URL` | optional | attach to a browser you started with `--remote-debugging-port` |
 | `PORT` | optional | local server port (default `8787`, bound to `127.0.0.1`) |
+
+**Several providers at once.** Every provider you have a key for is used. The model picker in the
+composer shows **Auto** (the default) or the model you pinned. Auto sends each request to the fastest model
+that suits it: screenshots to a model that reads them, text to the fastest text model. When a model hits
+its rate limit it rests for as long as the provider says, and the next one takes over. Groq's free tier
+allows about 8K tokens a minute per model, which is one or two agent steps, so having Groq and Gemini
+together keeps chats quick. Open the picker to see every model with its provider's logo, pin one, or paste a key under *Add a provider* (it's written to `.env`).
+Each reply shows which models handled it.
 
 Rough costs: a single action is ~3–6k input tokens on SubQ Snap ($0.05 / 1M input, output free). A goal
 step is one call to the "brain" model plus a final check; Gemini Flash-Lite's free tier covers casual use.

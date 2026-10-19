@@ -15,6 +15,9 @@ const PRICES = [
   [/gemini-[\d.]+-flash/, 0.3, 2.5],
   [/glm-[\d.]+-flash/, 0.06, 0.4],
   [/deepseek/, 0.27, 1.1],
+  [/gpt-oss-120b/, 0.15, 0.6],
+  [/gpt-oss-20b/, 0.075, 0.3],
+  [/qwen3\.8-27b/, 0.8, 4.0],
 ];
 const KEEP_DAYS = 60;
 

@@ -2,7 +2,29 @@
 
 ## Unreleased
 
+### Fixed
+- The agent no longer jumps to one of your tabs when the browser wakes it up from sleep mid-task, and a click
+  only follows a new tab that the clicked page opened.
+
+### Changed
+- **The bar is now a chat.** A taller panel with your messages on the right and the agent's replies on the
+  left, live steps while it works, and a send / stop button. Every message runs as a goal that sees the
+  whole conversation, so "no please, another one" redoes the last request with a different result, and
+  "now delete them" knows what "them" is.
+- The old instant command mode is now **Direct** mode (<kbd>Tab</kbd> switches). Ask mode is gone: Chat answers
+  questions itself.
+- Saved commands, passwords and past chats moved to the ⋯ menu (<kbd>⌘</kbd><kbd>2</kbd>–<kbd>4</kbd>).
+
 ### Added
+- **Several AI providers at once**: Groq (GPT-OSS 120B / 20B, Qwen 3.8 27B), Gemini, Z.ai, DeepSeek and
+  OpenRouter, each with its own key. **Auto** sends each request to the fastest suitable model and moves
+  to the next one when a model is rate limited (honouring Retry-After). The model picker in the composer (an in-panel list with
+  each provider's logo) pins one or adds a provider's key. Replies show which models handled them. A two-turn chat went from about
+  80 s + 18 s (Gemini only) to 7 s + 9 s.
+- **Liquid Glass** on macOS 26: the panel sits on Apple's native glass (`electron-liquid-glass`); older
+  systems keep the blur.
+- **Memory**: chats are kept between launches (also on the server, so follow-ups still work after a
+  restart), and "remember that …" saves a fact for every chat ("what do you remember?", "forget …").
 - **Current tab**: the header shows the tab commands run in, follows the tab you switch to in an attached
   browser, and opens a picker on click. "In the current / active / open tab, …" runs a command there.
 - **Goals use other tabs**: a goal can open a new tab (with an address), switch to any open tab, or close

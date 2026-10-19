@@ -97,7 +97,7 @@ function setup(opts = {}) {
     await sleep(opts.execMs ?? 10);
     return { ok: true, detail: "ok" };
   };
-  const c = new Controller({ browser, decideFn, executeFn });
+  const c = new Controller({ browser, decideFn, executeFn, persist: false });
   return { c, browser, executed, decideFn };
 }
 
@@ -299,6 +299,7 @@ test("saved goals replay their recorded steps without a model, asking before ris
     browser,
     decideFn: async () => { throw new Error("no model calls in a replay"); },
     executeFn: async (a) => { done.push(a); return { ok: true, detail: "ok" }; },
+    persist: false,
   });
   const events = [];
   c.on("goal", (g) => events.push(g));
@@ -324,7 +325,7 @@ test("Ask mode: anything typed is a question, never a browser action", async () 
   delete process.env.GEMINI_API_KEY;
   delete process.env.BRAIN_PROVIDER;
   const decide = mockDecide();
-  const c = new Controller({ browser: fakeBrowser(), decideFn: decide.fn ?? decide, executeFn: async () => ({ ok: true }) });
+  const c = new Controller({ browser: fakeBrowser(), decideFn: decide.fn ?? decide, executeFn: async () => ({ ok: true }), persist: false });
   const errors = [];
   c.on("smart-error", (e) => errors.push(e));
   c.handleCommand("click the delete button", { ask: true });

@@ -26,6 +26,9 @@ rm -f "$RES/default_app.asar"
 mkdir -p "$RES/app"
 cp "$HERE"/*.cjs "$HERE/bar.html" "$HERE/package.json" "$RES/app/"
 cp "$HERE"/build/trayTemplate*.png "$RES/app/"
+# Liquid Glass (macOS 26+): the addon and its loader
+mkdir -p "$RES/app/node_modules"
+for m in electron-liquid-glass node-gyp-build; do [ -d "$HERE/node_modules/$m" ] && cp -R "$HERE/node_modules/$m" "$RES/app/node_modules/"; done
 printf '{ "root": "%s" }\n' "$ROOT" > "$RES/app/root.json"
 cp "$HERE/build/icon.icns" "$RES/electron.icns"
 
