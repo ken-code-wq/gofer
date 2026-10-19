@@ -302,7 +302,7 @@ const STEP_SCHEMA = {
     action: {
       type: "object",
       properties: {
-        type: { type: "string", enum: ["click", "type", "select", "fill_form", "press_enter", "navigate", "new_tab", "switch_tab", "close_tab", "scroll_down", "scroll_up", "go_back", "wait"] },
+        type: { type: "string", enum: ["click", "type", "select", "fill_form", "press_enter", "navigate", "new_tab", "switch_tab", "close_tab", "screenshot", "scroll_down", "scroll_up", "go_back", "wait"] },
         element_id: { type: "string", description: "Id from the element list (click/type/select)." },
         text: {
           type: "string",
@@ -310,6 +310,7 @@ const STEP_SCHEMA = {
         },
         url: { type: "string", description: "For navigate. For new_tab: the address to open in it (optional)." },
         tab: { type: "integer", description: "For switch_tab: the number of the tab in the open tabs list." },
+        full_page: { type: "boolean", description: "For screenshot: capture the whole scrolling page instead of what's visible." },
         submit: { type: "boolean", description: "For type: press Enter afterwards." },
       },
       required: ["type"],
@@ -325,7 +326,9 @@ const GOAL_SYSTEM =
   "using only element ids that exist in the list. Prefer the most direct path. " +
   "You are not limited to the current tab: open a new tab (new_tab, with a url to load in it), switch to any open tab " +
   "(switch_tab with its number) or close the current tab (close_tab) whenever the goal calls for it. Opening a new tab " +
-  "leaves the user's other tabs untouched, so prefer it when asked for a new tab. If the goal is achieved, return status 'done' " +
+  "leaves the user's other tabs untouched, so prefer it when asked for a new tab. " +
+  "When the user wants to see something ('send me a screenshot', 'show me', 'screenshot the results'), get the page into the " +
+  "right state, then use the screenshot action (it is sent to them in the chat); after taking it you can finish. If the goal is achieved, return status 'done' " +
   "with a short summary of what was done; if it can't be achieved on this site, return 'impossible' and say why. " +
   "When a form is visible, prefer ONE fill_form action with all the values instead of typing field by field. " +
   "When asked for dummy, test or sample data, invent realistic, plausible values (names, amounts, dates in the near future, " +
@@ -376,6 +379,8 @@ export function toAction(step, snap, tabs = []) {
     }
     case "close_tab":
       return { action: { type: "close_tab", label: "close this tab" } };
+    case "screenshot":
+      return { action: { type: "take_screenshot", fullPage: Boolean(a.full_page), label: a.full_page ? "screenshot of the whole page" : "screenshot" } };
     case "scroll_down":
     case "scroll_up":
       return { action: { type: a.type, amount: "page", label: a.type.replace("_", " ") } };

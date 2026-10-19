@@ -496,7 +496,9 @@ export class Controller extends EventEmitter {
     // a finished goal hands back the steps it took, so the bar can offer to save them as a command
     const recipe = status === "done" && !g.replay && g.recipe?.length ? finalizeRecipe(g.recipe) : undefined;
     const steps = g.steps.map(({ record, ...s }) => ({ ...s }));
-    this.emit("goal", { status, goal: g.goal, steps, summary, recipe, replay: g.replay ? g.replay.name : undefined, models: g.models || [] });
+    // screenshots it took go to the chat with the final reply (they're large, so not with every step)
+    const images = status === "running" || status === "awaiting" ? undefined : g.images;
+    this.emit("goal", { status, goal: g.goal, steps, summary, recipe, replay: g.replay ? g.replay.name : undefined, models: g.models || [], images });
   }
 
   _endGoal(g, status, summary = "") {
@@ -580,6 +582,7 @@ export class Controller extends EventEmitter {
           : s.kind === "wait" ? { type: "wait_ms", ms: s.ms || 1500, label: "wait" }
           : s.kind === "new_tab" ? { type: "open_new_tab", url: s.url, label: s.label }
           : s.kind === "close_tab" ? { type: "close_tab", label: s.label }
+          : s.kind === "screenshot" ? { type: "take_screenshot", fullPage: s.fullPage, label: s.label }
           : s.kind === "switch_tab" ? { type: "switch_tab", title: s.title, label: s.label }
           : { type: s.kind, amount: "page", label: s.label };
       }
@@ -624,6 +627,14 @@ export class Controller extends EventEmitter {
           if ((g.rejections = (g.rejections || 0) + 1) > 3) return this._endGoal(g, "failed", `Not finished: ${v.missing}`);
           note = `IMPORTANT: the goal is NOT complete yet: ${v.missing}. Do not answer 'done'. Choose the next action that makes progress.`;
           continue;
+        }
+        // asked for a screenshot but the model never took one: take it now, of where it finished
+        if (/\bscreen\s?shots?\b/i.test(g.goal) && !g.images?.length) {
+          const entry = { text: "take a screenshot", status: "running" };
+          g.steps.push(entry);
+          this._emitGoal(g, "running");
+          await this._runGoalStep(g, entry, { type: "take_screenshot", fullPage: /\b(?:full|whole|entire)\b/i.test(g.goal), label: "screenshot" });
+          if (g.cancelled) return;
         }
         return this._endGoal(g, "done", step.summary);
       }
@@ -675,6 +686,7 @@ export class Controller extends EventEmitter {
   async _runGoalStep(g, entry, action) {
     if (action.type === "click_element" || action.type === "press_enter") g.unsavedForm = false;
     const { ok, res } = await this._runAction(action, { via: "goal", said: entry.text });
+    if (ok && res.image) (g.images ||= []).push({ image: res.image, path: res.path });
     const url = this.browser.currentUrl?.() || "";
     entry.status = ok ? "ok" : "fail";
     entry.detail = ok ? url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 80) : res.detail;

@@ -5,7 +5,7 @@
  * Starts the server itself (reading ../.env) unless one is already running on the port.
  * A global shortcut (default Cmd/Ctrl+Shift+Space, changeable in the bar) shows/focuses it; Esc hides it.
  */
-const { app, BrowserWindow, Menu, Tray, nativeImage, globalShortcut, ipcMain, shell, systemPreferences, Notification } = require("electron");
+const { app, BrowserWindow, Menu, Tray, nativeImage, globalShortcut, ipcMain, shell, systemPreferences, Notification, clipboard } = require("electron");
 const browsers = require("./browsers.cjs");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
@@ -481,11 +481,46 @@ function askBrowserSwitch(b) {
   win?.webContents.send("browser-confirm", { id: b.id, name: b.name, ownProfile: Boolean(b.ownProfile), separate: Boolean(saved?.id === b.id && saved?.separate) });
 }
 
-// Failure screenshots open in Preview; only files the app itself wrote.
-ipcMain.on("open-path", (_e, p) => {
-  const allowed = path.join(require("node:os").homedir(), ".voice-browser", "failures");
+// Screenshots and exports open in Preview; only files the app itself wrote (failure shots in
+// ~/.voice-browser, "Voice Browser …" files in Downloads).
+function ownFile(p) {
+  const home = require("node:os").homedir();
   const resolved = path.resolve(String(p || ""));
-  if (resolved.startsWith(allowed + path.sep)) shell.openPath(resolved);
+  const inData = resolved.startsWith(path.join(home, ".voice-browser") + path.sep);
+  const inDownloads = path.dirname(resolved) === path.join(home, "Downloads") && path.basename(resolved).startsWith("Voice Browser ");
+  return (inData || inDownloads) && fs.existsSync(resolved) ? resolved : null;
+}
+ipcMain.on("open-path", (_e, p) => {
+  const f = ownFile(p);
+  if (f) shell.openPath(f);
+});
+ipcMain.on("reveal-path", (_e, p) => {
+  const f = ownFile(p);
+  if (f) shell.showItemInFolder(f);
+});
+ipcMain.handle("copy-image", (_e, p) => {
+  const f = ownFile(p);
+  const img = f && nativeImage.createFromPath(f);
+  if (!img || img.isEmpty()) return false;
+  clipboard.writeImage(img);
+  return true;
+});
+
+// The browser picker in the panel: every browser with its own app icon.
+ipcMain.handle("list-browsers", async () => {
+  const icon = async (p) => (await appIcon(p).catch(() => null))?.resize({ width: 48, height: 48 }).toDataURL() || null;
+  const saved = loadSettings().browser;
+  const list = [{ id: "builtin", name: "Built-in Chromium", note: "Its own window and profile", icon: await icon(browserAppPath("builtin")) }];
+  for (const b of browsers.installedBrowsers()) {
+    list.push({ id: b.id, name: b.name, note: b.ownProfile || (saved?.id === b.id && saved?.separate) ? "Uses a separate profile" : "Your tabs and sign-ins", icon: await icon(b.path) });
+  }
+  return { current: browserState.id, busy: switching, list };
+});
+ipcMain.on("choose-browser", (_e, id) => {
+  if (id === browserState.id) return;
+  if (id === "builtin") return switchBrowser("builtin");
+  const b = browsers.installedBrowsers().find((x) => x.id === id);
+  if (b) askBrowserSwitch(b);
 });
 
 let switching = false;

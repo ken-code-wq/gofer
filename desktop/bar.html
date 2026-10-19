@@ -163,7 +163,8 @@
 
   /* under a reply: steps toggle, cost, actions */
   .meta { display: flex; align-items: center; gap: 2px; margin-top: 6px; min-height: 24px; font-size: 12px; color: var(--text-3); }
-  .meta .info { padding: 0 6px 0 0; font-variant-numeric: tabular-nums; }
+  .meta .info { padding: 0 6px 0 0; font-variant-numeric: tabular-nums; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta .act.tog { white-space: nowrap; flex: none; }
   .act { height: 24px; min-width: 24px; padding: 0 5px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; color: var(--text-3); font-size: 12px; }
   .act:hover { background: var(--hover); color: var(--text); }
   .act svg { width: 14px; height: 14px; }
@@ -171,6 +172,18 @@
   .act.tog[aria-expanded="true"] svg { transform: rotate(90deg); }
   .msg.agent .meta .hov { opacity: 0; transition: opacity .12s var(--ease); }
   .msg.agent:hover .meta .hov, .msg.agent:focus-within .meta .hov, .msg.agent:last-child .meta .hov { opacity: 1; }
+
+  /* screenshots the agent sends */
+  .shots { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; align-self: stretch; }
+  .shot { position: relative; border-radius: 12px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--hair), 0 1px 3px rgb(0 0 0 / .08); background: var(--sunken); }
+  .shot img { display: block; width: 100%; max-height: 300px; object-fit: cover; object-position: top; cursor: zoom-in; }
+  .shot .gone { display: flex; align-items: center; gap: 8px; padding: 12px; font-size: 12px; color: var(--text-2); cursor: default; }
+  .shot .gone svg { width: 16px; height: 16px; color: var(--text-3); }
+  .shot .sacts { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; opacity: 0; transition: opacity .12s var(--ease); }
+  .shot:hover .sacts, .shot:focus-within .sacts { opacity: 1; }
+  .shot .sacts button { height: 26px; padding: 0 9px; border-radius: 8px; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; color: #fff; background: rgb(20 20 24 / .72); -webkit-backdrop-filter: blur(10px); }
+  .shot .sacts button:hover { background: rgb(20 20 24 / .88); }
+  .shot .sacts svg { width: 13px; height: 13px; }
 
   /* consent / choice, inline in the reply */
   .ask {
@@ -286,6 +299,9 @@
   .pk-row .ck { grid-row: 1 / 3; grid-column: 3; width: 16px; color: var(--accent); }
   .pk-row .ck svg { width: 14px; height: 14px; }
   .pk-row.add .t { color: var(--text-2); }
+  .pk-row .lg.app { background: none; box-shadow: none; }
+  .pk-row .lg.app img { width: 24px; height: 24px; }
+  .picker.below { transform-origin: top; }
   .pk-sep { height: 1px; margin: 5px 6px; background: var(--hair); }
   .pk-form { display: flex; gap: 6px; align-items: center; padding: 2px 10px 8px 44px; animation: drop .14s var(--ease); }
   .pk-form .field { height: 26px; }
@@ -293,7 +309,7 @@
   @media (prefers-color-scheme: dark) { html.glass .picker { background: rgb(38 39 44 / .92); } }
   .modelpick .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
   .modelpick .caret svg { width: 10px; height: 10px; }
-  .spend { -webkit-app-region: no-drag; display: inline-flex; align-items: center; height: 24px; padding: 0 6px; border-radius: 6px; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-3); }
+  .spend { -webkit-app-region: no-drag; white-space: nowrap; flex: none; display: inline-flex; align-items: center; height: 24px; padding: 0 6px; border-radius: 6px; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-3); }
   .spend:hover { background: var(--hover); color: var(--text-2); }
   .spend.near { color: var(--warn); }
   .go {
@@ -388,7 +404,7 @@
       <span class="b-ic" id="curtab-ic"></span><span class="name" id="curtab-name"></span><span class="caret" id="curtab-caret"></span>
     </button>
     <span class="spacer"></span>
-    <button class="pill browserpill" id="browser" data-state="off" title="Choose the browser to control" aria-haspopup="menu">
+    <button class="pill browserpill" id="browser" data-state="off" title="Choose the browser to control" aria-haspopup="listbox" aria-expanded="false">
       <span class="b-ic" id="browser-ic"></span><span class="name" id="browser-name">Connecting…</span><span class="caret" id="caret"></span>
     </button>
     <button class="icon" id="newchat" type="button" title="New chat (⌘N)" aria-label="New chat"></button>
@@ -495,7 +511,12 @@
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       localStorage.setItem("vb.chat", activeId || "");
-      const keep = chats.filter((c) => c.msgs.length).slice(0, 40).map((c) => ({ ...c, msgs: c.msgs.slice(-200) }));
+      // previews are big: keep the 12 newest; older ones fall back to "open the saved file"
+      let n = 0;
+      const keep = chats.filter((c) => c.msgs.length).slice(0, 40).map((c) => ({
+        ...c,
+        msgs: c.msgs.slice(-200).reverse().map((m) => (m.images ? { ...m, images: m.images.map((im) => (im.src && n++ < 12 ? im : { ...im, src: undefined })) } : m)).reverse(),
+      }));
       localStorage.setItem(CHATS_KEY, JSON.stringify(keep, (k, v) => (k === "ask" ? undefined : v)));
     }, 200);
   };
@@ -697,16 +718,21 @@
     }
     if (m.note) body += `<p class="note">${esc(m.note)}</p>`;
     if (m.table) body += tableHTML(m.table);
+    if (m.images?.length) body += `<div class="shots">${m.images.map((im, k) => `<figure class="shot">
+      ${im.src ? `<img src="${esc(im.src)}" alt="Screenshot${im.title ? ` of ${esc(im.title)}` : ""}" data-act="shot-open" data-k="${k}" title="Open the full screenshot">` : `<button type="button" class="gone" data-act="shot-open" data-k="${k}">${ICON.image}<span>Screenshot (open the saved file)</span></button>`}
+      ${im.path ? `<div class="sacts"><button type="button" data-act="shot-copy" data-k="${k}">${ICON.copy}<span>Copy</span></button><button type="button" data-act="shot-reveal" data-k="${k}">${ICON.image}<span>Show in Finder</span></button></div>` : ""}
+    </figure>`).join("")}</div>`;
     if (showSteps) body += `<ol class="steps">${steps.map((s) => `<li class="step ${s.status}">${mark(s.status)}<span class="t">${esc(s.text)}${s.detail ? `<small>${esc(s.detail)}</small>` : ""}</span></li>`).join("")}</ol>`;
     if (m.ask) body += `<div class="ask"><p>${esc(m.ask.text)}</p><div class="acts" data-ask></div></div>`;
     if (!running) {
       const info = [];
       if (m.done && m.at && steps.length && !direct) info.push(`Worked for ${secs(m.done - m.at)}`);
-      if (m.models?.length && !direct) info.push(m.models.map((x) => String(x).split("/").pop()).join(", "));
+      const names = (m.models || []).map((x) => String(x).split("/").pop());
+      if (names.length && !direct) info.push(names.length > 1 ? `${names[0]} +${names.length - 1}` : names[0]);
       if (m.cost >= 0.00005 && !direct) info.push(money(m.cost));
       const acts = [
         steps.length && !direct ? `<button class="act tog" type="button" data-act="steps" aria-expanded="${Boolean(m.showSteps)}" title="Show the steps">${ICON.chevron}<span>${steps.length} step${steps.length === 1 ? "" : "s"}</span></button>` : "",
-        info.length ? `<span class="info">${esc(info.join(" · "))}</span>` : "",
+        info.length ? `<span class="info"${names.length > 1 ? ` title="Models used: ${esc(names.join(", "))}"` : ""}>${esc(info.join(" · "))}</span>` : "",
         m.detail && !direct ? `<button class="act hov" type="button" data-act="copy" title="Copy" aria-label="Copy">${ICON.copy}</button>` : "",
         m.recipe ? `<button class="act hov" type="button" data-act="save-recipe" title="Save these ${doneSteps || steps.length} steps as a command that runs without the AI" aria-label="Save as command">${ICON.bookmark}</button>` : "",
         m.status === "fail" || m.status === "ignored" ? `<button class="act hov" type="button" data-act="retry" title="Try again" aria-label="Try again">${ICON.retry}</button>` : "",
@@ -812,6 +838,9 @@
       else if (a === "save-recipe" && m) askSaveAs(m.text, m.recipe);
       else if (a === "retry" && m) retry(m);
       else if (a === "open" && m?.shot) window.bar.openPath(m.shot);
+      else if (a === "shot-open" && m?.images) window.bar.openPath(m.images[Number(act.dataset.k)]?.path);
+      else if (a === "shot-reveal" && m?.images) window.bar.revealPath?.(m.images[Number(act.dataset.k)]?.path);
+      else if (a === "shot-copy" && m?.images) window.bar.copyImage?.(m.images[Number(act.dataset.k)]?.path).then((ok) => setStatus(ok ? "Screenshot copied. Paste it anywhere." : "Couldn't copy the screenshot.", ok ? "ok" : "err"));
       else if (a === "alt" && m?.alt) run(m.alt.text, { as: m.alt.mode });
       else if (a === "delete-chat") deleteChat(act.dataset.id);
       else if (a === "run-saved") { const c = saved.find((x) => x.name === name); setView("chat"); if (c && hasSlots(c.text)) { setCmd(`${name} `); setStatus(`Type ${slotNames(c.text)} after the name, then press Enter.`, "info"); } else run(name); }
@@ -881,6 +910,28 @@
     view = "chat";
     syncGo();
     render(true);
+  }
+  // Screenshots arrive as JPEG previews; keep a smaller copy in the chat (the PNG stays in Downloads).
+  function shrink(src, max = 760) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, max / img.naturalWidth);
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.naturalWidth * k);
+        c.height = Math.round(Math.min(img.naturalHeight * k, max * 1.6));
+        c.getContext("2d").drawImage(img, 0, 0, img.naturalWidth * k, img.naturalHeight * k);
+        resolve(c.toDataURL("image/jpeg", 0.78));
+      };
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  }
+  function attachImages(m, list) {
+    const shots = (list || []).filter((x) => x?.image || x?.path);
+    if (!m || !shots.length) return;
+    m.images = shots.map((x) => ({ path: x.path, title: x.title }));
+    shots.forEach((x, k) => x.image && shrink(x.image).then((src) => { if (m.images[k]) { m.images[k].src = src; render(); } }));
   }
   function setProgress(text) {
     if (current) { current.progress = text; render(); }
@@ -1033,7 +1084,11 @@
       case "usage": usage = payload; renderSpend(); break;
       case "models": models = payload; renderModel(); break;
       case "utility":
-        if (current) { if (payload.path) current.shot = payload.path; finish("ok", payload.detail || (payload.copied ? "Copied to the clipboard." : "Done.")); }
+        if (current) {
+          if (payload.image) attachImages(current, [payload]);
+          else if (payload.path) current.shot = payload.path;
+          finish("ok", payload.detail || (payload.copied ? "Copied to the clipboard." : "Done."));
+        }
         break;
       case "answer":
         if (current) {
@@ -1060,11 +1115,12 @@
         if (payload.models?.length) current.models = payload.models;
         if (payload.status === "running") { current.progress = payload.steps.length ? payload.steps.at(-1).text : "Looking at the page"; render(); }
         else if (payload.status === "done") {
+          attachImages(current, payload.images);
           if (payload.recipe && !payload.replay) current.recipe = payload.recipe;
           if (payload.replay) current.note = "Ran the saved steps, no AI used.";
           finish("ok", payload.summary || "Done.");
         }
-        else if (payload.status === "failed") finish("fail", capital(payload.summary));
+        else if (payload.status === "failed") { attachImages(current, payload.images); finish("fail", capital(payload.summary)); }
         else if (payload.status === "cancelled") finish("ignored", /new (?:message|command)/.test(payload.summary || "") ? "Stopped for your next message." : "Stopped.");
         break;
       }
@@ -1482,6 +1538,7 @@
   }
   // the rows you can move through with the arrow keys
   function pickerItems() {
+    if (picker?.kind === "browser") return (picker.browsers?.list || []).map((b) => ({ kind: "browser", id: b.id, b }));
     if (!models) return [];
     return [
       { kind: "auto", id: "auto" },
@@ -1492,14 +1549,21 @@
   function renderPicker() {
     const box = $("picker");
     $("model").setAttribute("aria-expanded", String(Boolean(picker)));
-    if (!picker || !models) return (box.hidden = true);
+    $("browser").setAttribute("aria-expanded", String(picker?.kind === "browser"));
+    if (!picker || (picker.kind !== "browser" && !models)) return (box.hidden = true);
     const items = pickerItems();
     picker.sel = Math.max(0, Math.min(picker.sel, items.length - 1));
     const check = (on) => `<span class="ck">${on ? ICON.check : ""}</span>`;
     let html = "", prev = null, i = 0;
+    if (picker.kind === "browser") html += `<div class="pk-head">Browser to control</div>`;
     for (const it of items) {
       const on = i === picker.sel ? " on" : "";
-      if (it.kind === "auto") {
+      if (it.kind === "browser") {
+        const b = it.b, cur = picker.browsers.current === b.id;
+        html += `<button type="button" class="pk-row${on}" role="option" data-i="${i}" aria-selected="${cur}">
+          <span class="lg${b.icon ? " app" : ""}">${b.icon ? `<img src="${esc(b.icon)}" alt="">` : ICON.globe}</span><span class="t">${esc(b.name)}</span>${check(cur)}
+          <span class="s">${esc(cur ? "Connected" : b.note)}</span></button>`;
+      } else if (it.kind === "auto") {
         html += `<button type="button" class="pk-row${on}" role="option" data-i="${i}" aria-selected="${models.preferred === "auto"}">
           <span class="lg">${ICON.bolt}</span><span class="t">Auto</span>${check(models.preferred === "auto")}
           <span class="s">Fastest model for each request; switches when one is busy</span></button>`;
@@ -1526,7 +1590,9 @@
       i++;
     }
     box.innerHTML = html;
-    box.style.bottom = `${innerHeight - $("form").getBoundingClientRect().top + 6}px`;
+    box.classList.toggle("below", picker.kind === "browser");
+    if (picker.kind === "browser") { box.style.top = `${document.querySelector(".top").getBoundingClientRect().bottom}px`; box.style.bottom = "auto"; }
+    else { box.style.top = "auto"; box.style.bottom = `${innerHeight - $("form").getBoundingClientRect().top + 6}px`; }
     box.hidden = false;
     if (!picker.adding) box.querySelector(".pk-row.on")?.scrollIntoView({ block: "nearest" });
     const f = $("pk-form");
@@ -1546,7 +1612,16 @@
   function openPicker() {
     send({ type: "models:list" });
     closeMentions();
-    picker = { sel: Math.max(0, pickerItems().findIndex((it) => it.id === models?.preferred)), adding: null };
+    picker = { kind: "model", sel: 0, adding: null };
+    picker.sel = Math.max(0, pickerItems().findIndex((it) => it.id === models?.preferred));
+    renderPicker();
+  }
+  async function openBrowserPicker() {
+    closeMentions();
+    const browsers = await window.bar.listBrowsers?.().catch(() => null);
+    if (!browsers) return window.bar.browserMenu(); // older app shell: the native menu
+    picker = { kind: "browser", sel: 0, browsers };
+    picker.sel = Math.max(0, pickerItems().findIndex((it) => it.id === browsers.current));
     renderPicker();
   }
   function closePicker(refocus = true) {
@@ -1558,6 +1633,12 @@
   function choosePicker(i) {
     const it = pickerItems()[i];
     if (!it) return;
+    if (it.kind === "browser") {
+      const cur = picker.browsers.current;
+      closePicker();
+      if (it.id !== cur) window.bar.chooseBrowser(it.id);
+      return;
+    }
     if (it.kind === "add") {
       picker.sel = i;
       picker.adding = picker.adding === it.p.name ? null : it.p.name;
@@ -1570,13 +1651,13 @@
     closePicker();
   }
   $("model").addEventListener("mousedown", (e) => e.preventDefault());
-  $("model").onclick = () => (picker ? closePicker() : models && openPicker());
+  $("model").onclick = () => (picker?.kind === "model" ? closePicker() : models && openPicker());
   $("picker").addEventListener("mousedown", (e) => { if (!e.target.closest(".pk-form")) e.preventDefault(); });
   $("picker").addEventListener("click", (e) => {
     const row = e.target.closest(".pk-row");
     if (row) choosePicker(Number(row.dataset.i));
   });
-  document.addEventListener("mousedown", (e) => { if (picker && !e.target.closest("#picker, #model")) closePicker(false); });
+  document.addEventListener("mousedown", (e) => { if (picker && !e.target.closest("#picker, #model, #browser")) closePicker(false); });
   // while open, the picker owns the arrow keys / Enter / Esc (except while typing a key)
   document.addEventListener("keydown", (e) => {
     if (!picker || e.target.closest?.(".pk-form")) {
@@ -1618,7 +1699,8 @@
     }
     clearTimeout(statusTimer);
   });
-  $("browser").onclick = () => window.bar.browserMenu();
+  $("browser").addEventListener("mousedown", (e) => e.preventDefault());
+  $("browser").onclick = () => (picker?.kind === "browser" ? closePicker() : openBrowserPicker());
   $("more").onclick = () => window.bar.appMenu({ model });
   window.bar.onMenuAction?.((a) => {
     if (a === "undo") send({ type: "undo" });

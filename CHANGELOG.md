@@ -16,6 +16,10 @@
 - Saved commands, passwords and past chats moved to the ⋯ menu (<kbd>⌘</kbd><kbd>2</kbd>–<kbd>4</kbd>).
 
 ### Added
+- **Screenshots in the chat**: "send me a screenshot" (or "… of the whole page") replies with the image;
+  a task can end with one too ("find the cheapest flight and send me a screenshot"). Click it to open the
+  PNG (also saved in Downloads), or Copy / Show in Finder.
+- **Browser picker in the panel**, with each browser's own app icon (replaces the native menu).
 - **Several AI providers at once**: Groq (GPT-OSS 120B / 20B, Qwen 3.8 27B), Gemini, Z.ai, DeepSeek and
   OpenRouter, each with its own key. **Auto** sends each request to the fastest suitable model and moves
   to the next one when a model is rate limited (honouring Retry-After). The model picker in the composer (an in-panel list with

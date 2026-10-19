@@ -44,6 +44,8 @@ export function stepFromAction(action, snap, risky = false) {
       return { kind: "back", label: "go back" };
     case "wait_ms":
       return { kind: "wait", ms: action.ms || 1500, label: "wait" };
+    case "take_screenshot":
+      return { kind: "screenshot", fullPage: Boolean(action.fullPage), label: action.label || "screenshot" };
     case "open_new_tab":
       return { kind: "new_tab", url: action.url || "", label: action.label || "new tab" };
     case "close_tab":

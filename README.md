@@ -118,7 +118,8 @@ Voice Browser lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd
 | `fill the form with …` | fill every matching field, without submitting |
 | `in @[Tab] …` · `go to @[Tab] and …` | switch to that tab first |
 | `in the current tab, …` · `… in the active tab` · `here, …` | run it in the tab you're on in the browser |
-| `screenshot` · `screenshot the whole page` | save a PNG to Downloads, instantly (no model) |
+| `send me a screenshot` · `screenshot the whole page` | the image in the chat, and a PNG in Downloads (no model) |
+| `… and send me a screenshot` | a task that ends by sending you a screenshot of where it got to |
 | `copy url` · `copy title` | copy the current page's address or title to the clipboard |
 | `copy the table` · `export the table as csv` | the page's own table to the clipboard (and a CSV in Downloads), no model |
 | `copy all invoice numbers as a table` · `copy all vendors with open bills` | the AI pulls those items out of the page as a table |
