@@ -15,7 +15,7 @@ import { resolveSaved } from "./store.js";
 import { loadChats, saveChats, listFacts, rememberFact, forgetFacts, parseMemoryCommand } from "./memory.js";
 import { routeSmart, answerQuestion, fillForm, nextGoalStep, verifyGoal, resolveFollowUp, toAction, MAX_GOAL_STEPS } from "./smart.js";
 import { hasBrain } from "./brain.js";
-import { parseUtility, runUtility, copyToClipboard } from "./utility.js";
+import { parseUtility, runUtility, copyToClipboard, wantsScreenshot } from "./utility.js";
 import { parseTableRequest, domTable, toTSV, saveCSV } from "./table.js";
 import { extractTable, replayFill, answerAcrossTabs, isTabsQuestion } from "./smart.js";
 import { LimitError } from "./usage.js";
@@ -24,6 +24,9 @@ import { parseTabMention, parseCurrentTab, matchTab } from "./tabs.js";
 import { fillForm as fillFormFn } from "./smart.js";
 
 const avg = (xs) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
+
+/** "try again", "retry", "do it again", "again please" */
+export const isRetry = (t) => /^(?:(?:ok|okay|no|hmm)[,.!]?\s*)?(?:please\s+)?(?:try(?:\s+(?:it|that))?\s+again|retry|do\s+(?:it|that)\s+again|one more time|again)(?:[,!]?\s*please)?[.!]?$/i.test(String(t || "").trim());
 
 /** "another one", "no, a different one", "something else", "next one", "try another" */
 export const isAnotherOne = (t) =>
@@ -294,6 +297,14 @@ export class Controller extends EventEmitter {
     if (this.chain) this._endChain("cancelled", "new message");
     const mem = parseMemoryCommand(text);
     if (mem) return this._memory(mem);
+    // "try again": the previous request, as it was asked
+    if (t?.lastAsk && isRetry(text)) {
+      this.emit("resolved", { text, goal: t.lastAsk });
+      return this._chat(t.lastAsk);
+    }
+    if (t) t.lastAsk = text;
+    const shot = wantsScreenshot(text);
+    if (shot) return this._utility(shot);
     if (!hasBrain()) {
       return this.emit("smart-error", { kind: "goal", text, error: "Chat needs an AI model in .env (BRAIN_PROVIDER + BRAIN_API_KEY, or a free GEMINI_API_KEY). Direct mode works without one." });
     }
@@ -331,6 +342,8 @@ export class Controller extends EventEmitter {
         if (goal !== smart.goal) {
           this._log("info", `understood as: ${goal}`);
           this.emit("resolved", { text: smart.goal, goal });
+          const shot2 = parseUtility(goal) || wantsScreenshot(goal);
+          if (shot2) return this._utility(shot2);
         }
       } catch (err) {
         this._log("warn", `couldn't rewrite the message (${err.message}); using it as written`);
@@ -638,7 +651,18 @@ export class Controller extends EventEmitter {
         }
         return this._endGoal(g, "done", step.summary);
       }
-      if (step.status === "impossible") return this._endGoal(g, "failed", step.summary);
+      if (step.status === "impossible") {
+        // models sometimes claim they can't take screenshots; the app can, so do it instead of failing
+        if (/\bscreen\s?shots?\b/i.test(g.goal) && !g.images?.length) {
+          const entry = { text: "take a screenshot", status: "running" };
+          g.steps.push(entry);
+          this._emitGoal(g, "running");
+          await this._runGoalStep(g, entry, { type: "take_screenshot", fullPage: /\b(?:full|whole|entire)\b/i.test(g.goal), label: "screenshot" });
+          if (g.cancelled) return;
+          if (entry.status === "ok") return this._endGoal(g, "done", "Here's a screenshot of the page.");
+        }
+        return this._endGoal(g, "failed", step.summary);
+      }
       const { action, fill, error } = toAction(step, r.snap, r.tabs);
       if (error) {
         if (++g.invalid > 2) return this._endGoal(g, "failed", `the model kept choosing invalid steps (${error})`);

@@ -77,6 +77,8 @@ const ANSWER_SCHEMA = {
 const withContext = (context) => (context ? `Conversation so far (earlier requests and what happened):\n${context}\n\n` : "");
 
 const ANSWER_RULES =
+  "You are the assistant inside Voice Browser, which controls the user's browser (tabs, clicks, typing, screenshots). " +
+  "Never say you are an AI that cannot see the page or act; you can see the page you're given. " +
   "Answer in full sentences like a helpful person in a chat: usually one to three sentences, more only when asked for a list or detail. " +
   "Be exact with numbers. If the question is about what's on screen, answer only from the page. " +
   "If the page doesn't cover it but it's a general question (facts, advice, wording, maths), answer from your own knowledge and set source to general. " +
@@ -321,6 +323,9 @@ const STEP_SCHEMA = {
 };
 
 const GOAL_SYSTEM =
+  "You are the agent inside Voice Browser and you control the user's real browser: you can open, switch and close tabs, " +
+  "navigate, click, type, scroll and take screenshots that are sent to the user. Never say you are an AI that cannot see, " +
+  "act or take screenshots; use the actions. " +
   "You operate a web browser to achieve the user's goal, one step at a time. Each turn you get the current page " +
   "(URL, numbered elements, visible text, screenshot) and the steps already taken. Choose exactly ONE next action, " +
   "using only element ids that exist in the list. Prefer the most direct path. " +

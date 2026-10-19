@@ -45,3 +45,13 @@ test("goals can take a screenshot, and saved goals keep it", async () => {
   assert.deepEqual(a, { type: "take_screenshot", fullPage: true, label: "screenshot of the whole page" });
   assert.equal(stepFromAction(a, { elements: [] }).kind, "screenshot");
 });
+
+test("screenshot requests in any wording, and 'try again'", async () => {
+  const { wantsScreenshot } = await import("../../src/utility.js");
+  const { isRetry } = await import("../../src/controller.js");
+  for (const t of ["can i get a screenshot", "try to send me a screenshot of the page again", "send me a pic of the page", "screenshot of the whole thing please"]) assert.ok(wantsScreenshot(t), t);
+  assert.equal(wantsScreenshot("screenshot of the whole thing please").fullPage, true);
+  for (const t of ["open youtube and send me a screenshot", "what is a screenshot?x and more words that make this a very long sentence about nothing at all really"]) assert.equal(wantsScreenshot(t), null, t);
+  for (const t of ["try again", "retry", "ok, try again please", "do it again", "again"]) assert.ok(isRetry(t), t);
+  assert.ok(!isRetry("try again to open youtube"));
+});
