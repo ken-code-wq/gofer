@@ -757,7 +757,7 @@
         m.status === "fail" || m.status === "ignored" ? `<button class="act hov" type="button" data-act="retry" title="Try again" aria-label="Try again">${ICON.retry}</button>` : "",
         m.shot ? `<button class="act hov" type="button" data-act="open" title="${m.status === "fail" ? "Screenshot of the page" : "Open"}" aria-label="Open">${ICON.image}</button>` : "",
         m.alt ? `<button class="link hov" type="button" data-act="alt">${esc(m.alt.label)}</button>` : "",
-        m.link ? `<button class="link hov" type="button" data-act="link" title="${esc(m.link.url)}">${esc(m.link.label)}</button>` : "",
+        m.link ? `<button class="link" type="button" data-act="link" title="${esc(m.link.url)}">${esc(m.link.label)}</button>` : "",
       ].join("");
       if (acts.replace(/\s/g, "")) body += `<div class="meta">${acts}</div>`;
     }

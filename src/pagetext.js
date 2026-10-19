@@ -577,8 +577,8 @@ export const readingText = (r) => `${r.head ? `${r.head}\n` : ""}${r.label}:\n${
 
 /** Prompt hint for the answer, by kind: how to cite. */
 export function citeHint(kind) {
-  if (kind === "youtube") return "The content is a video transcript. When the answer comes from a particular moment, give its time (m:ss) in the answer and in `where`.";
-  if (kind === "pdf") return "The content is a PDF. Put the page number(s) the answer comes from in `where`, e.g. 'page 3'.";
+  if (kind === "youtube") return "The content is a video transcript. When the answer comes from a particular moment, give its time (m:ss) in the answer and in `where`. Leave `where` empty when the transcript doesn't answer it.";
+  if (kind === "pdf") return "The content is a PDF. Put the page number(s) the answer comes from in `where`, e.g. 'page 3'; leave it empty when the PDF doesn't answer it.";
   return "";
 }
 
@@ -592,7 +592,8 @@ export function citeNote(reading, where = "", source = "page") {
   if (reading.kind === "youtube") {
     if (!reading.meta?.captions) return { cite: "This video has no captions, so this is from its title and description.", link: "" };
     const sec = parseTime(w);
-    return sec == null
+    // "0:00" on a summary just means "the whole thing"
+    return !sec
       ? { cite: "From the video's transcript.", link: "" }
       : { cite: `From the video's transcript, at ${fmtTime(sec)}.`, link: youtubeLink(reading.meta.id, sec) };
   }

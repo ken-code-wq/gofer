@@ -54,7 +54,7 @@ export async function compareTabs(pages, question, titles = null, context = "") 
     system:
       "You compare the user's open browser tabs. Read each tab's text and fill a comparison table: pick the attributes that " +
       "matter for the question, one row per tab, values copied exactly from that tab (numbers, prices, dates). Never invent values; " +
-      "use '—' when a tab doesn't say. Keep values short (a few words). Then answer the question in the verdict. Plain text, no markdown.",
+      "use '—' when a tab doesn't say. Keep values short (a few words). Then answer the question in the verdict, naming tabs by what they are (never \"Tab 4\"). Plain text, no markdown.",
     text: `${context ? `Conversation so far:\n${context}\n\n` : ""}Open tabs:\n\n${tabsText(tabs)}\n\nThe user asks: ${question}`,
     schema: COMPARE_SCHEMA,
   });
