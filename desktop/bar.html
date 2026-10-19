@@ -803,6 +803,7 @@
         m.status === "fail" || m.status === "ignored" ? `<button class="act hov" type="button" data-act="retry" title="Try again" aria-label="Try again">${ICON.retry}</button>` : "",
         m.shot ? `<button class="act hov" type="button" data-act="open" title="${m.status === "fail" ? "Screenshot of the page" : "Open"}" aria-label="Open">${ICON.image}</button>` : "",
         m.alt ? `<button class="link hov" type="button" data-act="alt">${esc(m.alt.label)}</button>` : "",
+        m.link ? `<button class="link" type="button" data-act="link" title="${esc(m.link.url)}">${esc(m.link.label)}</button>` : "",
       ].join("");
       if (acts.replace(/\s/g, "")) body += `<div class="meta">${acts}</div>`;
       for (const [k, l] of (m.learned || []).entries()) body += `<div class="learned" title="Saved as a note for ${esc(l.site)}. It's used the next time you're there.">${ICON.bulb}<span class="lt">Learned: ${esc(l.text)}<button class="link" type="button" data-act="unlearn" data-k="${k}" title="Forget this note">Undo</button></span></div>`;
@@ -944,6 +945,7 @@
       else if (a === "shot-reveal" && m?.images) window.bar.revealPath?.(m.images[Number(act.dataset.k)]?.path);
       else if (a === "shot-copy" && m?.images) window.bar.copyImage?.(m.images[Number(act.dataset.k)]?.path).then((ok) => setStatus(ok ? "Screenshot copied. Paste it anywhere." : "Couldn't copy the screenshot.", ok ? "ok" : "err"));
       else if (a === "alt" && m?.alt) run(m.alt.text, { as: m.alt.mode });
+      else if (a === "link" && m?.link) window.bar.openUrl?.(m.link.url);
       else if (a === "delete-chat") deleteChat(act.dataset.id);
       else if (a === "run-saved") { const c = saved.find((x) => x.name === name); setView("chat"); if (c && hasSlots(c.text)) { setCmd(`${name} `); setStatus(`Type ${slotNames(c.text)} after the name, then press Enter.`, "info"); } else run(name); }
       else if (a === "delete-cmd") { send({ type: "commands:delete", name }); setStatus(`Deleted “${name}”.`, "ok"); }
@@ -1189,8 +1191,10 @@
         break;
       case "table":
         if (current) {
-          current.table = { columns: payload.columns, rows: payload.rows.slice(0, 6), total: payload.total };
+          current.table = { columns: payload.columns, rows: payload.rows.slice(0, payload.scope === "compare" ? 8 : 6), total: payload.total };
           if (payload.path) current.shot = payload.path;
+          if (payload.note) current.note = payload.note;
+          if (payload.model) current.models = [payload.model];
           finish("ok", `${payload.detail}${payload.copied ? ". Copied, paste it into a spreadsheet." : ""}`);
         }
         break;
@@ -1207,8 +1211,11 @@
         if (current) {
           if (payload.model) current.models = [payload.model];
           current.note = payload.source === "general" ? "From general knowledge, not the page."
+            : payload.cite ? payload.cite
             : payload.scope === "tabs" ? (payload.tabs?.length ? `From ${payload.tabs.map((t) => `“${t}”`).join(", ")}` : `Read ${payload.read} tabs`)
             : "";
+          // a moment in a video: offer to open it there
+          if (payload.link) current.link = { url: payload.link, label: `Play from ${(payload.cite.match(/\d+:\d{2}(?::\d{2})?/) || [""])[0] || "there"}` };
           finish("ok", payload.answer);
         }
         break;
