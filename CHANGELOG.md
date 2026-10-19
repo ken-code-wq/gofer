@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Added (subagent work, merged)
+- **Voice**: click the mic in the composer or hold ⌥ Option and speak; Groq Whisper transcribes it, shows
+  it briefly and sends it. Replies to spoken requests are read aloud (Groq Orpheus once its terms are
+  accepted in the Groq console, the Mac's voice until then); every reply has Read aloud. Esc stops.
+- **Site notes**: the agent keeps short know-how per site. After a task it may learn a lesson ("Learned: …"
+  under the reply, with Undo); teach it with "remember that on workbook bills are under sales"; ask "what
+  do you know about this site?". Starter notes for YouTube, Gmail, Google Calendar, Google Docs, GitHub.
+  Never stores what you typed, emails, amounts or passwords. Site notes view: ⌘5 or ⋯ → Site notes.
+- **Reading pages properly**: YouTube questions use the video's captions (answers cite the time, with
+  "Play from m:ss"); PDFs are read page by page (answers cite the page); Google Docs / Sheets / Slides via
+  their export; long pages keep the main content and the parts relevant to the question. "Compare these
+  tabs" / "compare @A @B" answers with a table and a one-line verdict.
+
 ### Fixed
 - Direct mode failed on pages with emoji in the title (text cut mid-emoji was rejected with a 422).
 - "Play the next video" (and other "move on" requests) no longer report success on the same page. Each
