@@ -10,6 +10,7 @@ import { ask } from "./brain.js";
 import { encodeElement } from "./jev.js";
 import { toHttpUrl } from "./spans.js";
 import { resolveSecrets } from "./secrets.js";
+import { readPage, readingText, citeHint, citeNote, readTabs, tabsText, kindName } from "./pagetext.js";
 
 export const MAX_GOAL_STEPS = 15;
 const PAGE_TEXT_CHARS = 30000;
@@ -45,11 +46,16 @@ async function screenshot(page) {
   return page.screenshot({ type: "jpeg", quality: 60, timeout: 5000 }).catch(() => null);
 }
 
-/** What the brain sees: URL, title, numbered elements, visible text, and a screenshot. */
-async function pageContext(controller, { textChars = 6000 } = {}) {
+/**
+ * What the brain sees: URL, title, numbered elements, the page's text, and a screenshot. The text
+ * comes from pagetext.js: a video's transcript, a PDF's pages, a Google Doc's export, or the main
+ * content, cut to the parts that matter for `question` when it's long. `video: false` skips
+ * fetching a video's captions (goals like "play the next one" don't need them).
+ */
+async function pageContext(controller, { textChars = 6000, question = "", video = true } = {}) {
   const snap = await controller.refreshSnapshot();
   const page = await controller.browser.ensurePage();
-  const text = await page.evaluate(() => document.body?.innerText || "").catch(() => "");
+  const reading = await readPage(page, { question, budget: textChars, video }).catch(() => null);
   const shot = await screenshot(page);
   const host = hostOf(snap.url);
   const lines = [
@@ -57,10 +63,9 @@ async function pageContext(controller, { textChars = 6000 } = {}) {
     `Title: ${snap.title || ""}`,
     `Elements (id role "text"):`,
     ...snap.elements.map((e) => `  ${encodeElement(e, host)}`),
-    `Visible text:`,
-    text.replace(/\n{3,}/g, "\n\n").slice(0, textChars),
+    reading ? readingText(reading) : "Visible text:\n(couldn't read the page)",
   ];
-  return { snap, page, description: lines.join("\n"), images: shot ? [shot] : [] };
+  return { snap, page, reading, description: lines.join("\n"), images: shot ? [shot] : [] };
 }
 
 // ── page questions ─────────────────────────────────────────────
@@ -70,6 +75,7 @@ const ANSWER_SCHEMA = {
   properties: {
     answer: { type: "string", description: "The reply, in full sentences. Plain text, no markdown; use line breaks and • for lists." },
     source: { type: "string", enum: ["page", "general", "none"], description: "page: from the page. general: the page doesn't cover it, answered from your own knowledge. none: can't answer." },
+    where: { type: "string", description: "Where in the content the answer is: a video time like '2:03' or a PDF page like 'page 3'. Empty if not marked." },
   },
   required: ["answer", "source"],
 };
@@ -85,20 +91,18 @@ const ANSWER_RULES =
   "Never present general knowledge as something the page says.";
 
 export async function answerQuestion(controller, question, context = "") {
-  const ctx = await pageContext(controller, { textChars: PAGE_TEXT_CHARS });
+  const ctx = await pageContext(controller, { textChars: PAGE_TEXT_CHARS, question });
   const r = await ask({
-    system: `You answer the user's questions while they browse. You can see the web page they're on (text and screenshot). ${ANSWER_RULES}`,
+    system: `You answer the user's questions while they browse. You can see the web page they're on (text and screenshot). ${ANSWER_RULES} ${citeHint(ctx.reading?.kind)}`.trim(),
     text: `${withContext(context)}${ctx.description}\n\nQuestion: ${question}`,
     images: ctx.images,
     schema: ANSWER_SCHEMA,
   });
-  return { answer: String(r.data.answer || "").trim(), source: r.data.source || "page", model: r.modelLabel || r.model, ms: r.ms };
+  const source = r.data.source || "page";
+  return { answer: String(r.data.answer || "").trim(), source, ...citeNote(ctx.reading, r.data.where, source), model: r.modelLabel || r.model, ms: r.ms };
 }
 
 // ── questions across tabs ──────────────────────────────────────
-
-const within = (promise, ms, fallback) =>
-  Promise.race([Promise.resolve(promise).catch(() => fallback), new Promise((r) => setTimeout(() => r(fallback), ms))]);
 
 const TABS_ANSWER_SCHEMA = {
   type: "object",
@@ -116,32 +120,25 @@ const TABS_ANSWER_SCHEMA = {
  * within 2 s are listed by title only.
  */
 export async function answerAcrossTabs(controller, question, titles = null, context = "") {
-  const norm = (x) => String(x || "").toLowerCase().replace(/\s+/g, " ").trim();
-  let pages = controller.browser.pages.filter((p) => !p.isClosed());
-  const all = await Promise.all(pages.map(async (p) => ({ p, title: await within(p.title(), 800, ""), url: p.url() })));
-  let tabs = all.filter((t) => /^https?:/.test(t.url));
-  if (titles?.length) {
-    const wanted = titles.map(norm);
-    tabs = all.filter((t) => wanted.some((w) => norm(t.title) === w || norm(t.title).includes(w) || w.includes(norm(t.title))));
-  }
-  tabs = tabs.slice(0, 15);
+  const tabs = await readTabs(controller.browser.pages, { titles, question, total: 45000 });
   if (!tabs.length) throw new Error(titles?.length ? "None of those tabs are open" : "No web pages are open");
-  const per = Math.max(1500, Math.floor(45000 / tabs.length));
-  const texts = await Promise.all(tabs.map((t) => within(t.p.evaluate(() => document.body?.innerText || ""), 2000, null)));
-  const body = tabs
-    .map((t, i) => `### Tab ${i + 1}: ${t.title || "(untitled)"} (${t.url})\n${texts[i] == null ? "(couldn't read this tab; it may be asleep)" : texts[i].replace(/\n{3,}/g, "\n\n").slice(0, per)}`)
-    .join("\n\n");
+  const body = tabsText(tabs);
   const r = await ask({
     system: `You answer the user's questions using the text of their open browser tabs. ${ANSWER_RULES} Here "page" means the tabs: set source to tabs when the answer comes from them, and list which tab numbers you used.`,
     text: `${withContext(context)}Open tabs:\n\n${body}\n\nQuestion: ${question}`,
     schema: TABS_ANSWER_SCHEMA,
   });
-  const used = (r.data.tabs || []).map((n) => tabs[n - 1]?.title).filter(Boolean);
-  return { answer: String(r.data.answer || "").trim(), source: r.data.source || "tabs", tabs: [...new Set(used)], read: tabs.length, model: r.modelLabel || r.model, ms: r.ms };
+  const usedTabs = [...new Set((r.data.tabs || []).map((n) => tabs[n - 1]).filter(Boolean))];
+  const used = usedTabs.map((t) => t.title).filter(Boolean);
+  // "From “Talk” (video transcript), “Spec” (PDF)" when a tab was read by a special reader
+  const cite = usedTabs.some((t) => kindName(t.reading?.kind))
+    ? `From ${usedTabs.map((t) => `“${t.title}”${kindName(t.reading?.kind) ? ` (${kindName(t.reading.kind)})` : ""}`).join(", ")}`
+    : "";
+  return { answer: String(r.data.answer || "").trim(), source: r.data.source || "tabs", tabs: used, cite, read: tabs.length, model: r.modelLabel || r.model, ms: r.ms };
 }
 
 /** "which of my tabs …", "across my tabs", "in all tabs": a question about every open tab. */
-export const isTabsQuestion = (t) => /\b(?:(?:my|open|all|these|other|the)\s+(?:open\s+)?tabs|across\s+(?:my\s+)?tabs|which\s+tab|every\s+tab|each\s+tab)\b/i.test(String(t || ""));
+export const isTabsQuestion = (t) => /\b(?:(?:my|open|all|these|those|both|other|the)\s+(?:(?:two|three|four|five|\d+)\s+)?(?:open\s+)?tabs|across\s+(?:my\s+)?tabs|which\s+tab|every\s+tab|each\s+tab)\b/i.test(String(t || ""));
 
 // ── form filling ───────────────────────────────────────────────
 
@@ -450,7 +447,7 @@ export async function resolveFollowUp(context, text) {
 
 /** A second opinion before declaring a goal done: does the page actually show it's complete? */
 export async function verifyGoal(controller, goal, done, context = "", start = null) {
-  const ctx = await pageContext(controller);
+  const ctx = await pageContext(controller, { question: goal, video: aboutContent(goal) });
   const history = done.map((d, i) => `${i + 1}. ${d.description} → ${d.outcome}`).join("\n") || "(none)";
   const r = await ask({
     system:
@@ -476,8 +473,11 @@ export async function goalTabs(browser) {
   return live.map((page, i) => ({ n: i + 1, page, title: titles[i], url: page.url(), current: page === browser.active }));
 }
 
+/** Goals that need what a video says ("skip to where he talks about pricing"), not just its controls. */
+const aboutContent = (goal) => /\b(?:say|says|said|talk|talks|talking|mention|mentions|minute|moment|part where|transcript|captions?|summar\w*|quote|explain\w*|discuss\w*)\b/i.test(goal);
+
 export async function nextGoalStep(controller, goal, done, note = "", context = "") {
-  const ctx = await pageContext(controller);
+  const ctx = await pageContext(controller, { question: goal, video: aboutContent(goal) });
   const tabs = await goalTabs(controller.browser).catch(() => []);
   const tabLines = tabs.map((t) => `  ${t.n}. ${(t.title || "(untitled)").slice(0, 80)} (${t.url.slice(0, 120)})${t.current ? " ← current" : ""}`);
   const history = done.length ? done.map((d, i) => `${i + 1}. ${d.description} → ${d.outcome}`).join("\n") : "(none yet)";

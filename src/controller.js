@@ -18,6 +18,7 @@ import { hasBrain } from "./brain.js";
 import { parseUtility, runUtility, copyToClipboard, wantsScreenshot } from "./utility.js";
 import { parseTableRequest, domTable, toTSV, saveCSV } from "./table.js";
 import { extractTable, replayFill, answerAcrossTabs, isTabsQuestion } from "./smart.js";
+import { compareTabs, isCompareRequest } from "./compare.js";
 import { LimitError } from "./usage.js";
 import { stepFromAction, stepFromFill, finalizeRecipe, findElement, describeStep } from "./recipe.js";
 import { parseTabMention, parseCurrentTab, matchTab } from "./tabs.js";
@@ -451,6 +452,7 @@ export class Controller extends EventEmitter {
 
   async _askTabs(question, titles) {
     if (!hasBrain()) return this.emit("smart-error", { kind: "ask", text: question, error: "Questions need an AI model in .env (BRAIN_PROVIDER + BRAIN_API_KEY, or a free GEMINI_API_KEY)" });
+    if (isCompareRequest(question)) return this._compareTabs(question, titles);
     const thread = this.thread;
     const clean = question.replace(/@\[([^\]]+)\]/g, "“$1”");
     this._log("info", `question across ${titles ? titles.length : "all"} tabs: ${clean}`);
@@ -459,6 +461,21 @@ export class Controller extends EventEmitter {
       this._note(thread, `answer (from ${r.tabs.join(", ") || "tabs"}): ${r.answer}`);
       this._log("act", `answer (${r.model}, ${r.ms}ms, ${r.read} tabs): ${r.answer}`);
       this.emit("answer", { question, ...r, scope: "tabs" });
+    } catch (err) {
+      this.emit("smart-error", { kind: "ask", text: question, error: String(err.message || err) });
+    }
+  }
+
+  /** "compare these tabs": a table with a row per tab, and a verdict (compare.js). */
+  async _compareTabs(question, titles) {
+    const thread = this.thread;
+    const clean = question.replace(/@\[([^\]]+)\]/g, "“$1”");
+    this._log("info", `compare ${titles ? titles.length : "all"} tabs: ${clean}`);
+    try {
+      const r = await compareTabs(this.browser.pages, clean, titles, this._threadContext(thread));
+      this._note(thread, `compared ${r.tabs.map((t) => `“${t}”`).join(", ")} on ${r.columns.slice(1).join(", ")}: ${r.verdict}`);
+      this._log("act", `comparison (${r.model}, ${r.ms}ms, ${r.read} tabs): ${r.verdict}`);
+      this.emit("table", { what: clean, columns: r.columns, rows: r.rows, total: r.rows.length, copied: false, via: r.model, model: r.model, detail: r.verdict, note: r.note, scope: "compare" });
     } catch (err) {
       this.emit("smart-error", { kind: "ask", text: question, error: String(err.message || err) });
     }
