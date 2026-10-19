@@ -10,6 +10,7 @@ import { ask } from "./brain.js";
 import { encodeElement } from "./jev.js";
 import { toHttpUrl } from "./spans.js";
 import { resolveSecrets } from "./secrets.js";
+import { notesForPrompt } from "./sitenotes.js";
 
 export const MAX_GOAL_STEPS = 15;
 const PAGE_TEXT_CHARS = 30000;
@@ -76,6 +77,14 @@ const ANSWER_SCHEMA = {
 
 const withContext = (context) => (context ? `Conversation so far (earlier requests and what happened):\n${context}\n\n` : "");
 
+/** Site notes for the page and any site the request names, as a prompt block ("" if none). */
+function siteNotes(controller, url, goal) {
+  const n = notesForPrompt({ url, goal });
+  if (n.sites.length) controller._log?.("debug", `site notes in prompt: ${n.sites.join(", ")} (${n.text.split("\n- ").length - 1} notes)`);
+  return n;
+}
+const withNotes = (n) => (n.text ? `${n.text}\n\n` : "");
+
 const ANSWER_RULES =
   "You are the assistant inside Voice Browser, which controls the user's browser (tabs, clicks, typing, screenshots). " +
   "Never say you are an AI that cannot see the page or act; you can see the page you're given. " +
@@ -88,7 +97,7 @@ export async function answerQuestion(controller, question, context = "") {
   const ctx = await pageContext(controller, { textChars: PAGE_TEXT_CHARS });
   const r = await ask({
     system: `You answer the user's questions while they browse. You can see the web page they're on (text and screenshot). ${ANSWER_RULES}`,
-    text: `${withContext(context)}${ctx.description}\n\nQuestion: ${question}`,
+    text: `${withContext(context)}${withNotes(siteNotes(controller, ctx.snap.url, question))}${ctx.description}\n\nQuestion: ${question}`,
     images: ctx.images,
     schema: ANSWER_SCHEMA,
   });
@@ -337,9 +346,9 @@ const GOAL_SYSTEM =
   "leaves the user's other tabs untouched, so prefer it when asked for a new tab. " +
   "When the user wants to see something ('send me a screenshot', 'show me', 'screenshot the results'), get the page into the " +
   "right state, then use the screenshot action (it is sent to them in the chat); after taking it you can finish. " +
-  "Keyboard shortcuts (press_key) are often the most reliable control on media sites. YouTube: Shift+N next video, Shift+P " +
-  "previous, K play/pause, M mute, L / J skip 10 s, F fullscreen; buttons named 'Next' under the video usually just scroll a " +
-  "list. If an action didn't change the page (the step says 'page unchanged'), don't repeat it: try a different control, " +
+  "Keyboard shortcuts (press_key) are often the most reliable control on media sites. If site notes are given, they are " +
+  "tips learned on earlier visits to that site: follow them when they fit, but trust the current page. " +
+  "If an action didn't change the page (the step says 'page unchanged'), don't repeat it: try a different control, " +
   "a shortcut or a direct link. " +
   "Stop as soon as the goal is achieved and return 'done': never take extra steps 'to make sure' (each extra 'next' skips " +
   "another item). Don't press play/pause unless asked; a video that just opened is already playing. If the goal is achieved, return status 'done' " +
@@ -460,7 +469,7 @@ export async function verifyGoal(controller, goal, done, context = "", start = n
       "be a different one than where it started; the same URL and title means it is NOT done. " +
       "A filled but unsaved form is not done. If the goal needs no browser action at all (a greeting, thanks, a question answered " +
       "from knowledge), it is complete. If the goal asks for a different result than before, the page must show a different one than those already given.",
-    text: `${withContext(context)}Goal: ${goal}\n\nStarted on: ${start ? `${start.url} (${start.title})` : "unknown"}\n\nSteps taken:\n${history}\n\nCurrent page:\n${ctx.description}`,
+    text: `${withContext(context)}${withNotes(notesForPrompt({ url: ctx.snap.url, goal }))}Goal: ${goal}\n\nStarted on: ${start ? `${start.url} (${start.title})` : "unknown"}\n\nSteps taken:\n${history}\n\nCurrent page:\n${ctx.description}`,
     images: ctx.images,
     schema: VERIFY_SCHEMA,
   });
@@ -481,11 +490,12 @@ export async function nextGoalStep(controller, goal, done, note = "", context = 
   const tabs = await goalTabs(controller.browser).catch(() => []);
   const tabLines = tabs.map((t) => `  ${t.n}. ${(t.title || "(untitled)").slice(0, 80)} (${t.url.slice(0, 120)})${t.current ? " ← current" : ""}`);
   const history = done.length ? done.map((d, i) => `${i + 1}. ${d.description} → ${d.outcome}`).join("\n") : "(none yet)";
+  const notes = siteNotes(controller, ctx.snap.url, goal);
   const r = await ask({
     system: GOAL_SYSTEM,
-    text: `${withContext(context)}Goal: ${goal}\n\nSteps taken so far:\n${history}\n${note ? `\nNote: ${note}\n` : ""}\nOpen tabs:\n${tabLines.join("\n") || "  (only this one)"}\n\nCurrent page:\n${ctx.description}`,
+    text: `${withContext(context)}${withNotes(notes)}Goal: ${goal}\n\nSteps taken so far:\n${history}\n${note ? `\nNote: ${note}\n` : ""}\nOpen tabs:\n${tabLines.join("\n") || "  (only this one)"}\n\nCurrent page:\n${ctx.description}`,
     images: ctx.images,
     schema: STEP_SCHEMA,
   });
-  return { step: r.data, snap: ctx.snap, tabs, model: r.modelLabel || r.model, ms: r.ms };
+  return { step: r.data, snap: ctx.snap, tabs, sites: notes.sites, model: r.modelLabel || r.model, ms: r.ms };
 }
