@@ -304,7 +304,7 @@ const STEP_SCHEMA = {
     action: {
       type: "object",
       properties: {
-        type: { type: "string", enum: ["click", "type", "select", "fill_form", "press_enter", "navigate", "new_tab", "switch_tab", "close_tab", "screenshot", "scroll_down", "scroll_up", "go_back", "wait"] },
+        type: { type: "string", enum: ["click", "type", "select", "fill_form", "press_enter", "press_key", "navigate", "new_tab", "switch_tab", "close_tab", "screenshot", "scroll_down", "scroll_up", "go_back", "wait"] },
         element_id: { type: "string", description: "Id from the element list (click/type/select)." },
         text: {
           type: "string",
@@ -312,6 +312,7 @@ const STEP_SCHEMA = {
         },
         url: { type: "string", description: "For navigate. For new_tab: the address to open in it (optional)." },
         tab: { type: "integer", description: "For switch_tab: the number of the tab in the open tabs list." },
+        key: { type: "string", description: "For press_key: a key or shortcut, e.g. 'Shift+N', 'k', 'Space', 'Escape'." },
         full_page: { type: "boolean", description: "For screenshot: capture the whole scrolling page instead of what's visible." },
         submit: { type: "boolean", description: "For type: press Enter afterwards." },
       },
@@ -329,11 +330,19 @@ const GOAL_SYSTEM =
   "You operate a web browser to achieve the user's goal, one step at a time. Each turn you get the current page " +
   "(URL, numbered elements, visible text, screenshot) and the steps already taken. Choose exactly ONE next action, " +
   "using only element ids that exist in the list. Prefer the most direct path. " +
+  "Work in the current tab (marked '← current') unless the goal names another tab, needs a new one, or the current tab " +
+  "clearly isn't where it can be done; never move into one of the user's other tabs just because it looks relevant. " +
   "You are not limited to the current tab: open a new tab (new_tab, with a url to load in it), switch to any open tab " +
   "(switch_tab with its number) or close the current tab (close_tab) whenever the goal calls for it. Opening a new tab " +
   "leaves the user's other tabs untouched, so prefer it when asked for a new tab. " +
   "When the user wants to see something ('send me a screenshot', 'show me', 'screenshot the results'), get the page into the " +
-  "right state, then use the screenshot action (it is sent to them in the chat); after taking it you can finish. If the goal is achieved, return status 'done' " +
+  "right state, then use the screenshot action (it is sent to them in the chat); after taking it you can finish. " +
+  "Keyboard shortcuts (press_key) are often the most reliable control on media sites. YouTube: Shift+N next video, Shift+P " +
+  "previous, K play/pause, M mute, L / J skip 10 s, F fullscreen; buttons named 'Next' under the video usually just scroll a " +
+  "list. If an action didn't change the page (the step says 'page unchanged'), don't repeat it: try a different control, " +
+  "a shortcut or a direct link. " +
+  "Stop as soon as the goal is achieved and return 'done': never take extra steps 'to make sure' (each extra 'next' skips " +
+  "another item). Don't press play/pause unless asked; a video that just opened is already playing. If the goal is achieved, return status 'done' " +
   "with a short summary of what was done; if it can't be achieved on this site, return 'impossible' and say why. " +
   "When a form is visible, prefer ONE fill_form action with all the values instead of typing field by field. " +
   "When asked for dummy, test or sample data, invent realistic, plausible values (names, amounts, dates in the near future, " +
@@ -368,6 +377,9 @@ export function toAction(step, snap, tabs = []) {
       return { fill: String(a.text || "") };
     case "press_enter":
       return { action: { type: "press_enter", label: "press enter" } };
+    case "press_key":
+      if (!a.key) return { error: "press_key without a key" };
+      return { action: { type: "press_key", key: String(a.key), label: `press ${a.key}` } };
     case "navigate":
       if (!a.url) return { error: "navigate without a url" };
       return { action: { type: "navigate_url", url: toHttpUrl(a.url), label: a.url } };
@@ -427,6 +439,8 @@ export async function resolveFollowUp(context, text) {
       "Name those items explicitly with their distinguishing details. Keep the user's intent and wording otherwise. " +
       "'Another one', 'a different one', 'no, not that' or 'something else' mean: the previous request again, but with a different " +
       "result; name the earlier result(s) to avoid (e.g. 'play a different Prince of Egypt song than When You Believe'). " +
+      "Say WHAT to achieve, never HOW: don't name buttons, clicks or steps the user didn't mention " +
+      "('play the next video', not 'click the Next button'). " +
       "If the request doesn't refer to earlier items, return it unchanged.",
     text: `${withContext(context)}Follow-up request: ${text}`,
     schema: RESOLVE_SCHEMA,
@@ -435,16 +449,18 @@ export async function resolveFollowUp(context, text) {
 }
 
 /** A second opinion before declaring a goal done: does the page actually show it's complete? */
-export async function verifyGoal(controller, goal, done, context = "") {
+export async function verifyGoal(controller, goal, done, context = "", start = null) {
   const ctx = await pageContext(controller);
   const history = done.map((d, i) => `${i + 1}. ${d.description} → ${d.outcome}`).join("\n") || "(none)";
   const r = await ask({
     system:
       "You check whether a browser task is really finished. Judge only by the current page (text, elements, screenshot) " +
       "and the steps actually taken. Counts matter: if the goal asks for N items, all N must be done and visible. " +
+      "If the goal is to move on to another item (the next video, the next page, a different result), the current page must " +
+      "be a different one than where it started; the same URL and title means it is NOT done. " +
       "A filled but unsaved form is not done. If the goal needs no browser action at all (a greeting, thanks, a question answered " +
       "from knowledge), it is complete. If the goal asks for a different result than before, the page must show a different one than those already given.",
-    text: `${withContext(context)}Goal: ${goal}\n\nSteps taken:\n${history}\n\nCurrent page:\n${ctx.description}`,
+    text: `${withContext(context)}Goal: ${goal}\n\nStarted on: ${start ? `${start.url} (${start.title})` : "unknown"}\n\nSteps taken:\n${history}\n\nCurrent page:\n${ctx.description}`,
     images: ctx.images,
     schema: VERIFY_SCHEMA,
   });

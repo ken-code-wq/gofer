@@ -21,6 +21,17 @@ async function settle(page, ms = 2500) {
   await page.waitForTimeout(120);
 }
 
+/** "shift+n", "Shift + N", "space", "esc" -> Playwright key names ("Shift+N", "Space", "Escape"). */
+export function normalizeKey(k) {
+  const NAMES = { esc: "Escape", escape: "Escape", space: "Space", spacebar: "Space", enter: "Enter", return: "Enter", tab: "Tab", backspace: "Backspace", delete: "Delete",
+    up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight", arrowup: "ArrowUp", arrowdown: "ArrowDown", arrowleft: "ArrowLeft", arrowright: "ArrowRight",
+    home: "Home", end: "End", pageup: "PageUp", pagedown: "PageDown", shift: "Shift", ctrl: "Control", control: "Control", alt: "Alt", option: "Alt", cmd: "Meta", command: "Meta", meta: "Meta" };
+  const parts = String(k || "").split("+").map((x) => x.trim()).filter(Boolean);
+  if (!parts.length) return null;
+  const out = parts.map((x) => NAMES[x.toLowerCase()] || (/^f\d{1,2}$/i.test(x) ? x.toUpperCase() : x.length === 1 ? (parts.length > 1 ? x.toUpperCase() : x) : null));
+  return out.includes(null) ? null : out.join("+");
+}
+
 /** Wait for a possible new tab after a click (target=_blank). */
 async function maybeNewTab(browser, before, from = browser.page) {
   await new Promise((r) => setTimeout(r, 400));
@@ -115,6 +126,20 @@ export async function execute(action, browser) {
       await page.keyboard.press("Enter");
       await settle(page);
       return { ok: true, detail: page.url() };
+
+    case "press_key": {
+      // shortcuts act on the page, not on a text field that happens to have focus
+      const key = normalizeKey(action.key);
+      if (!key) return { ok: false, detail: `unknown key "${action.key}"` };
+      await page.evaluate(() => {
+        const a = document.activeElement;
+        if (a && (a.isContentEditable || /^(?:INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) a.blur();
+      }).catch(() => {});
+      await browser.overlay("toast", `⌨ ${key}`);
+      await page.keyboard.press(key);
+      await settle(page, 1500);
+      return { ok: true, detail: page.url() };
+    }
 
     case "scroll_down":
     case "scroll_up": {

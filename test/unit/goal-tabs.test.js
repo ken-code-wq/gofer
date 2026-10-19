@@ -24,3 +24,17 @@ test("goals can switch to an open tab by its number, and close a tab", () => {
   assert.match(toAction({ action: { type: "switch_tab", tab: 4 } }, snap, tabs).error, /not open/);
   assert.equal(toAction({ action: { type: "close_tab" } }, snap).action.type, "close_tab");
 });
+
+test("keyboard shortcuts: goals can press them, names are normalized", async () => {
+  const { normalizeKey } = await import("../../src/executor.js");
+  assert.equal(normalizeKey("shift+n"), "Shift+N");
+  assert.equal(normalizeKey("Shift + N"), "Shift+N");
+  assert.equal(normalizeKey("k"), "k");
+  assert.equal(normalizeKey("space"), "Space");
+  assert.equal(normalizeKey("esc"), "Escape");
+  assert.equal(normalizeKey("cmd+shift+t"), "Meta+Shift+T");
+  assert.equal(normalizeKey("not a key"), null);
+  const a = toAction({ action: { type: "press_key", key: "Shift+N" } }, snap).action;
+  assert.deepEqual(a, { type: "press_key", key: "Shift+N", label: "press Shift+N" });
+  assert.deepEqual(stepFromAction(a, snap), { kind: "key", key: "Shift+N", label: "press Shift+N" });
+});

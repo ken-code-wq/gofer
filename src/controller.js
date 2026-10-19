@@ -498,7 +498,9 @@ export class Controller extends EventEmitter {
 
   _startGoal(goal, context = "", { another = false } = {}) {
     if (this.chain) this._endChain("cancelled", "new goal");
-    const g = { goal, context, another, thread: this.thread, steps: [], done: [], recipe: [], awaiting: null, cancelled: false, autoApprove: false, invalid: 0, at: Date.now() };
+    const start = this.browser.page ? { url: this.browser.page.url(), title: "" } : null;
+    if (start) this.browser.page.title().then((t) => (start.title = t)).catch(() => {});
+    const g = { goal, context, another, start, thread: this.thread, steps: [], done: [], recipe: [], awaiting: null, cancelled: false, autoApprove: false, invalid: 0, at: Date.now() };
     this.goal = g;
     this._log("info", `goal: ${goal}`);
     this._emitGoal(g, "running");
@@ -596,6 +598,7 @@ export class Controller extends EventEmitter {
           : s.kind === "new_tab" ? { type: "open_new_tab", url: s.url, label: s.label }
           : s.kind === "close_tab" ? { type: "close_tab", label: s.label }
           : s.kind === "screenshot" ? { type: "take_screenshot", fullPage: s.fullPage, label: s.label }
+          : s.kind === "key" ? { type: "press_key", key: s.key, label: s.label }
           : s.kind === "switch_tab" ? { type: "switch_tab", title: s.title, label: s.label }
           : { type: s.kind, amount: "page", label: s.label };
       }
@@ -618,6 +621,10 @@ export class Controller extends EventEmitter {
       if (g.done.length >= MAX_GOAL_STEPS) return this._endGoal(g, "failed", `stopped after ${MAX_GOAL_STEPS} steps without finishing`);
       let r;
       try {
+        if (g.hint) {
+          note = note ? `${note} ${g.hint}` : g.hint;
+          g.hint = null;
+        }
         r = await nextGoalStep(this, g.goal, g.done, note, g.context);
       } catch (err) {
         return this._endGoal(g, "failed", String(err.message || err));
@@ -633,7 +640,7 @@ export class Controller extends EventEmitter {
       }
       if (step.status === "done") {
         // second opinion: does the page really show the goal is complete?
-        const v = await verifyGoal(this, g.goal, g.done, g.context).catch(() => ({ complete: true }));
+        const v = await verifyGoal(this, g.goal, g.done, g.context, g.start).catch(() => ({ complete: true }));
         if (g.cancelled) return;
         if (!v.complete) {
           this._log("info", `goal not finished yet: ${v.missing}`);
@@ -709,12 +716,31 @@ export class Controller extends EventEmitter {
 
   async _runGoalStep(g, entry, action) {
     if (action.type === "click_element" || action.type === "press_enter") g.unsavedForm = false;
+    const page = this.browser.page;
+    const before = page ? { url: page.url(), title: await page.title().catch(() => ""), tab: page } : null;
     const { ok, res } = await this._runAction(action, { via: "goal", said: entry.text });
+    // did it change anything we can see? (same tab, URL and title = probably not)
+    const after = this.browser.page;
+    const same = async () => after.url() === before.url && (await after.title().catch(() => "")) === before.title;
+    let unchanged = ok && before && after === before.tab && ["click_element", "press_key", "press_enter", "go_back"].includes(action.type) && (await same());
+    // sites like YouTube switch pages a moment later: give it up to 2.5 s before calling the step useless
+    for (let i = 0; unchanged && i < 10; i++) {
+      await new Promise((r) => setTimeout(r, 250));
+      unchanged = await same();
+    }
     if (ok && res.image) (g.images ||= []).push({ image: res.image, path: res.path });
     const url = this.browser.currentUrl?.() || "";
     entry.status = ok ? "ok" : "fail";
     entry.detail = ok ? url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 80) : res.detail;
-    g.done.push({ description: entry.text, outcome: ok ? `done (now at ${url.slice(0, 120)})` : `failed: ${res.detail}` });
+    const title = ok ? await this.browser.page?.title().catch(() => "") : "";
+    g.done.push({ description: entry.text, outcome: ok ? (unchanged ? `done, but the page unchanged (still ${url.slice(0, 120)})` : `done (now at ${url.slice(0, 120)}${title ? ` "${title.slice(0, 80)}"` : ""})`) : `failed: ${res.detail}` });
+    if (unchanged) {
+      const key = `${action.type}:${action.label || action.key || action.targetId || ""}`;
+      g.noEffect = { key, n: g.noEffect?.key === key ? g.noEffect.n + 1 : 1 };
+      g.hint = g.noEffect.n >= 2
+        ? `"${entry.text}" has now changed nothing ${g.noEffect.n} times; it's not the right control. Use a different way: another element, a keyboard shortcut (press_key) or a direct link.`
+        : `"${entry.text}" didn't change the page (same URL and title). Don't do it again; if it was meant to move on, use another way (a keyboard shortcut with press_key, another element, or a direct link).`;
+    } else g.noEffect = null;
     if (ok && entry.record && g.recipe && !g.replay) g.recipe.push(entry.record);
     this._emitGoal(g, "running");
     // let the page settle before the next look

@@ -298,7 +298,10 @@ async function askAny({ system, text, images = [], schema, signal }) {
         rest(c.id, 30 * 60_000, "model not available");
         continue;
       }
-      if (r.status === 413 || (r.status === 400 && /too large|context|tokens/i.test(r.error))) continue; // too big for this one; try the next
+      if (r.status === 413 || (r.status === 400 && /too large|context|tokens/i.test(r.error))) {
+        rest(c.id, 60_000, "request too large"); // over its per-minute size: let the next one take it for a while
+        continue;
+      }
       if (r.status >= 500) {
         rest(c.id, 60_000, "provider busy");
         continue;

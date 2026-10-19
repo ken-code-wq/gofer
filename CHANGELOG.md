@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### Fixed
+- "Play the next video" (and other "move on" requests) no longer report success on the same page. Each
+  step records whether the page changed (waiting up to 2.5 s for slow sites like YouTube); a control that
+  changes nothing isn't repeated; the final check compares with where the task started. Tasks stay in the
+  current tab, stop as soon as they're done, and can press keyboard shortcuts (YouTube: Shift+N next video).
 - The agent no longer jumps to one of your tabs when the browser wakes it up from sleep mid-task, and a click
   only follows a new tab that the clicked page opened.
 
