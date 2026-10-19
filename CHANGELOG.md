@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixed
+- Direct mode failed on pages with emoji in the title (text cut mid-emoji was rejected with a 422).
 - "Play the next video" (and other "move on" requests) no longer report success on the same page. Each
   step records whether the page changed (waiting up to 2.5 s for slow sites like YouTube); a control that
   changes nothing isn't repeated; the final check compares with where the task started. Tasks stay in the

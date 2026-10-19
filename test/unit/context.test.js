@@ -107,3 +107,14 @@ test("policy: a plain follow-up command is not treated as a correction", () => {
   assert.ok(!p.reasons.some((r) => r.name === "is_correction"));
   assert.ok(T.correction > 0.05);
 });
+
+test("text cut in the middle of an emoji is repaired before it's sent", async () => {
+  const { wellFormed, buildRequest } = await import("../../src/jev.js");
+  const cut = "He Cancelled Their Wedding 😭".slice(0, 28); // ends with half an emoji
+  assert.equal(cut.isWellFormed(), false);
+  const out = wellFormed({ page: { title: cut }, list: [cut], [cut]: 1 });
+  assert.equal(JSON.stringify(out).includes("\\ud83d"), false);
+  assert.ok(out.page.title.isWellFormed() && out.list[0].isWellFormed() && Object.keys(out).every((k) => k.isWellFormed()));
+  const { state } = buildRequest({ transcript: "close this tab", snapshot: { url: "https://x.test", title: "😭".repeat(70), elements: [] } });
+  assert.ok(JSON.stringify(wellFormed(state)).length > 0);
+});

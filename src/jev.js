@@ -11,6 +11,17 @@ import { record, checkLimit } from "./usage.js";
 
 let _client = null;
 
+/**
+ * Cutting text to a length can split an emoji in half; the API rejects such "lone surrogates"
+ * (422), which broke every command on pages with emoji in their titles. Repair every string.
+ */
+export function wellFormed(v) {
+  if (typeof v === "string") return v.toWellFormed ? v.toWellFormed() : v.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "\uFFFD");
+  if (Array.isArray(v)) return v.map(wellFormed);
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [wellFormed(k), wellFormed(x)]));
+  return v;
+}
+
 export function getClient() {
   if (_client) return _client;
   const apiKey = process.env.SUBQ_API_KEY || process.env.TYPESAFE_API_KEY || process.env.JEV_API_KEY;
@@ -158,7 +169,7 @@ export async function decide(input, { signal } = {}) {
   const { state, questions, candidates } = buildRequest(input);
   const t0 = performance.now();
   const { data, requestId } = await client
-    .systemOne({ state, questions, model: MODEL }, { signal })
+    .systemOne({ state: wellFormed(state), questions: wellFormed(questions), model: MODEL }, { signal })
     .withResponse();
   const latencyMs = Math.round(performance.now() - t0);
   record({ source: "snap", model: data.model || MODEL, usd: costUsd(data.usage), inTok: data.usage?.input_tokens ?? 0 });

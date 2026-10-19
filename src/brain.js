@@ -265,6 +265,8 @@ export async function ask(req) {
 }
 
 async function askAny({ system, text, images = [], schema, signal }) {
+  text = String(text).toWellFormed(); // page text cut mid-emoji
+  system = String(system).toWellFormed();
   const list = modelsToTry({ images: images.length > 0 });
   if (!list.length) throw new BrainError("No AI model is set up. Add a key (GROQ_API_KEY, GEMINI_API_KEY, …) to .env, or use ⋯ → AI models in the panel.");
   let lastErr = null;
