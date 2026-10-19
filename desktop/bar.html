@@ -307,7 +307,15 @@
   .pk-form .field { height: 26px; }
   html.glass .picker { background: rgb(250 250 252 / .9); -webkit-backdrop-filter: blur(24px) saturate(1.6); }
   @media (prefers-color-scheme: dark) { html.glass .picker { background: rgb(38 39 44 / .92); } }
-  .modelpick .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
+  .modelpick .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+  .modelpick { flex: 0 1 auto; }
+  .tools { container-type: inline-size; }
+  /* narrow panels: the mode switch drops to icons so the model's full name fits */
+  @container (max-width: 380px) {
+    .modes button span { display: none; }
+    .modes button { padding: 0 7px; }
+    .modes button svg { width: 14px; height: 14px; }
+  }
   .modelpick .caret svg { width: 10px; height: 10px; }
   .spend { -webkit-app-region: no-drag; white-space: nowrap; flex: none; display: inline-flex; align-items: center; height: 24px; padding: 0 6px; border-radius: 6px; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-3); }
   .spend:hover { background: var(--hover); color: var(--text-2); }
@@ -553,7 +561,8 @@
     if (!usage) return;
     b.hidden = false;
     const lim = usage.limitUsd;
-    b.textContent = `${money(usage.todayUsd)}${lim ? ` / $${lim.toFixed(2)}` : " today"}`;
+    b.textContent = money(usage.todayUsd);
+    b.title = `AI spending today: ${money(usage.todayUsd)}${lim ? ` of your $${lim.toFixed(2)} daily limit` : " (no daily limit)"}. Click to change the limit.`;
     b.classList.toggle("near", Boolean(lim && usage.todayUsd >= lim * 0.8));
   }
   function openSpend() {
@@ -1525,13 +1534,22 @@
   // ── AI model: Auto, or one you pick; add providers by key ──
   // A popover in the panel (not a native menu) so each provider shows its logo.
   let picker = null; // { sel, adding } while open
-  const logo = (id) => LOGO[id] || ICON.globe;
+  // each inlined logo gets its own gradient ids: with duplicates, a copy inside the hidden picker
+  // would be the one the visible chip points at, and the gradient would fall back to a flat colour
+  let logoN = 0;
+  const logo = (id) => {
+    const svg = LOGO[id];
+    if (!svg) return ICON.globe;
+    const n = ++logoN;
+    return svg.replace(/id="([^"]+)"/g, `id="$1-${n}"`).replace(/url\(#([^)]+)\)/g, `url(#$1-${n})`).replace(/href="#([^"]+)"/g, `href="#$1-${n}"`);
+  };
   function renderModel() {
     const b = $("model");
     b.hidden = !models || mode !== "chat";
     if (!models) return;
     const pick = models.models.find((m) => m.id === models.preferred);
-    $("model-name").textContent = pick ? pick.label : "Auto";
+    // the logo already names the brand, so the chip drops it ("Gemini 3.1 Flash-Lite" -> "3.1 Flash-Lite")
+    $("model-name").textContent = pick ? pick.label.replace(/^(?:Gemini|GLM|DeepSeek)\s+(?=\S)/i, "") : "Auto";
     $("model-logo").innerHTML = pick ? logo(pick.providerId) : ICON.bolt;
     b.title = pick ? `${pick.label} (${pick.provider}) answers first; the others step in when it's busy.` : `Auto: the fastest model for each request, from ${models.models.length} available.`;
     if (picker) renderPicker();
