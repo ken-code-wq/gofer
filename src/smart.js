@@ -348,7 +348,10 @@ const STEP_SCHEMA = {
     action: {
       type: "object",
       properties: {
-        type: { type: "string", enum: ["click", "type", "select", "fill_form", "press_enter", "press_key", "navigate", "new_tab", "switch_tab", "close_tab", "screenshot", "scroll_down", "scroll_up", "go_back", "wait", "web_search", "read_url"] },
+        type: { type: "string", enum: ["click", "type", "select", "fill_form", "press_enter", "press_key", "navigate", "new_tab", "switch_tab", "close_tab", "screenshot", "scroll_down", "scroll_up", "go_back", "wait", "web_search", "read_url", "video_control"] },
+        op: { type: "string", enum: ["seek_by", "seek_to", "play", "pause", "restart", "speed", "mute", "unmute"], description: "For video_control." },
+        seconds: { type: "number", description: "For video_control seek_by (negative = back) / seek_to." },
+        rate: { type: "number", description: "For video_control speed." },
         element_id: { type: "string", description: "Id from the element list (click/type/select)." },
         text: {
           type: "string",
@@ -386,7 +389,10 @@ const GOAL_SYSTEM =
   "leaves the user's other tabs untouched, so prefer it when asked for a new tab. " +
   "When the user wants to see something ('send me a screenshot', 'show me', 'screenshot the results'), get the page into the " +
   "right state, then use the screenshot action (it is sent to them in the chat); after taking it you can finish. " +
-  "Keyboard shortcuts (press_key) are often the most reliable control on media sites. If site notes are given, they are " +
+  "For a video or audio on the page (seek back/forward, jump to a time, play, pause, speed) use video_control: it's exact " +
+  "and tells you where the video is afterwards. Each step on a page with a video reports its state ('video: 1:13 / 10:02, " +
+  "playing'), so you can see whether it worked. Keyboard shortcuts (press_key) are often the most reliable control for " +
+  "everything else on media sites; site notes list a site's shortcuts. If site notes are given, they are " +
   "tips learned on earlier visits to that site: follow them when they fit, but trust the current page. " +
   "If an action didn't change the page (the step says 'page unchanged'), don't repeat it: try a different control, " +
   "a shortcut or a direct link. " +
@@ -398,8 +404,8 @@ const GOAL_SYSTEM =
   "when done and you continue. Never guess passwords. " +
   "When the goal covers several items (three people, several videos, a list of bills), do them one after another and keep " +
   "count: name the item in each step's description (e.g. 'Kevin Hart: add to queue'), check the steps taken to see which items " +
-  "are already done, never redo one, and finish once every item is done. On YouTube, a video's ⋮ action menu has " +
-  "'Add to queue'; clicking it shows a short confirmation and doesn't change the URL. " +
+  "are already done, never redo one, and finish once every item is done. Some steps succeed without changing the URL " +
+  "(adding to a queue or list): look for the confirmation the page showed ('the page said: …'). " +
   "When a form is visible, prefer ONE fill_form action with all the values instead of typing field by field. " +
   "When asked for dummy, test or sample data, invent realistic, plausible values (names, amounts, dates in the near future, " +
   "valid-looking emails/phones) and pick sensible options from dropdowns. " +
@@ -447,6 +453,16 @@ const BROWSER_TOOLS = [
   tool("screenshot", "Take a screenshot; it is sent to the user in the chat.", { full_page: { type: "boolean", description: "The whole scrolling page instead of what's visible." } }),
   tool("scroll", "Scroll the page.", { direction: { type: "string", enum: ["down", "up"] } }, ["direction"]),
   tool("go_back", "Go back to the previous page."),
+  tool(
+    "video_control",
+    "Control the page's video or audio exactly (more reliable than keyboard shortcuts, and it reports where the video is now).",
+    {
+      op: { type: "string", enum: ["seek_by", "seek_to", "play", "pause", "restart", "speed", "mute", "unmute"] },
+      seconds: { type: "number", description: "seek_by: seconds to move (negative = back). seek_to: the time in seconds." },
+      rate: { type: "number", description: "speed: playback rate, e.g. 1.5." },
+    },
+    ["op"],
+  ),
   tool("wait", "Wait a moment for the page to finish loading."),
 ];
 const RESEARCH_TOOLS = [
@@ -483,7 +499,7 @@ export function stepFromCall({ name, args = {} }) {
   if (name === "select_option") action.text = a.option;
   else if (name === "fill_form") action.text = a.values;
   else if (a.text != null) action.text = a.text;
-  for (const k of ["url", "tab", "key", "full_page", "submit", "query"]) if (a[k] != null) action[k] = a[k];
+  for (const k of ["url", "tab", "key", "full_page", "submit", "query", "op", "seconds", "rate"]) if (a[k] != null) action[k] = a[k];
   return { status: "continue", summary: "", description: String(a.description || ""), action, risky: Boolean(a.risky) };
 }
 
@@ -562,6 +578,15 @@ export function toAction(step, snap, tabs = []) {
       return { action: { type: "go_back", label: "go back" } };
     case "wait":
       return { action: { type: "wait_ms", ms: 1500, label: "wait 1.5s" } };
+    case "video_control": {
+      const ops = ["seek_by", "seek_to", "play", "pause", "restart", "speed", "mute", "unmute"];
+      if (!ops.includes(a.op)) return { error: `video_control needs op (one of ${ops.join(", ")})` };
+      const m = { op: a.op };
+      if (a.op === "seek_by" || a.op === "seek_to") m.seconds = Number(a.seconds) || 0;
+      if (a.op === "speed") m.rate = Number(a.rate) || 1;
+      const label = a.op === "seek_by" ? `video ${m.seconds < 0 ? "back" : "forward"} ${Math.abs(m.seconds)}s` : a.op === "seek_to" ? `video to ${m.seconds}s` : a.op === "speed" ? `video speed ${m.rate}x` : `video ${a.op}`;
+      return { action: { type: "media", actions: [m], label } };
+    }
     default:
       return { error: `unknown action ${a.type}` };
   }

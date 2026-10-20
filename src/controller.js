@@ -27,6 +27,7 @@ import { fillForm as fillFormFn } from "./smart.js";
 import { TaskRunner } from "./tasks.js";
 import { HANDBACK_NOTE } from "./takeover.js";
 import { logLine, TaskTrace } from "./tracelog.js";
+import { parseMedia, runMedia, mediaState, stateText } from "./media.js";
 
 /**
  * Runs in the page: a short fingerprint of what's on screen (visible buttons, links, menu items,
@@ -178,6 +179,9 @@ export class Controller extends EventEmitter {
     // "screenshot", "copy url": instant, no model.
     const util = parseUtility(text);
     if (util) return this._utility(util);
+    // "move back 10 seconds and play", "pause", "speed 1.5x": the video itself, instantly, no model
+    const media = parseMedia(text);
+    if (media) return this._media(media, text);
     // "copy the table", "copy all invoice numbers as a table"
     const tableReq = parseTableRequest(text);
     if (tableReq) return this._table(tableReq);
@@ -522,6 +526,21 @@ export class Controller extends EventEmitter {
       this.emit("utility", { kind: util.kind, ...r });
     } catch (err) {
       this.emit("smart-error", { kind: "utility", text: util.kind, error: String(err.message || err) });
+    }
+  }
+
+  async _media(actions, text) {
+    const thread = this.thread;
+    try {
+      const page = this.browser.page;
+      if (!page) throw new Error("No tab is open");
+      const r = await runMedia(page, actions);
+      if (!r.ok) throw new Error(r.detail);
+      this._note(thread, `${text} → ${r.detail}`);
+      this._log("act", `media: ${r.detail}`);
+      this.emit("utility", { kind: "media", detail: r.detail });
+    } catch (err) {
+      this.emit("smart-error", { kind: "utility", text, error: String(err.message || err) });
     }
   }
 
@@ -963,7 +982,9 @@ export class Controller extends EventEmitter {
     entry.detail = ok ? url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 80) : res.detail;
     const title = ok ? await this.browser.page?.title().catch(() => "") : "";
     g.trace?.add("step", { action: { ...action, page: undefined }, ok, unchanged, url, title, said: said.length ? said : undefined, detail: ok ? undefined : res.detail });
-    const message = said.length ? `; the page said: ${said.map((t) => `"${t}"`).join(", ")}` : "";
+    // on a page with a video, where it is now: shows whether a seek / play / "next video" worked
+    const media = ok && after && !after.isClosed() ? await evalIn(after, mediaState, null) : null;
+    const message = `${said.length ? `; the page said: ${said.map((t) => `"${t}"`).join(", ")}` : ""}${media ? `; video: ${stateText(media)}` : ""}`;
     g.done.push({ description: entry.text, outcome: ok ? (unchanged ? `done, but the page unchanged (still ${url.slice(0, 120)})${message}` : `done (now at ${url.slice(0, 120)}${title ? ` "${title.slice(0, 80)}"` : ""}${message})`) : `failed: ${res.detail}` });
     if (said.length) entry.detail = said[0].slice(0, 80);
     if (unchanged) {

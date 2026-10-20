@@ -2,6 +2,7 @@
  * Execute a policy action on the controlled browser with Playwright.
  * Shows overlay feedback (highlight + toast) on the page.
  */
+import { runMedia } from "./media.js";
 import { captureScreenshot } from "./utility.js";
 import fs from "node:fs";
 import path from "node:path";
@@ -223,6 +224,11 @@ export async function execute(action, browser) {
       await browser.setActive(next);
       await browser.overlay("toast", "switched tab");
       return { ok: true, detail: next.url() };
+    }
+
+    case "media": {
+      await browser.overlay("toast", label);
+      return runMedia(page, action.actions || []);
     }
 
     case "take_screenshot": {

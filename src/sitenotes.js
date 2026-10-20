@@ -18,7 +18,7 @@ const FILE = () => path.join(DATA_DIR, "site-notes.json");
 export const MAX_NOTES_PER_SITE = 12;
 export const MAX_NOTE_CHARS = 200;
 /** Bump when STARTERS change, so existing installs get the new ones (deleted ones stay deleted). */
-const STARTER_VERSION = 1;
+const STARTER_VERSION = 2; // raise when STARTERS gain notes: existing users get the new ones
 
 /** Fires "change" whenever notes are added or removed (the server broadcasts the list). */
 export const siteNoteEvents = new EventEmitter();
@@ -33,6 +33,8 @@ export const STARTERS = {
       "Shift+N plays the next video (Shift+P the previous one, in a playlist). Buttons named 'Next' under a video usually just scroll a topic list.",
       "/ jumps to the search box; or open youtube.com/results?search_query=… directly.",
       "A video that just opened is already playing; don't press K unless asked to pause or play.",
+      "To seek, play, pause or change speed, use video_control: it's exact and reports the video's time (J/L/K are guesses).",
+      "Each video's ⋮ Action menu has 'Add to queue'; it shows a brief 'Added to queue' message and the URL stays the same.",
     ],
   },
   "mail.google.com": {

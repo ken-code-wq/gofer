@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### Added
+- **Video controls without the AI**: "move back 10 seconds and play", "skip ahead 1 minute", "go to 2:15", "pause",
+  "speed 1.5x", "mute" act on the page's video directly — instant, exact, and the reply says where it is now
+  ("Went back 10 s, playing: now at 1:13 / 10:02"). The agent gets the same as a `video_control` tool, and each step
+  on a page with a video reports its time and whether it's playing, so it can tell whether a control worked.
 - **Activity logs on disk**, to see what the agent did and fix its mistakes: `~/.voice-browser/logs/agent-<date>.log`
   (every activity line) and `~/.voice-browser/logs/tasks/<time>-<goal>.json` (per task: what the model was shown,
   what it chose, what happened, whether the page changed, confirmations the page showed, the final check). Kept 7

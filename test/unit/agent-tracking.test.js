@@ -42,3 +42,16 @@ test("traces: one JSON file per task, a daily log of every line", () => {
   const log = fs.readdirSync(logsDir()).find((f) => f.startsWith("agent-"));
   assert.match(fs.readFileSync(path.join(logsDir(), log), "utf8"), /act {3}✓ click {"url":"x"}/);
 });
+
+test("video commands run without the AI; anything else goes to the agent", async () => {
+  const { parseMedia, stateText } = await import("../../src/media.js");
+  const { toAction } = await import("../../src/smart.js");
+  assert.deepEqual(parseMedia("move back 10 seconds and play"), [{ op: "seek_by", seconds: -10 }, { op: "play" }]);
+  assert.deepEqual(parseMedia("skip ahead 1 minute"), [{ op: "seek_by", seconds: 60 }]);
+  assert.deepEqual(parseMedia("go to 2:15"), [{ op: "seek_to", seconds: 135 }]);
+  assert.deepEqual(parseMedia("speed 1.5x"), [{ op: "speed", rate: 1.5 }]);
+  assert.deepEqual(parseMedia("go back 10 seconds, then pause"), [{ op: "seek_by", seconds: -10 }, { op: "pause" }]);
+  for (const t of ["play the next video", "move back to the previous page", "skip this ad", "play despacito"]) assert.equal(parseMedia(t), null, t);
+  assert.equal(stateText({ time: 73, duration: 602, paused: false, rate: 1, muted: false }), "1:13 / 10:02, playing");
+  assert.deepEqual(toAction(stepFromCall({ name: "video_control", args: { op: "seek_by", seconds: -10 } })).action, { type: "media", actions: [{ op: "seek_by", seconds: -10 }], label: "video back 10s" });
+});
