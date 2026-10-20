@@ -790,7 +790,7 @@
     if (m.ask) body += `<div class="ask"><p>${esc(m.ask.text)}</p><div class="acts" data-ask></div></div>`;
     if (!running) {
       const info = [];
-      if (m.done && m.at && steps.length && !direct) info.push(`Worked for ${secs(m.done - m.at)}`);
+      if (m.done && m.at && !direct) info.push(`Worked for ${secs(m.done - m.at)}`);
       const names = (m.models || []).map((x) => String(x).split("/").pop());
       if (names.length && !direct) info.push(names.length > 1 ? `${names[0]} +${names.length - 1}` : names[0]);
       if (m.cost >= 0.00005 && !direct) info.push(money(m.cost));
