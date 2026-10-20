@@ -107,6 +107,14 @@
   .tabpill .b-ic img, .tabpill .b-ic .letter { width: 16px; height: 16px; border-radius: 4px; object-fit: contain; }
   .tabpill .b-ic .letter { display: grid; place-items: center; font: 700 10px/1 -apple-system, system-ui, sans-serif; color: #fff; background: rgb(var(--chip)); }
   .browserpill .name { max-width: 90px; }
+  /* the agent works in a tab you're not looking at: a dot on its favicon, and Show */
+  .tabpill .b-ic { position: relative; }
+  .tabpill.bg .b-ic::after {
+    content: ""; position: absolute; right: -3px; bottom: -3px; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 0 2px var(--surface); animation: pulse 1.6s ease-in-out infinite;
+  }
+  html.glass .tabpill.bg .b-ic::after { box-shadow: 0 0 0 2px var(--raised); }
+  .showpill { flex: none; padding: 0 9px; color: var(--text-2); box-shadow: inset 0 0 0 1px var(--hair); height: 24px; border-radius: 7px; }
   .icon { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: var(--text-2); flex: none; }
   .icon:hover { background: var(--hover); color: var(--text); }
   .icon:active { background: var(--press); }
@@ -127,6 +135,12 @@
   .msg.user .mode { margin: 0 6px 3px 0; font-size: 11px; color: var(--text-3); display: inline-flex; align-items: center; gap: 3px; }
   .msg.user .mode svg { width: 11px; height: 11px; }
   .msg.user .urow { display: flex; align-items: center; justify-content: flex-end; gap: 4px; max-width: 100%; }
+  /* a message waiting for the running task */
+  .msg.user .qtag { margin: 0 4px 3px 0; display: inline-flex; align-items: center; gap: 2px; font-size: 11px; color: var(--text-3); }
+  .msg.user .qtag svg { width: 11px; height: 11px; }
+  .msg.user .qtag .qx { display: inline-flex; align-items: center; gap: 3px; height: 20px; padding: 0 6px; margin-left: 2px; border-radius: 6px; color: var(--text-3); }
+  .msg.user .qtag .qx:hover { background: var(--hover); color: var(--text); }
+  .msg.user.queued .bubble { opacity: .62; }
   .msg.user .uacts { display: flex; gap: 0; opacity: 0; transition: opacity .12s var(--ease); flex: none; }
   .msg.user:hover .uacts, .msg.user:focus-within .uacts { opacity: 1; }
   .msg.agent { align-items: flex-start; padding-right: 8px; }
@@ -253,6 +267,20 @@
   .link svg { width: 13px; height: 13px; }
   .link { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; color: var(--text-2); padding: 3px 6px; border-radius: 6px; text-decoration: underline; text-decoration-color: var(--hair); text-underline-offset: 3px; }
   .link:hover { color: var(--text); background: var(--hover); }
+
+  /* ── running task: progress, queue, take over (above the composer) ── */
+  .tasks {
+    display: none; align-items: center; gap: 8px; min-height: 34px; margin: 0 12px 6px; padding: 4px 6px 4px 10px; flex: none;
+    font-size: 12px; color: var(--text-2); border-radius: 10px; background: var(--sunken); box-shadow: inset 0 0 0 1px var(--hair);
+  }
+  .tasks.on { display: flex; animation: drop .16s var(--ease); }
+  .tasks .tdot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--accent); animation: pulse 1.6s ease-in-out infinite; }
+  .tasks .tic { width: 15px; height: 15px; flex: none; color: var(--warn); }
+  .tasks .tic svg { width: 15px; height: 15px; }
+  .tasks .ttext { flex: 1; min-width: 0; line-height: 1.35; }
+  .tasks .ttext b { font-weight: 500; color: var(--text); }
+  .tasks.yours { background: color-mix(in srgb, var(--warn) 9%, var(--raised)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 28%, transparent); }
+  .tasks .acts { display: flex; gap: 6px; flex: none; }
 
   /* ── composer ───────────────────────────────────────── */
   .box {
@@ -402,6 +430,7 @@
   @keyframes drop { from { opacity: 0; transform: translateY(3px); } }
   @keyframes pop { from { opacity: 0; transform: scale(.96); } }
   @keyframes menu { from { opacity: 0; transform: translateY(4px) scale(.99); } }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
   @keyframes blink { 0%, 80%, 100% { opacity: .25; transform: scale(.85); } 40% { opacity: 1; transform: scale(1); } }
   @media (prefers-reduced-motion: reduce) {
     *, *::before { animation: none !important; transition: none !important; }
@@ -421,6 +450,7 @@
     <button class="pill tabpill" id="curtab" type="button" hidden title="The agent works in this tab. It follows the tab you switch to; click to pick another." aria-haspopup="listbox">
       <span class="b-ic" id="curtab-ic"></span><span class="name" id="curtab-name"></span><span class="caret" id="curtab-caret"></span>
     </button>
+    <button class="pill showpill" id="curshow" type="button" hidden title="Bring the agent's tab to the front of your browser">Show</button>
     <span class="spacer"></span>
     <button class="pill browserpill" id="browser" data-state="off" title="Choose the browser to control" aria-haspopup="listbox" aria-expanded="false">
       <span class="b-ic" id="browser-ic"></span><span class="name" id="browser-name">Connecting…</span><span class="caret" id="caret"></span>
@@ -432,6 +462,7 @@
   <main class="chat" id="chat" aria-label="Conversation"></main>
 
   <div class="status" id="status" role="status" aria-live="polite"></div>
+  <div class="tasks" id="tasks" role="status" aria-live="polite"></div>
   <div class="mentions" id="mentions" role="listbox" aria-label="Open tabs" hidden></div>
   <div class="picker" id="picker" role="listbox" aria-label="AI model" hidden></div>
 
@@ -488,6 +519,8 @@
   let prompt = null; // keyboard shortcuts for the visible prompt: { primary, cancel, numbered: [fn] }
   let newId = null; // message to animate in
   let models = null; // { preferred, models: [{ id, label, provider, vision, resting }], missing: [{ name, label, env, keyUrl }] }
+  // the server's task state: { running, queued, position: { n, of }, side, paused, canTakeOver, background, undo }
+  let queue = null;
 
   // Chat: plain-language requests, each done as a goal that knows the conversation.
   // Direct: the instant command mode (one step, no back-and-forth).
@@ -514,6 +547,7 @@
       for (const c of list) for (const m of c.msgs || []) {
         delete m.ask;
         if (m.status === "running") { m.status = "ignored"; m.detail = "Interrupted"; for (const s of m.steps || []) if (s.status === "running") s.status = "ignored"; }
+        if (m.status === "queued") { m.status = "ignored"; m.detail = "Not run"; }
       }
       return Array.isArray(list) ? list.filter((c) => c && c.id && Array.isArray(c.msgs)) : [];
     } catch { return []; }
@@ -538,8 +572,8 @@
       localStorage.setItem(CHATS_KEY, JSON.stringify(keep, (k, v) => (k === "ask" ? undefined : v)));
     }, 200);
   };
+  // A running task keeps going when you switch chats; its reply lands in its own chat.
   function newChat() {
-    if (busy) stopAll();
     const c = chat();
     if (c.msgs.length) { const n = { id: uid(), title: "", at: Date.now(), msgs: [] }; chats.unshift(n); activeId = n.id; }
     view = "chat";
@@ -548,7 +582,6 @@
     caretToEnd();
   }
   function openChat(id) {
-    if (busy && chat().id !== id) stopAll();
     activeId = id;
     view = "chat";
     render(true);
@@ -712,11 +745,14 @@
   }
 
   function msgHTML(m) {
-    const user = `<div class="msg user" data-id="${m.id}"${m.id === newId ? " data-new" : ""}>
+    const queued = m.status === "queued";
+    const qn = queued ? (queue?.queued || []).findIndex((x) => x.id === m.id) : -1;
+    const user = `<div class="msg user${queued ? " queued" : ""}" data-id="${m.id}"${m.id === newId ? " data-new" : ""}>
+      ${queued ? `<span class="qtag">${ICON.clock}${qn === 0 ? "Up next" : "Queued"}<button class="qx" type="button" data-act="unqueue" title="Don't run this message">${ICON.x}Remove</button></span>` : ""}
       ${m.mode === "direct" ? `<span class="mode">${ICON.bolt}Direct</span>` : ""}
       <div class="urow"><div class="uacts"><button class="act" type="button" data-act="edit" title="Edit and send again" aria-label="Edit">${ICON.pencil}</button><button class="act" type="button" data-act="save" title="Save as a named command" aria-label="Save">${ICON.bookmark}</button></div><div class="bubble">${richText(m.text, m.icons)}</div></div>
     </div>`;
-    return user + agentHTML(m);
+    return user + (queued ? "" : agentHTML(m));
   }
 
   function agentHTML(m) {
@@ -757,6 +793,7 @@
         m.status === "fail" || m.status === "ignored" ? `<button class="act hov" type="button" data-act="retry" title="Try again" aria-label="Try again">${ICON.retry}</button>` : "",
         m.shot ? `<button class="act hov" type="button" data-act="open" title="${m.status === "fail" ? "Screenshot of the page" : "Open"}" aria-label="Open">${ICON.image}</button>` : "",
         m.alt ? `<button class="link hov" type="button" data-act="alt">${esc(m.alt.label)}</button>` : "",
+        queue?.undo?.id === m.id && !busy ? `<button class="link" type="button" data-act="undo-task" title="Put back the tabs this request changed: ${queue.undo.changes} change${queue.undo.changes === 1 ? "" : "s"}">${ICON.undo}Go back to where I was</button>` : "",
       ].join("");
       if (acts.replace(/\s/g, "")) body += `<div class="meta">${acts}</div>`;
     }
@@ -861,6 +898,8 @@
       else if (a === "shot-reveal" && m?.images) window.bar.revealPath?.(m.images[Number(act.dataset.k)]?.path);
       else if (a === "shot-copy" && m?.images) window.bar.copyImage?.(m.images[Number(act.dataset.k)]?.path).then((ok) => setStatus(ok ? "Screenshot copied. Paste it anywhere." : "Couldn't copy the screenshot.", ok ? "ok" : "err"));
       else if (a === "alt" && m?.alt) run(m.alt.text, { as: m.alt.mode });
+      else if (a === "unqueue" && m) { send({ type: "queue:remove", id: m.id }); m.status = "ignored"; m.detail = "Removed from the queue"; m.done = Date.now(); render(); }
+      else if (a === "undo-task" && m) { send({ type: "task:undo", id: m.id }); m.note = "Going back…"; queue = { ...queue, undo: null }; render(); }
       else if (a === "delete-chat") deleteChat(act.dataset.id);
       else if (a === "run-saved") { const c = saved.find((x) => x.name === name); setView("chat"); if (c && hasSlots(c.text)) { setCmd(`${name} `); setStatus(`Type ${slotNames(c.text)} after the name, then press Enter.`, "info"); } else run(name); }
       else if (a === "delete-cmd") { send({ type: "commands:delete", name }); setStatus(`Deleted “${name}”.`, "ok"); }
@@ -909,26 +948,33 @@
 
   // ── sending ─────────────────────────────────────────────
   /** reply: an answer to a prompt ("confirm", "2"): same message, nothing new in the chat. */
+  // While something runs, a new message waits its turn (the server decides: it may also be a question
+  // answered right away, or "stop, …" which interrupts). A bare "stop" is the Stop button.
   function run(text, { reply = false, icons = null, as = null } = {}) {
     const c = chat();
+    if (busy && !reply && /^(?:stop|cancel|halt|abort)[.!]?$/i.test(text.trim())) return stopAll();
+    // typing the answer to a question the task is asking ("yes", "2")
+    if (busy && !reply && current?.ask && /^(?:yes|no|ok|okay|confirm|cancel|allow|[1-9])[.!]?$/i.test(text.trim())) reply = true;
     const m0 = as || mode;
     const msgMode = reply ? current?.mode || m0 : m0;
     const isChat = msgMode === "chat";
-    if (!send({ type: "command", text, thread: c.id, followUp: isChat, chat: isChat })) return setStatus("Not connected to the browser service yet.", "err");
+    const id = uid();
+    if (!send({ type: "command", id, text, thread: c.id, followUp: isChat, chat: isChat, reply })) return setStatus("Not connected to the browser service yet.", "err");
     if (reply) return render();
-    if (current && current.status === "running") { current.status = "ignored"; current.detail = "Replaced by your next message"; current.done = Date.now(); }
     lastText = text; lastMode = msgMode;
-    current = { id: uid(), text, mode: msgMode, status: "running", at: Date.now(), usd0: usage?.todayUsd, ...(icons && Object.keys(icons).length ? { icons } : {}) };
-    c.msgs.push(current);
+    const m = { id, text, mode: msgMode, status: busy ? "queued" : "running", at: Date.now(), sentAt: Date.now(), ...(icons && Object.keys(icons).length ? { icons } : {}) };
+    if (!busy) Object.assign(m, { usd0: usage?.todayUsd }), (current = m);
+    c.msgs.push(m);
     c.at = Date.now();
     if (!c.title) c.title = text.slice(0, 80);
     chats.splice(chats.indexOf(c), 1);
     chats.unshift(c);
-    newId = current.id;
+    newId = m.id;
     busy = true;
     view = "chat";
     syncGo();
     render(true);
+    renderTasks();
   }
   // Screenshots arrive as JPEG previews; keep a smaller copy in the chat (the PNG stays in Downloads).
   function shrink(src, max = 760) {
@@ -955,22 +1001,83 @@
   function setProgress(text) {
     if (current) { current.progress = text; render(); }
   }
-  function finish(status, detail) {
-    if (!current) return;
-    if (current.status === "running") notifyDone(current, status, detail);
-    if (current.usd0 != null && usage) { current.cost = Math.max(0, usage.todayUsd - current.usd0); }
-    delete current.usd0;
-    delete current.progress;
-    current.status = status;
-    current.done = Date.now();
-    if (detail !== undefined && detail !== null) current.detail = detail;
-    for (const s of current.steps || []) if (s.status === "running") s.status = status === "ok" ? "ok" : "ignored";
-    delete current.ask;
-    prompt = null;
-    current = null;
-    busy = false;
+  /** `m`: a message other than the running one (a question answered next to it). */
+  function finish(status, detail, m = current) {
+    if (!m) return;
+    if (m.status === "running") notifyDone(m, status, detail);
+    if (m.usd0 != null && usage) { m.cost = Math.max(0, usage.todayUsd - m.usd0); }
+    delete m.usd0;
+    delete m.progress;
+    m.status = status;
+    m.done = Date.now();
+    if (detail !== undefined && detail !== null) m.detail = detail;
+    for (const s of m.steps || []) if (s.status === "running" || s.status === "awaiting") s.status = status === "ok" ? "ok" : "ignored";
+    delete m.ask;
+    if (m === current) {
+      prompt = null;
+      current = null;
+      // the next queued message starts when the server says so ("queue")
+      busy = Boolean(queue?.queued?.length);
+    }
     syncGo();
     render();
+    renderTasks();
+  }
+  const findMsg = (id) => { for (const c of chats) { const m = c.msgs.find((x) => x.id === id); if (m) return m; } return null; };
+
+  /** The server's task state: which message runs, which wait, take over, background, undo. */
+  function applyQueue(q) {
+    queue = q || null;
+    const waiting = new Set((q?.queued || []).map((x) => x.id));
+    const side = new Set((q?.side || []).map((x) => x.id));
+    if (current && waiting.has(current.id)) { current.status = "queued"; current = null; }
+    if (q?.running) {
+      const m = findMsg(q.running.id);
+      if (m && m !== current) {
+        if (current?.status === "running") finish("ignored", "Stopped");
+        current = m;
+        Object.assign(m, { status: "running", at: Date.now(), usd0: usage?.todayUsd });
+      }
+    }
+    for (const c of chats) for (const m of c.msgs) {
+      if (m.status !== "queued") continue;
+      if (waiting.has(m.id)) m.seen = true;
+      else if (side.has(m.id)) Object.assign(m, { status: "running", side: true, at: Date.now() });
+      // gone from the queue (Stop, removed elsewhere); a message just sent may not have arrived yet
+      else if (m !== current && (m.seen || Date.now() - (m.sentAt || 0) > 4000)) Object.assign(m, { status: "ignored", detail: "Not run", done: Date.now() });
+    }
+    busy = Boolean(current?.status === "running" || q?.running || q?.queued?.length);
+    syncGo();
+    render();
+    renderTasks();
+    renderCurTab();
+  }
+
+  /** The strip above the composer: what's running, how many wait, take over / hand back. */
+  function renderTasks() {
+    const el = $("tasks");
+    const q = queue;
+    const paused = q?.paused;
+    const running = Boolean(q?.running) && busy;
+    if (!running && !paused) { el.className = "tasks"; el.innerHTML = ""; return; }
+    const acts = [];
+    let html;
+    if (paused?.state === "paused") {
+      const what = paused.reason === "need_user" ? (paused.message || "The page needs you.") : "It's paused. Do what you need in the tab.";
+      html = `<span class="tic">${ICON.hand}</span><span class="ttext"><b>Your turn.</b> ${esc(what)}</span>`;
+      acts.push({ label: "Hand back", primary: true, action: () => { send({ type: "task:handback" }); setProgress("Continuing"); } });
+      acts.push({ label: "Stop", action: stopAll });
+    } else if (paused?.state === "requested") {
+      html = `<span class="tdot"></span><span class="ttext">Pausing after this step…</span>`;
+      acts.push({ label: "Keep going", action: () => send({ type: "task:handback" }) });
+    } else {
+      const pos = q.position && q.position.of > 1 ? `Working on ${q.position.n} of ${q.position.of}` : "Working";
+      html = `<span class="tdot"></span><span class="ttext">${pos}${q.background ? " in a background tab" : ""}</span>`;
+      if (q.canTakeOver) acts.push({ label: "Take over", icon: "hand", action: () => send({ type: "task:takeover" }) });
+    }
+    el.className = `tasks on${paused?.state === "paused" ? " yours" : ""}`;
+    el.innerHTML = `${html}<span class="acts"></span>`;
+    for (const a of acts) el.querySelector(".acts").appendChild(button(a));
   }
   // A reply that took a while, while you were in another app, becomes a macOS notification.
   function notifyDone(e, status, detail) {
@@ -985,11 +1092,17 @@
     try { await navigator.clipboard.writeText(text); setStatus("Copied.", "ok"); }
     catch { setStatus("Couldn't copy.", "err"); }
   }
+  // Stop: the running task, and everything queued after it.
   function stopAll() {
     send({ type: "stop" });
     if (current) delete current.ask;
     prompt = null;
+    for (const c of chats) for (const m of c.msgs) if (m.status === "queued") Object.assign(m, { status: "ignored", detail: "Not run", done: Date.now() });
+    if (queue) queue = { ...queue, queued: [], position: null };
     if (current?.status === "running") finish("ignored", "Stopped");
+    busy = false;
+    syncGo();
+    renderTasks();
     caretToEnd();
   }
   // Retrying something that changes data puts it back in the message box instead of running it again.
@@ -1026,6 +1139,13 @@
       case "secrets": secrets = payload || []; if (view === "secrets") render(); break;
       case "store-error": setStatus(payload, "err"); break;
       case "stopped": break;
+      case "queue": applyQueue(payload); break;
+      case "task-undo": {
+        const m = findMsg(payload.id);
+        if (m) { m.note = payload.detail; render(); }
+        else setStatus(payload.detail, "ok");
+        break;
+      }
       case "tab-switched":
         if (current && !payload.rest) finish("ok", `${payload.current ? "Using" : "Switched to"} “${payload.title}”.`);
         else setProgress(`In “${payload.title}”`);
@@ -1110,7 +1230,12 @@
         }
         break;
       case "answer":
-        if (current) {
+        if (payload.task && findMsg(payload.task)) { // a question answered next to the running task
+          const m = findMsg(payload.task);
+          if (payload.model) m.models = [payload.model];
+          m.note = payload.source === "general" ? "From general knowledge, not the page." : payload.scope === "tabs" ? `Read ${payload.read} tabs` : "From the tab you're looking at.";
+          finish("ok", payload.answer, m);
+        } else if (current) {
           if (payload.model) current.models = [payload.model];
           current.note = payload.source === "general" ? "From general knowledge, not the page."
             : payload.scope === "tabs" ? (payload.tabs?.length ? `From ${payload.tabs.map((t) => `“${t}”`).join(", ")}` : `Read ${payload.read} tabs`)
@@ -1151,7 +1276,8 @@
         ]);
         break;
       case "smart-error":
-        if (current && current.status === "running") finish("fail", payload.error);
+        if (payload.task && findMsg(payload.task)) finish("fail", payload.error, findMsg(payload.task));
+        else if (current && current.status === "running") finish("fail", payload.error);
         else setStatus(payload.error, "err");
         break;
       case "log":
@@ -1305,7 +1431,8 @@
     g.classList.toggle("ready", has);
     g.classList.toggle("stop", stop);
     g.innerHTML = stop ? ICON.stopFill : ICON.up;
-    g.title = stop ? "Stop (Esc)" : "Send (Enter)";
+    g.title = stop ? "Stop (Esc)" : busy ? "Add to the queue (Enter)" : "Send (Enter)";
+    cmd.dataset.placeholder = busy ? "Queue another request, or ask about the page" : mode === "chat" ? "Ask anything, or tell it what to do" : "One step: scroll down, click sign in, next tab";
     g.setAttribute("aria-label", stop ? "Stop" : "Send");
   }
   function tidy() {
@@ -1363,10 +1490,15 @@
   function renderCurTab() {
     const t = tabList.find((x) => x.active);
     $("curtab").hidden = !t;
+    const bg = Boolean(t && queue?.background && busy);
+    $("curtab").classList.toggle("bg", bg);
+    $("curshow").hidden = !bg;
     if (!t) return;
     $("curtab-ic").innerHTML = tabIconHTML(t);
     $("curtab-name").textContent = t.title || shortUrl(t.url) || "Untitled";
-    $("curtab").title = `The agent works in “${t.title || shortUrl(t.url)}”. It follows the tab you switch to in the browser, and opens or switches tabs itself when a request needs it. Click to pick another tab.`;
+    $("curtab").title = bg
+      ? `Working in the background in “${t.title || shortUrl(t.url)}”. Your tab stays as it is. Show brings it to the front.`
+      : `The agent works in “${t.title || shortUrl(t.url)}”. It follows the tab you switch to in the browser, and opens or switches tabs itself when a request needs it. Click to pick another tab.`;
   }
   function openTabPicker() {
     if (mention?.pick) return closeMentions();
@@ -1378,6 +1510,8 @@
   }
   $("curtab").addEventListener("mousedown", (e) => e.preventDefault());
   $("curtab").addEventListener("click", openTabPicker);
+  $("curshow").addEventListener("mousedown", (e) => e.preventDefault());
+  $("curshow").addEventListener("click", () => send({ type: "tab:show" }));
   // "@" button: type an @ at the caret, which opens the tab list
   $("at").addEventListener("mousedown", (e) => e.preventDefault());
   $("at").addEventListener("click", () => {
@@ -1390,7 +1524,7 @@
   function pickMention(i) {
     const t = mentionMatches()[i];
     if (mention?.pick) {
-      if (t) send({ type: "tab:select", index: t.index });
+      if (t) send({ type: "tab:select", index: t.index, show: true }); // you picked it: show it
       return closeMentions();
     }
     const at = mentionAtCursor() || mention;

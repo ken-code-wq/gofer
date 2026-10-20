@@ -35,8 +35,8 @@ export class TaskQueue extends EventEmitter {
     if (this.running?.id === id || this.items.some((x) => x.id === id)) id = undefined; // ids are unique
     const item = { id: id || newId(), text: String(text ?? ""), thread, opts, source, status: "queued", at: Date.now() };
     front ? this.items.unshift(item) : this.items.push(item);
-    this._changed();
-    this._pump();
+    if (this.running) this._changed();
+    else this._pump(); // starts it, and reports the new state once
     return item;
   }
 
