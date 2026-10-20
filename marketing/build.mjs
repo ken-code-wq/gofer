@@ -2,7 +2,10 @@
 /**
  * index.src.html -> index.html: inlines the panel's own icons and provider logos (taken from
  * desktop/bar.html, so the site always matches the app) wherever the source says %icon:name%,
- * %logo:name%, %mic%, %dl%, %pointer% or %cursor%. No other processing.
+ * %logo:name%, %mic%, %dl%, %pointer% or %cursor%.
+ *
+ * desktop/bar.html -> panel.html: the real panel for the hero, always in dark mode, with
+ * panel-shim.js standing in for the Electron shell and the server.
  *
  *   node marketing/build.mjs
  */
@@ -45,3 +48,14 @@ const out = fs.readFileSync(path.join(here, "index.src.html"), "utf8").replace(/
 if (missing.length) throw new Error(`unknown: ${missing.join(", ")}`);
 fs.writeFileSync(path.join(here, "index.html"), out);
 console.log("wrote marketing/index.html");
+
+const dia = `data:image/png;base64,${fs.readFileSync(path.join(here, "assets", "dia.png")).toString("base64")}`;
+const yt = `data:image/png;base64,${fs.readFileSync(path.join(here, "assets", "demo", "youtube.png")).toString("base64")}`;
+const shim = fs.readFileSync(path.join(here, "panel-shim.js"), "utf8").replace("%dia%", dia).replace("%yt%", yt);
+const darkRules = (bar.match(/@media \(prefers-color-scheme: dark\)/g) || []).length;
+if (!darkRules) throw new Error("bar.html has no dark-mode rules to force");
+const panel = bar
+  .replace(/@media \(prefers-color-scheme: dark\)/g, "@media all")
+  .replace("<title>", `<script>${shim}</script>\n<title>`); // after the charset and CSP meta tags
+fs.writeFileSync(path.join(here, "panel.html"), panel);
+console.log(`wrote marketing/panel.html (${darkRules} dark-mode rules forced)`);

@@ -28,9 +28,9 @@
 
 <main id="top">
   <header class="hero">
-    <div class="wrap">
+    <div class="wrap wide">
       <!-- the live demo -->
-      <div class="desk grain" id="desk" role="img" aria-label="A demo: the user types “open youtube and play a prince of egypt song”. Gofer opens YouTube in the browser, searches, clicks “When You Believe” and plays it. The user types “no, another one” and it plays “Deliver Us” instead.">
+      <div class="desk grain" id="desk" role="img" aria-label="A demo of the real Gofer chat panel next to YouTube. The user types: open youtube and play a prince of egypt song. Gofer opens YouTube, searches and plays Deliver Us. The user types: no, another one. It skips two songs that are not from the film and plays Through Heaven’s Eyes.">
         <div class="menubar" aria-hidden="true">
           <b class="keep">Dia</b><span>File</span><span>Edit</span><span>View</span><span>History</span><span>Window</span>
           <div class="right"><span class="tray" id="tray">%pointer%</span><span class="keep">Tue 20 Oct 9:41</span></div>
@@ -43,45 +43,17 @@
               <div class="bw-url" id="bw-url">Search or type a URL</div>
             </div>
             <div class="bw-page" id="bw-page">
-              <span class="agent-cursor" id="agent-cursor" style="color:#4f4cd8">%cursor%</span>
               <div class="pg pg-new on" data-pg="new"><div class="q">Search or type a URL</div></div>
-              <div class="pg" data-pg="home">
-                <div class="search">Search</div>
-                <div class="grid-yt"><i class="art-hill"></i><i class="art-sea"></i><i class="art-dawn"></i><i class="art-dusk"></i><i class="art-sea"></i><i class="art-hill"></i></div>
-              </div>
-              <div class="pg" data-pg="results">
-                <div class="search">prince of egypt song</div>
-                <div class="results">
-                  <div class="res" data-song="believe"><i class="art-dusk"></i><div><b>When You Believe (From The Prince of Egypt)</b><small>Whitney Houston, Mariah Carey · 4:52</small></div></div>
-                  <div class="res" data-song="deliver"><i class="art-dawn"></i><div><b>Deliver Us (From The Prince of Egypt)</b><small>Ofra Haza, Eden Riegel · 5:01</small></div></div>
-                  <div class="res"><i class="art-sea"></i><div><b>Through Heaven's Eyes (From The Prince of Egypt)</b><small>Brian Stokes Mitchell · 3:47</small></div></div>
-                </div>
-              </div>
-              <div class="pg pg-video" data-pg="video">
-                <div class="player"><i class="art art-dusk"></i><div class="bar"><i></i></div></div>
-                <h3></h3><p></p>
-              </div>
+              <img class="pg" data-pg="home" src="assets/demo/home.webp" alt="" decoding="async" />
+              <img class="pg" data-pg="results" src="assets/demo/results.webp" alt="" decoding="async" />
+              <img class="pg" data-pg="results2" src="assets/demo/results2.webp" alt="" decoding="async" />
+              <img class="pg" data-pg="watch1" src="assets/demo/watch1.webp" alt="" decoding="async" />
+              <img class="pg" data-pg="watch2" src="assets/demo/watch2.webp" alt="" decoding="async" />
+              <span class="ring" id="ring"></span>
+              <span class="agent-cursor" id="agent-cursor" style="color:#4f4cd8">%cursor%</span>
             </div>
           </div>
-
-          <div class="panel">
-            <div class="p-top">
-              <span class="x">%icon:x%</span>
-              <span class="pill tab" id="p-tab"><i class="fav"></i><span>New Tab</span></span>
-              <span class="pill br"><img src="assets/dia.png" alt="" /><span>Dia</span></span>
-              <span class="ic">%icon:pencil%</span><span class="ic">%icon:more%</span>
-            </div>
-            <div class="p-chat" id="p-chat"></div>
-            <div class="p-box">
-              <div class="p-in" id="p-in" data-ph="Ask anything, or tell it what to do"></div>
-              <div class="p-tools">
-                %icon:at% %mic%
-                <span class="modes"><span class="on">%icon:chat%Chat</span><span>%icon:bolt%Direct</span></span>
-                <span class="auto">%icon:bolt%Auto %icon:caretDown%</span>
-                <span class="send" id="p-send">%icon:up%</span>
-              </div>
-            </div>
-          </div>
+          <div class="pframe"><iframe id="panel-frame" src="panel.html" title="Gofer chat panel" tabindex="-1"></iframe></div>
         </div>
         <div class="dock" aria-hidden="true">
           <img class="on" src="assets/dia.png" alt="" /><img src="assets/arc.png" alt="" /><img src="assets/google-chrome.png" alt="" /><img class="on" src="assets/app-icon.png" alt="" />
@@ -325,7 +297,6 @@
   </div>
 </footer>
 
-<script>window.VB_ICONS = { check: `%icon:check%`, chevron: `%icon:chevron%` };</script>
 <script src="demo.js"></script>
 </body>
 </html>

@@ -1,0 +1,2384 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src ws://127.0.0.1:* http://127.0.0.1:*; media-src blob:; img-src 'self' data:" />
+<script>// Runs the real panel (desktop/bar.html) inside the website. window.bar (the Electron shell) and the
+// server connection are stand-ins; the page around it (demo.js) plays the server's side over
+// postMessage: it types into the message box, receives the command, and sends back the same events
+// the real server would. Injected into marketing/panel.html by build.mjs.
+(() => {
+  const DIA = "data:image/png;base64,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";
+  const ICONS = { yt: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAATlBMVEVHcEz/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/////EUb/ACL/RGP/7/P/q7n/hpn/zNX/3eP/Z34pvHLoAAAAD3RSTlMA6zaWxYZkrPTcSyF7D/rE87ViAAABdklEQVRYhe2W226DMAyGnaMJhCTtKLTv/6ILXYXQWicZvtkFv4SEhPwp+JQf4NSpf6VhkL21RiFq7ZwQIoS4KQQhnHNaIypjbS+H4Ve4Ryd2AbTC8wnCod+Fm5bQdxlm/EY4HP8ijMfjY2QeIMY1k5oRH3Suv+OcwA0gm8pPSUjoOfEx9mB5AEsX4dIEMKBIwPJ1rQMUIAlI6VZHIN0GGZCm+VpBaCDbYAVkxKMMcDVASkssHcKBqAFyKi40QkBXB6Q7nYoOSPYOkBEPitAIWP+DCUjL5zO0AshyAjnNewDdUKGpCoWW7hr6oDhUotqJ01zpxOIwpelWmSZdBtRXgi7tg3vDRsHCRpoLM7RJgSe/NYSvVxNvKwcLkgWIEiTZii3KN9PIuhv1yLudcxWBdzn2q8NgJKF7eqTjaezkj8s6/BP95lLxgMsIuHer0qImV8u7hEYrPxnmMRvm7Ji9N0apbJtfyu/KGO+zS842efy7ET91qqZvZj+d0TOLUpwAAAAASUVORK5CYII=" };
+  const ok = (v) => () => Promise.resolve(v);
+  const noop = () => {};
+  window.bar = {
+    ensureServer: ok({ ok: true }), getBrowser: ok({ id: "dia", name: "Dia", icon: DIA }),
+    listBrowsers: ok({ current: "dia", busy: false, list: [{ id: "dia", name: "Dia", note: "Your tabs and sign-ins", icon: DIA }] }),
+    getAccent: ok("#0a84ff"), getHotkey: ok("CommandOrControl+Shift+Space"), setHotkey: ok(true), switchBrowser: ok(true), copyImage: ok(true),
+    hide: noop, toggleSize: noop, browserMenu: noop, onBrowserState: noop, onBrowserConfirm: noop, openPath: noop, appMenu: noop, openUrl: noop,
+    revealPath: noop, chooseBrowser: noop, onMenuAction: noop, pauseHotkey: noop, quit: noop, notify: noop, openControlPage: noop, onFocusInput: noop, onServerExit: noop,
+  };
+  // The panel focuses its message box a lot; on a web page that would pull focus (and scroll) away
+  // from the visitor, so it never takes focus here.
+  HTMLElement.prototype.focus = noop;
+  try { localStorage.clear(); } catch {}
+
+  const MODELS = {
+    preferred: null, last: null, missing: [],
+    models: [
+      { id: "groq:openai/gpt-oss-120b", label: "GPT-OSS 120B", provider: "Groq", providerId: "groq", vision: false, fast: true, resting: null },
+      { id: "groq:qwen/qwen3.8-27b", label: "Qwen 3.8 27B", provider: "Groq", providerId: "groq", vision: true, fast: true, resting: null },
+      { id: "gemini:gemini-3.1-flash-lite", label: "Gemini 3.1 Flash-Lite", provider: "Google Gemini", providerId: "gemini", vision: true, fast: false, resting: null },
+    ],
+  };
+  const IDLE = { running: null, queued: [], side: [], paused: null, canTakeOver: false, background: false, undo: null };
+  let ws = null;
+  let tabs = [];
+  const up = (msg) => parent.postMessage({ gofer: true, ...msg }, "*");
+  class StandInSocket {
+    constructor() {
+      ws = this;
+      this.readyState = 0;
+      setTimeout(() => {
+        this.readyState = 1;
+        this.onopen?.();
+        this.emit("hello", { model: "" });
+        this.emit("queue", IDLE);
+        this.emit("models", MODELS);
+        this.emit("usage", { todayUsd: 0.0021, weekUsd: 0.013, calls: 14, limitUsd: null, byModel: {} });
+        up({ kind: "ready" });
+      }, 30);
+    }
+    send(raw) {
+      const m = JSON.parse(raw);
+      if (m.type === "tabs:list") this.emit("tab-list", tabs);
+      else if (m.type === "secrets:list") this.emit("secrets", []);
+      else if (m.type === "command") up({ kind: "command", id: m.id, text: m.text });
+    }
+    emit(type, payload) { this.onmessage?.({ data: JSON.stringify({ type, payload }) }); }
+    close() {}
+  }
+  window.WebSocket = StandInSocket;
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  addEventListener("message", async (e) => {
+    const m = e.data;
+    if (!m || !m.gofer) return;
+    if (m.kind === "emit") ws?.emit(m.type, m.payload);
+    if (m.kind === "tabs") { tabs = m.tabs.map((t) => ({ ...t, icon: ICONS[t.icon] || t.icon })); ws?.emit("tab-list", tabs); }
+    if (m.kind === "type") {
+      const cmd = document.getElementById("cmd");
+      for (const ch of m.text) {
+        cmd.textContent += ch;
+        cmd.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: ch }));
+        if (m.ms) await sleep(m.ms);
+      }
+      if (m.ms) await sleep(350);
+      cmd.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    }
+  });
+})();
+</script>
+<title>Gofer</title>
+<style>
+  /*
+   * Gofer chat panel.
+   * Restrained: cool-tinted neutrals, one accent (the user's macOS accent colour) for focus, caret,
+   * send and selection only. Status colours always come with an icon or a word.
+   * Type: SF Pro, 11 / 12 / 13 / 14 / 15 / 20. Radii: 6 small, 8 controls, 10 popovers, 18 bubbles.
+   */
+  :root {
+    color-scheme: light dark;
+    --surface: rgb(247 247 249 / .96);
+    --raised: #ffffff;
+    --sunken: rgb(18 20 28 / .045);
+    --bubble: rgb(18 20 28 / .065);
+    --text: #1b1c20;
+    --text-2: #4f525a;
+    --text-3: #676a72;
+    --hair: rgb(18 20 28 / .09);
+    --hover: rgb(18 20 28 / .05);
+    --press: rgb(18 20 28 / .09);
+    --ok: #17773d;
+    --warn: #8f5400;
+    --err: #b8322a;
+    --accent: #0a63d6;
+    --accent-fill: #0a63d6;
+    --on-accent: #ffffff;
+    --shadow: 0 1px 2px rgb(18 20 40 / .06), 0 10px 28px rgb(18 20 40 / .14);
+    --ease: cubic-bezier(.25, 1, .5, 1);
+  }
+  @media all {
+    :root {
+      --surface: rgb(22 23 26 / .97);
+      --raised: #2a2b30;
+      --sunken: rgb(255 255 255 / .045);
+      --bubble: rgb(255 255 255 / .085);
+      --text: #ececef;
+      --text-2: #b9bac0;
+      --text-3: #9a9ca3;
+      --hair: rgb(255 255 255 / .08);
+      --hover: rgb(255 255 255 / .06);
+      --press: rgb(255 255 255 / .1);
+      --ok: #5fd28b;
+      --warn: #f2b45a;
+      --err: #ff8478;
+      --accent: #4c9dff;
+      --accent-fill: #1f6fd6;
+      --on-accent: #ffffff;
+      --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 12px 32px rgb(0 0 0 / .42);
+    }
+  }
+  /* Liquid Glass (macOS 26+): the window itself is glass; the page lets it through and layers
+     lighter frosted surfaces on top for the composer and bubbles. */
+  html.glass { --surface: transparent; --bubble: rgb(255 255 255 / .5); --raised: rgb(255 255 255 / .62); --sunken: rgb(18 20 28 / .05); }
+  @media all {
+    html.glass { --bubble: rgb(255 255 255 / .1); --raised: rgb(255 255 255 / .08); --sunken: rgb(255 255 255 / .06); }
+  }
+  html.glass .box { backdrop-filter: saturate(1.4); box-shadow: inset 0 0 0 1px var(--hair), 0 1px 3px rgb(0 0 0 / .05); }
+  html.glass .mentions { background: rgb(250 250 252 / .9); backdrop-filter: blur(24px) saturate(1.6); }
+  @media all { html.glass .mentions { background: rgb(38 39 44 / .92); } }
+  html.glass .row .acts-row { background: none; }
+  html.glass .act { background: none; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  html { background: var(--surface); }
+  body {
+    display: flex; flex-direction: column;
+    font: 13px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    color: var(--text); -webkit-font-smoothing: antialiased; user-select: none;
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  button:disabled { cursor: default; }
+  .mention, .row[data-chat], .row[data-saved] { cursor: pointer; }
+  ol, ul { list-style: none; }
+  svg { display: block; flex: none; }
+  :focus { outline: none; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  kbd {
+    display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px;
+    font: 500 11px/1 -apple-system, system-ui, sans-serif; color: var(--text-2);
+    background: var(--sunken); border-radius: 5px; box-shadow: inset 0 0 0 1px var(--hair);
+  }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .spacer { flex: 1; }
+
+  /* ── header (drag handle) ─────────────────────────────── */
+  .top { -webkit-app-region: drag; display: flex; align-items: center; gap: 4px; height: 44px; padding: 0 8px; flex: none; }
+  .pill, .icon { -webkit-app-region: no-drag; transition: background .15s var(--ease), color .15s var(--ease); }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; height: 28px; max-width: 200px; min-width: 0; padding: 0 7px 0 6px;
+    border-radius: 8px; font-size: 12px; font-weight: 500; color: var(--text-2);
+  }
+  .pill:hover { background: var(--hover); color: var(--text); }
+  .pill:active { background: var(--press); }
+  .pill .b-ic { width: 16px; height: 16px; display: grid; place-items: center; color: var(--text-3); flex: none; }
+  .pill .b-ic img { width: 16px; height: 16px; }
+  .pill .b-ic svg { width: 15px; height: 15px; }
+  .pill .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pill[hidden] { display: none; } /* .pill's display would otherwise win over [hidden] */
+  .pill .caret { width: 11px; height: 11px; color: var(--text-3); flex: none; }
+  .pill[data-state="off"] .name { color: var(--warn); }
+  .tabpill { color: var(--text); flex: 0 1 auto; }
+  .tabpill .b-ic img, .tabpill .b-ic .letter { width: 16px; height: 16px; border-radius: 4px; object-fit: contain; }
+  .tabpill .b-ic .letter { display: grid; place-items: center; font: 700 10px/1 -apple-system, system-ui, sans-serif; color: #fff; background: rgb(var(--chip)); }
+  .browserpill .name { max-width: 90px; }
+  /* the agent works in a tab you're not looking at: a dot on its favicon, and Show */
+  .tabpill .b-ic { position: relative; }
+  .tabpill.bg .b-ic::after {
+    content: ""; position: absolute; right: -3px; bottom: -3px; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 0 2px var(--surface); animation: pulse 1.6s ease-in-out infinite;
+  }
+  html.glass .tabpill.bg .b-ic::after { box-shadow: 0 0 0 2px var(--raised); }
+  .showpill { flex: none; padding: 0 9px; color: var(--text-2); box-shadow: inset 0 0 0 1px var(--hair); height: 24px; border-radius: 7px; }
+  .icon { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: var(--text-2); flex: none; }
+  .icon:hover { background: var(--hover); color: var(--text); }
+  .icon:active { background: var(--press); }
+  .icon svg { width: 16px; height: 16px; }
+
+  /* ── chat ───────────────────────────────────────────── */
+  .chat { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overflow-wrap: anywhere; padding: 6px 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+  .chat::-webkit-scrollbar { width: 8px; }
+  .chat::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 4px; }
+  .msg { display: flex; flex-direction: column; min-width: 0; }
+  .msg[data-new] { animation: drop .2s var(--ease); }
+  .msg.user { align-items: flex-end; }
+  .msg.user + .msg.agent { margin-top: -4px; }
+  .bubble {
+    max-width: 82%; min-width: 0; padding: 9px 14px; border-radius: 18px; background: var(--bubble);
+    font-size: 14px; line-height: 1.45; color: var(--text); white-space: pre-wrap; word-break: break-word; user-select: text;
+  }
+  .msg.user .mode { margin: 0 6px 3px 0; font-size: 11px; color: var(--text-3); display: inline-flex; align-items: center; gap: 3px; }
+  .msg.user .mode svg { width: 11px; height: 11px; }
+  .msg.user .urow { display: flex; align-items: center; justify-content: flex-end; gap: 4px; max-width: 100%; }
+  /* a message waiting for the running task */
+  .msg.user .qtag { margin: 0 4px 3px 0; display: inline-flex; align-items: center; gap: 2px; font-size: 11px; color: var(--text-3); }
+  .msg.user .qtag svg { width: 11px; height: 11px; }
+  .msg.user .qtag .qx { display: inline-flex; align-items: center; gap: 3px; height: 20px; padding: 0 6px; margin-left: 2px; border-radius: 6px; color: var(--text-3); }
+  .msg.user .qtag .qx:hover { background: var(--hover); color: var(--text); }
+  .msg.user.queued .bubble { opacity: .62; }
+  .msg.user .uacts { display: flex; gap: 0; opacity: 0; transition: opacity .12s var(--ease); flex: none; }
+  .msg.user:hover .uacts, .msg.user:focus-within .uacts { opacity: 1; }
+  .msg.agent { align-items: flex-start; padding-right: 8px; }
+  .msg.agent .text { font-size: 14px; line-height: 1.5; color: var(--text); white-space: pre-wrap; word-break: break-word; user-select: text; }
+  .msg.agent.fail .text { color: var(--text); }
+  .msg.agent .failhead { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; font-size: 12px; font-weight: 500; color: var(--err); }
+  .msg.agent .failhead svg { width: 13px; height: 13px; }
+  .msg.agent .note { margin-top: 4px; font-size: 12px; color: var(--text-3); }
+  .note .inlink { font: inherit; color: var(--text-2); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+  .note .inlink:hover { color: var(--text); }
+  .understood { margin-bottom: 6px; font-size: 12px; color: var(--text-3); }
+  .understood b { font-weight: 500; margin-right: 4px; }
+  /* direct mode: one quiet line */
+  .msg.agent.direct .text { font-size: 13px; color: var(--text-2); display: flex; gap: 6px; align-items: baseline; }
+  .msg.agent.direct .dcost { margin-left: 8px; font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .msg.agent.direct .text .mk { display: inline-grid; place-items: center; width: 14px; height: 14px; flex: none; position: relative; top: 2px; }
+  .msg.agent.direct .text .mk svg { width: 13px; height: 13px; }
+  .msg.agent.direct.ok .mk { color: var(--ok); } .msg.agent.direct.fail .mk { color: var(--err); } .msg.agent.direct.ignored .mk { color: var(--text-3); }
+
+  /* working: three dots, then what it's doing now */
+  .working { display: flex; align-items: center; gap: 10px; min-height: 22px; font-size: 13px; color: var(--text-2); }
+  .dots { display: inline-flex; gap: 4px; flex: none; }
+  .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); animation: blink 1.2s infinite ease-in-out both; }
+  .dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
+  .working .now { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .steps { margin: 8px 0 2px; display: flex; flex-direction: column; gap: 3px; padding-left: 2px; border-left: 2px solid var(--hair); }
+  .step { display: grid; grid-template-columns: 16px 1fr; gap: 6px; align-items: start; padding-left: 8px; font-size: 12px; color: var(--text-2); }
+  .step .t { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .step small { margin-left: 6px; font-size: 11px; color: var(--text-3); }
+  .step.running { color: var(--text); }
+  .step.pending { color: var(--text-3); }
+  .mark { width: 16px; height: 16px; display: grid; place-items: center; color: var(--text-3); }
+  .mark svg { width: 12px; height: 12px; }
+  .mark.ok { color: var(--ok); } .mark.fail { color: var(--err); } .mark.awaiting { color: var(--warn); }
+  .mark.pending::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--text-3); }
+  .mark .spin { width: 11px; height: 11px; }
+
+  /* under a reply: steps toggle, cost, actions */
+  .meta { display: flex; align-items: center; gap: 2px; margin-top: 6px; min-height: 24px; font-size: 12px; color: var(--text-3); }
+  .meta .info { padding: 0 6px 0 0; font-variant-numeric: tabular-nums; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta .act.tog { white-space: nowrap; flex: none; }
+  .act { height: 24px; min-width: 24px; padding: 0 5px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; color: var(--text-3); font-size: 12px; }
+  .act:hover { background: var(--hover); color: var(--text); }
+  .act svg { width: 14px; height: 14px; }
+  .act.tog svg { width: 10px; height: 10px; transition: transform .15s var(--ease); }
+  .act.tog[aria-expanded="true"] svg { transform: rotate(90deg); }
+  .msg.agent .meta .hov { opacity: 0; transition: opacity .12s var(--ease); }
+  .msg.agent:hover .meta .hov, .msg.agent:focus-within .meta .hov, .msg.agent:last-child .meta .hov { opacity: 1; }
+
+  /* screenshots the agent sends */
+  .shots { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; align-self: stretch; }
+  .shot { position: relative; border-radius: 12px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--hair), 0 1px 3px rgb(0 0 0 / .08); background: var(--sunken); }
+  .shot img { display: block; width: 100%; max-height: 300px; object-fit: cover; object-position: top; cursor: zoom-in; }
+  .shot .gone { display: flex; align-items: center; gap: 8px; padding: 12px; font-size: 12px; color: var(--text-2); cursor: pointer; }
+  .shot .gone svg { width: 16px; height: 16px; color: var(--text-3); }
+  .shot .sacts { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; opacity: 0; transition: opacity .12s var(--ease); }
+  .shot:hover .sacts, .shot:focus-within .sacts { opacity: 1; }
+  .shot .sacts button { height: 26px; padding: 0 9px; border-radius: 8px; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; color: #fff; background: rgb(20 20 24 / .72); backdrop-filter: blur(10px); }
+  .shot .sacts button:hover { background: rgb(20 20 24 / .88); }
+  .shot .sacts svg { width: 13px; height: 13px; }
+
+  /* consent / choice, inline in the reply */
+  .ask {
+    margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--raised); align-self: stretch;
+    box-shadow: inset 0 0 0 1px var(--hair), 0 1px 2px rgb(0 0 0 / .05); animation: drop .18s var(--ease);
+  }
+  .ask p { font-size: 13px; color: var(--text); }
+  .ask .acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+
+  /* empty chat */
+  .hello { margin: auto 0; padding: 12px 4px 4px; }
+  .hello h1 { font: 600 20px/1.25 -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif; letter-spacing: -.015em; color: var(--text); }
+  .hello p { margin-top: 6px; font-size: 13px; color: var(--text-2); }
+  .hello .ex { margin-top: 14px; display: flex; flex-direction: column; gap: 2px; }
+  .example { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border-radius: 10px; font-size: 13px; color: var(--text); text-align: left; }
+  .example:hover, .example:focus-visible { background: var(--hover); }
+  .example svg { width: 14px; height: 14px; color: var(--text-3); }
+  .hello .keys { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11px; color: var(--text-3); }
+  .hello .keys span { display: inline-flex; align-items: center; gap: 6px; }
+
+  /* ── tab chips: favicon + short title, tinted with the site's own colour ── */
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px; vertical-align: middle; position: relative; top: -1px;
+    height: 22px; max-width: 200px; padding: 0 8px 0 5px; margin: 0 1px; border-radius: 7px;
+    font: 500 13px/1 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; color: var(--text);
+    background: rgb(var(--chip, 120 124 134) / .13); box-shadow: inset 0 0 0 1px rgb(var(--chip, 120 124 134) / .30);
+    user-select: none; white-space: nowrap; animation: pop .14s var(--ease);
+  }
+  .chip img, .chip .letter { width: 14px; height: 14px; flex: none; border-radius: 3px; object-fit: contain; }
+  .chip .letter { display: grid; place-items: center; font: 700 9px/1 -apple-system, system-ui, sans-serif; color: #fff; background: rgb(var(--chip, 120 124 134)); }
+  .chip .t { overflow: hidden; text-overflow: ellipsis; }
+  .chip .x { display: grid; place-items: center; width: 16px; height: 16px; margin: 0 -4px 0 -2px; border-radius: 50%; color: var(--text-2); opacity: 0; transition: opacity .12s var(--ease); }
+  .chip:hover .x { opacity: 1; }
+  .chip .x:hover { background: var(--press); }
+  .chip .x svg { width: 9px; height: 9px; }
+  .bubble .chip { animation: none; }
+  @media all { .chip[data-dark] img { background: #ececf0; padding: 1px; } }
+
+  /* ── status: only present when something needs saying outside a reply ── */
+  .status {
+    display: none; align-items: center; gap: 8px; min-height: 34px; margin: 0 12px 6px; padding: 6px 10px; flex: none;
+    font-size: 12px; color: var(--text-2); border-radius: 10px; background: var(--sunken); box-shadow: inset 0 0 0 1px var(--hair);
+  }
+  .status.on { display: flex; animation: drop .16s var(--ease); }
+  .status .ic { width: 15px; height: 15px; display: grid; place-items: center; }
+  .status .ic svg { width: 15px; height: 15px; }
+  .status.ok .ic { color: var(--ok); } .status.warn .ic { color: var(--warn); } .status.err .ic { color: var(--err); }
+  .status.err .msgt { color: var(--text); }
+  .status .msgt { min-width: 0; flex: 1; line-height: 1.35; }
+  .status .acts { display: flex; gap: 6px; flex: none; }
+  .spin { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--hair); border-top-color: var(--text-2); animation: spin .8s linear infinite; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 8px;
+    font-size: 12px; font-weight: 500; color: var(--text); background: var(--hover); box-shadow: inset 0 0 0 1px var(--hair);
+    white-space: nowrap; transition: background .15s var(--ease), transform .1s var(--ease);
+  }
+  .btn:hover { background: var(--press); }
+  .btn:active { transform: scale(.97); }
+  .btn.primary { color: var(--on-accent); background: var(--accent-fill); box-shadow: none; }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .btn kbd { height: 16px; min-width: 16px; font-size: 10px; background: transparent; box-shadow: inset 0 0 0 1px currentColor; color: inherit; opacity: .7; }
+  .btn .n { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text-2); }
+  .btn svg { width: 13px; height: 13px; }
+  .link svg { width: 13px; height: 13px; }
+  .link { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; color: var(--text-2); padding: 3px 6px; border-radius: 6px; text-decoration: underline; text-decoration-color: var(--hair); text-underline-offset: 3px; }
+  .link:hover { color: var(--text); background: var(--hover); }
+
+  /* ── running task: progress, queue, take over (above the composer) ── */
+  .tasks {
+    display: none; align-items: center; gap: 8px; min-height: 34px; margin: 0 12px 6px; padding: 4px 6px 4px 10px; flex: none;
+    font-size: 12px; color: var(--text-2); border-radius: 10px; background: var(--sunken); box-shadow: inset 0 0 0 1px var(--hair);
+  }
+  .tasks.on { display: flex; animation: drop .16s var(--ease); }
+  .tasks .tdot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--accent); animation: pulse 1.6s ease-in-out infinite; }
+  .tasks .tic { width: 15px; height: 15px; flex: none; color: var(--warn); }
+  .tasks .tic svg { width: 15px; height: 15px; }
+  .tasks .ttext { flex: 1; min-width: 0; line-height: 1.35; }
+  .tasks .ttext b { font-weight: 500; color: var(--text); }
+  .tasks.yours { background: color-mix(in srgb, var(--warn) 9%, var(--raised)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 28%, transparent); }
+  .tasks .acts { display: flex; gap: 6px; flex: none; }
+
+  /* ── composer ───────────────────────────────────────── */
+  .box {
+    margin: 0 10px 10px; padding: 10px 10px 8px 14px; flex: none; border-radius: 18px;
+    background: var(--raised); box-shadow: inset 0 0 0 1px var(--hair), 0 1px 3px rgb(0 0 0 / .06);
+    transition: box-shadow .15s var(--ease);
+  }
+  .box:focus-within { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, var(--hair)), 0 1px 3px rgb(0 0 0 / .06); }
+  .composer {
+    -webkit-app-region: no-drag; min-height: 24px; max-height: 120px; overflow-y: auto; scrollbar-width: none;
+    font: 400 15px/24px -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    color: var(--text); white-space: pre-wrap; word-break: break-word;
+    outline: none; user-select: text; cursor: text; caret-color: var(--accent);
+  }
+  .composer::-webkit-scrollbar { display: none; }
+  .composer:empty::before { content: attr(data-placeholder); color: var(--text-3); pointer-events: none; }
+  .composer.off { opacity: .5; cursor: default; }
+  .tools { display: flex; align-items: center; gap: 4px; margin-top: 6px; margin-left: -6px; }
+  .tool { -webkit-app-region: no-drag; height: 28px; min-width: 28px; padding: 0 6px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; color: var(--text-2); font-size: 12px; font-weight: 500; }
+  .tool:hover { background: var(--hover); color: var(--text); }
+  .tool svg { width: 16px; height: 16px; }
+  .modes { display: inline-flex; padding: 2px; border-radius: 9px; background: var(--sunken); box-shadow: inset 0 0 0 1px var(--hair); }
+  .modes button { height: 24px; padding: 0 9px; border-radius: 7px; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; color: var(--text-3); }
+  .modes button svg { width: 12px; height: 12px; }
+  .modes button:hover { color: var(--text-2); }
+  .modes button[aria-checked="true"] { color: var(--text); background: var(--raised); box-shadow: 0 0 0 1px var(--hair), 0 1px 2px rgb(0 0 0 / .08); }
+  .modelpick { color: var(--text-3); gap: 5px; padding: 0 5px 0 6px; min-width: 0; }
+  .modelpick[aria-expanded="true"] { background: var(--hover); color: var(--text); }
+  .modelpick .lg { width: 14px; height: 14px; display: grid; place-items: center; color: var(--text-2); }
+  .modelpick .lg svg { width: 14px; height: 14px; }
+
+  /* ── model picker (opens above the composer) ─────────── */
+  .picker {
+    position: fixed; left: 10px; right: 10px; z-index: 11; max-height: min(440px, calc(100vh - 150px)); overflow-y: auto; padding: 6px;
+    border-radius: 14px; background: var(--raised); box-shadow: var(--shadow), inset 0 0 0 1px var(--hair);
+    transform-origin: bottom; animation: menu .14s var(--ease);
+  }
+  .pk-head { padding: 6px 10px 4px; font-size: 11px; font-weight: 600; color: var(--text-3); }
+  .pk-row { display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: 1px 10px; width: 100%; padding: 7px 10px; border-radius: 9px; text-align: left; }
+  .pk-row { transition: background .12s var(--ease); }
+  .pk-row:hover, .pk-row.on { background: var(--hover); }
+  .pk-row:active { background: var(--press); }
+  .pk-row .lg { grid-row: 1 / 3; width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; color: var(--text); background: var(--sunken); box-shadow: inset 0 0 0 1px var(--hair); }
+  .pk-row .lg svg { width: 15px; height: 15px; }
+  .pk-row .t { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pk-row .s { grid-column: 2; font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pk-row .s .rest { color: var(--warn); }
+  .pk-row .ck { grid-row: 1 / 3; grid-column: 3; width: 16px; color: var(--accent); }
+  .pk-row .ck svg { width: 14px; height: 14px; }
+  .pk-row.add .t { color: var(--text-2); }
+  .pk-row .lg.app { background: none; box-shadow: none; }
+  .pk-row .lg.app img { width: 24px; height: 24px; }
+  .picker.below { transform-origin: top; }
+  .pk-sep { height: 1px; margin: 5px 6px; background: var(--hair); }
+  .pk-form { display: flex; gap: 6px; align-items: center; padding: 2px 10px 8px 44px; animation: drop .14s var(--ease); }
+  .pk-form .field { height: 26px; }
+  html.glass .picker { background: rgb(250 250 252 / .9); backdrop-filter: blur(24px) saturate(1.6); }
+  @media all { html.glass .picker { background: rgb(38 39 44 / .92); } }
+  .modelpick .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+  .modelpick { flex: 0 1 auto; }
+  .tools { container-type: inline-size; }
+  /* narrow panels: the mode switch drops to icons so the model's full name fits */
+  @container (max-width: 380px) {
+    .modes button span { display: none; }
+    .modes button { padding: 0 7px; }
+    .modes button svg { width: 14px; height: 14px; }
+  }
+  .modelpick .caret svg { width: 10px; height: 10px; }
+  .spend { -webkit-app-region: no-drag; white-space: nowrap; flex: none; display: inline-flex; align-items: center; height: 24px; padding: 0 6px; border-radius: 6px; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-3); }
+  .spend:hover { background: var(--hover); color: var(--text-2); }
+  .spend.near { color: var(--warn); }
+  .go {
+    -webkit-app-region: no-drag; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; flex: none;
+    color: var(--text-3); background: var(--sunken); transition: background .15s var(--ease), color .15s var(--ease), transform .1s var(--ease);
+  }
+  .go svg { width: 15px; height: 15px; }
+  .go.ready { color: var(--on-accent); background: var(--accent-fill); }
+  .go.ready:hover { filter: brightness(1.06); }
+  .go.stop { color: var(--text); background: var(--press); }
+  .go.stop svg { width: 12px; height: 12px; }
+  .go:active { transform: scale(.94); }
+  .go[disabled] { opacity: .45; }
+
+  /* ── @ tab picker (opens above the composer) ─────────── */
+  .mentions {
+    position: fixed; left: 12px; right: 12px; z-index: 10; max-height: 280px; overflow-y: auto; padding: 5px;
+    border-radius: 12px; background: var(--raised); box-shadow: var(--shadow), inset 0 0 0 1px var(--hair);
+    transform-origin: bottom; animation: menu .14s var(--ease);
+  }
+  .mention { display: grid; grid-template-columns: 16px 1fr; gap: 1px 10px; align-items: center; padding: 6px 9px; border-radius: 8px; }
+  .mention .ic { grid-row: 1 / 3; width: 16px; height: 16px; color: var(--text-3); }
+  .mention .ic img, .mention .ic .letter { width: 16px; height: 16px; border-radius: 4px; }
+  .mention .ic .letter { display: grid; place-items: center; font: 700 10px/1 -apple-system, system-ui, sans-serif; color: #fff; background: rgb(var(--chip)); }
+  .mention .t { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mention .u { font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mention .cur { font-size: 11px; margin-left: 8px; color: var(--text-3); }
+  .mention:hover { background: var(--hover); }
+  .mention.on { background: var(--accent-fill); }
+  .mention.on .t, .mention.on .u, .mention.on .cur { color: var(--on-accent); }
+  .mentions, .picker { backdrop-filter: blur(28px) saturate(1.7); }
+  /* While a list is open, the conversation behind it blurs. backdrop-filter alone doesn't reach
+     through Electron's transparent (glass) window, so the chat itself is blurred. */
+  .chat { transition: filter .18s var(--ease), opacity .18s var(--ease); }
+  body.veiled .chat { filter: blur(10px) saturate(1.15); opacity: .55; pointer-events: none; }
+  .mentions .none, .mentions .head { padding: 6px 9px; font-size: 11px; color: var(--text-3); }
+
+  /* ── side views: past chats, saved commands, passwords ── */
+  .view { display: flex; flex-direction: column; gap: 2px; padding-top: 0; }
+  .vhead { display: flex; align-items: center; gap: 6px; padding: 2px 0 8px; }
+  .vhead h2 { font-size: 15px; font-weight: 600; color: var(--text); flex: 1; }
+  .vhead .back { height: 26px; padding: 0 8px 0 4px; border-radius: 8px; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; color: var(--text-2); }
+  .vhead .back:hover { background: var(--hover); color: var(--text); }
+  .vhead .back svg { width: 12px; height: 12px; transform: scaleX(-1); }
+  .vnote { font-size: 12px; color: var(--text-2); padding: 0 2px 8px; }
+  .row { position: relative; display: grid; grid-template-columns: 16px 1fr; gap: 0 10px; align-items: start; padding: 8px 10px; border-radius: 10px; }
+  .row:hover, .row.on { background: var(--hover); }
+  .row .rmark { width: 16px; height: 18px; display: grid; place-items: center; color: var(--text-3); }
+  .row .rmark svg { width: 14px; height: 14px; }
+  .row .main { min-width: 0; }
+  .row .line { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .row .cmd { min-width: 0; flex: 1; font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .time { flex: none; font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .row .sub { margin-top: 2px; font-size: 12px; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .row .acts-row { position: absolute; top: 5px; right: 6px; display: none; gap: 2px; padding-left: 12px; background: linear-gradient(90deg, transparent, var(--surface) 10px); }
+  .row:hover > .acts-row, .row:focus-within > .acts-row { display: flex; }
+  .name { font-weight: 600; }
+  .empty { padding: 10px 2px; font-size: 13px; color: var(--text-2); }
+  .tag { display: inline-block; margin-right: 6px; padding: 1px 6px; border-radius: 5px; font-size: 11px; font-weight: 600; color: var(--text-2); background: var(--sunken); box-shadow: inset 0 0 0 1px var(--hair); vertical-align: 1px; }
+  .token { font: 500 12px/1.4 ui-monospace, "SF Mono", Menlo, monospace; color: var(--text); }
+  .form { display: flex; gap: 6px; padding: 0 0 10px; animation: drop .16s var(--ease); }
+  .field {
+    -webkit-app-region: no-drag; user-select: text; height: 28px; min-width: 0; flex: 1; padding: 0 10px; border-radius: 8px;
+    font: 13px -apple-system, system-ui, sans-serif; color: var(--text); background: var(--raised);
+    border: 1px solid var(--hair); outline: none;
+  }
+  .field::placeholder { color: var(--text-3); }
+  .field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+  .tbl { margin-top: 8px; max-width: 100%; overflow-x: auto; border: 1px solid var(--hair); border-radius: 8px; align-self: stretch; }
+  .tbl table { border-collapse: collapse; font-size: 12px; width: 100%; user-select: text; }
+  .tbl th, .tbl td { padding: 4px 8px; text-align: left; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid var(--hair); }
+  .tbl th { color: var(--text-2); font-weight: 600; }
+  .tbl tr:last-child td { border-bottom: 0; }
+  .tbl .more { padding: 4px 8px; font-size: 11px; color: var(--text-3); }
+  /* site notes: grouped by site; "Learned: …" under a reply */
+  .sgroup { display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px; }
+  .shead { display: flex; align-items: baseline; gap: 8px; padding: 4px 10px 2px; font-size: 12px; font-weight: 600; color: var(--text-2); }
+  .shead .key { font-weight: 400; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .shead .tag { margin: 0 0 0 auto; }
+  .row .ntext { font-size: 13px; line-height: 1.4; color: var(--text); word-break: break-word; user-select: text; padding-right: 26px; }
+  .row .nsrc { margin-top: 2px; font-size: 11px; color: var(--text-3); }
+  .sgroup .empty { padding: 4px 10px; font-size: 12px; }
+  .learned { display: flex; align-items: flex-start; gap: 6px; margin-top: 4px; font-size: 12px; line-height: 1.4; color: var(--text-3); }
+  .learned svg { width: 13px; height: 13px; flex: none; margin-top: 1px; }
+  .learned .lt { min-width: 0; }
+  .learned .link { padding: 0 4px; margin-left: 2px; font-size: 12px; cursor: pointer; }
+  .hotkey.recording kbd { color: var(--on-accent); background: var(--accent-fill); box-shadow: none; }
+
+  /* ── voice: recording in the composer, speaking under a reply ── */
+  .tool.mic.on { color: var(--on-accent); background: var(--accent-fill); }
+  .tool.mic.on:hover { filter: brightness(1.06); }
+  .tool.mic.on svg { width: 12px; height: 12px; }
+  .tool.mic.nokey { color: var(--text-3); }
+  .voice { display: flex; align-items: center; gap: 10px; height: 24px; -webkit-app-region: no-drag; }
+  .voice[hidden], .box.voicing .composer { display: none; }
+  .voice .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--err); animation: rec 1.1s ease-in-out infinite; }
+  .voice .meter { flex: 1; min-width: 0; height: 24px; display: flex; align-items: center; justify-content: flex-end; gap: 2px; overflow: hidden;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 28px); }
+  .voice .meter i { flex: none; width: 3px; min-height: 3px; border-radius: 2px; background: var(--text-2); transition: height .06s linear; }
+  .voice .time { flex: none; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+  .voice .hint { flex: none; font-size: 11px; color: var(--text-3); white-space: nowrap; }
+  .voice .act { flex: none; }
+  .voice .busy { display: flex; align-items: center; gap: 8px; flex: 1; font-size: 13px; color: var(--text-2); }
+  #form { container-type: inline-size; }
+  @container (max-width: 380px) { .voice .hint { display: none; } }
+  .msg.user .mode.voiced svg { width: 11px; height: 11px; }
+  .act.speaking { color: var(--accent); gap: 6px; padding: 0 7px 0 6px; }
+  .act.speaking:hover { color: var(--text); }
+  .act.speaking .eq { display: inline-flex; align-items: center; gap: 2px; height: 12px; }
+  .act.speaking .eq i { width: 2px; height: 12px; border-radius: 1px; background: currentColor; transform-origin: center; animation: eq .9s ease-in-out infinite; }
+  .act.speaking .eq i:nth-child(2) { animation-delay: -.3s; } .act.speaking .eq i:nth-child(3) { animation-delay: -.6s; }
+  .act.speaking .spin { width: 11px; height: 11px; }
+  .act.speaking svg { width: 10px; height: 10px; }
+  @keyframes rec { 50% { opacity: .35; transform: scale(.8); } }
+  @keyframes eq { 0%, 100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes drop { from { opacity: 0; transform: translateY(3px); } }
+  @keyframes pop { from { opacity: 0; transform: scale(.96); } }
+  @keyframes menu { from { opacity: 0; transform: translateY(4px) scale(.99); } }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+  @keyframes blink { 0%, 80%, 100% { opacity: .25; transform: scale(.85); } 40% { opacity: 1; transform: scale(1); } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before { animation: none !important; transition: none !important; }
+    .spin { border-top-color: var(--text-3); border-style: dotted; }
+    .dots i { opacity: .7; }
+  }
+  /* compact window: just the composer, and status when something is happening */
+  @media (max-height: 200px) {
+    .chat { display: none; }
+    .top { height: 34px; }
+  }
+</style>
+</head>
+<body>
+  <header class="top">
+    <button class="icon" id="close" type="button" title="Hide (Esc)" aria-label="Hide"></button>
+    <button class="pill tabpill" id="curtab" type="button" hidden title="The agent works in this tab. It follows the tab you switch to; click to pick another." aria-haspopup="listbox">
+      <span class="b-ic" id="curtab-ic"></span><span class="name" id="curtab-name"></span><span class="caret" id="curtab-caret"></span>
+    </button>
+    <button class="pill showpill" id="curshow" type="button" hidden title="Bring the agent's tab to the front of your browser">Show</button>
+    <span class="spacer"></span>
+    <button class="pill browserpill" id="browser" data-state="off" title="Choose the browser to control" aria-haspopup="listbox" aria-expanded="false">
+      <span class="b-ic" id="browser-ic"></span><span class="name" id="browser-name">Connecting…</span><span class="caret" id="caret"></span>
+    </button>
+    <button class="icon" id="newchat" type="button" title="New chat (⌘N)" aria-label="New chat"></button>
+    <button class="icon" id="more" type="button" title="More" aria-haspopup="menu" aria-label="More"></button>
+  </header>
+
+  <main class="chat" id="chat" aria-label="Conversation"></main>
+
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+  <div class="tasks" id="tasks" role="status" aria-live="polite"></div>
+  <div class="mentions" id="mentions" role="listbox" aria-label="Open tabs" hidden></div>
+  <div class="picker" id="picker" role="listbox" aria-label="AI model" hidden></div>
+
+  <form class="box" id="form">
+    <div id="cmd" class="composer off" contenteditable="false" role="textbox" aria-label="Message" aria-multiline="true" spellcheck="false" data-placeholder="Ask anything, or tell it what to do"></div>
+    <div class="voice" id="voice" hidden aria-live="polite"></div>
+    <div class="tools">
+      <button class="tool" id="at" type="button" title="Mention a tab (@)" aria-label="Mention a tab"></button>
+      <button class="tool mic" id="mic" type="button" title="Speak a request (click, or hold ⌥)" aria-label="Speak a request" aria-pressed="false"></button>
+      <div class="modes" role="radiogroup" aria-label="Mode" title="Switch with Tab">
+        <button type="button" role="radio" data-mode="chat" aria-checked="true" title="Chat: plain-language requests and follow-ups, done step by step by the AI"></button>
+        <button type="button" role="radio" data-mode="direct" aria-checked="false" title="Direct: instant one-step commands (scroll, click, next tab), no back-and-forth"></button>
+      </div>
+      <button class="tool modelpick" id="model" type="button" hidden title="AI model" aria-haspopup="listbox" aria-expanded="false"><span class="lg" id="model-logo"></span><span class="name" id="model-name">Auto</span><span class="caret" id="model-caret"></span></button>
+      <span class="spacer"></span>
+      <button class="spend" id="spend" type="button" hidden title="AI spending today. Click to set a daily limit."></button>
+      <button class="go" id="go" type="submit" title="Send (Enter)" aria-label="Send" disabled></button>
+    </div>
+  </form>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const ICON = {"question": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M140,180a12,12,0,1,1-12-12A12,12,0,0,1,140,180ZM128,72c-22.06,0-40,16.15-40,36v4a8,8,0,0,0,16,0v-4c0-11,10.77-20,24-20s24,9,24,20-10.77,20-24,20a8,8,0,0,0-8,8v8a8,8,0,0,0,16,0v-.72c18.24-3.35,32-17.9,32-35.28C168,88.15,150.06,72,128,72Zm104,56A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z\"/></svg>", "copy": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z\"/></svg>", "reply": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M232,200a8,8,0,0,1-16,0,88.1,88.1,0,0,0-88-88H51.31l34.35,34.34a8,8,0,0,1-11.32,11.32l-48-48a8,8,0,0,1,0-11.32l48-48A8,8,0,0,1,85.66,61.66L51.31,96H128A104.11,104.11,0,0,1,232,200Z\"/></svg>", "undo": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L44.59,96H72a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V56a8,8,0,0,1,16,0V85.8L60.25,60A96,96,0,0,1,224,128Z\"/></svg>", "more": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z\"/></svg>", "check": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z\"/></svg>", "x": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z\"/></svg>", "skip": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M176,128a8,8,0,0,1-8,8H88a8,8,0,0,1,0-16h80A8,8,0,0,1,176,128Zm56,0A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z\"/></svg>", "hand": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M188,88a27.75,27.75,0,0,0-12,2.71V60a28,28,0,0,0-41.36-24.6A28,28,0,0,0,80,44v6.71A27.75,27.75,0,0,0,68,48,28,28,0,0,0,40,76v76a88,88,0,0,0,176,0V116A28,28,0,0,0,188,88Zm12,64a72,72,0,0,1-144,0V76a12,12,0,0,1,24,0v44a8,8,0,0,0,16,0V44a12,12,0,0,1,24,0v68a8,8,0,0,0,16,0V60a12,12,0,0,1,24,0v68.67A48.08,48.08,0,0,0,120,176a8,8,0,0,0,16,0,32,32,0,0,1,32-32,8,8,0,0,0,8-8V116a12,12,0,0,1,24,0Z\"/></svg>", "bookmark": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M184,32H72A16,16,0,0,0,56,48V224a8,8,0,0,0,12.24,6.78L128,193.43l59.77,37.35A8,8,0,0,0,200,224V48A16,16,0,0,0,184,32Zm0,177.57-51.77-32.35a8,8,0,0,0-8.48,0L72,209.57V48H184Z\"/></svg>", "star": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M239.18,97.26A16.38,16.38,0,0,0,224.92,86l-59-4.76L143.14,26.15a16.36,16.36,0,0,0-30.27,0L90.11,81.23,31.08,86a16.46,16.46,0,0,0-9.37,28.86l45,38.83L53,211.75a16.38,16.38,0,0,0,24.5,17.82L128,198.49l50.53,31.08A16.4,16.4,0,0,0,203,211.75l-13.76-58.07,45-38.83A16.43,16.43,0,0,0,239.18,97.26Zm-15.34,5.47-48.7,42a8,8,0,0,0-2.56,7.91l14.88,62.8a.37.37,0,0,1-.17.48c-.18.14-.23.11-.38,0l-54.72-33.65a8,8,0,0,0-8.38,0L69.09,215.94c-.15.09-.19.12-.38,0a.37.37,0,0,1-.17-.48l14.88-62.8a8,8,0,0,0-2.56-7.91l-48.7-42c-.12-.1-.23-.19-.13-.5s.18-.27.33-.29l63.92-5.16A8,8,0,0,0,103,91.86l24.62-59.61c.08-.17.11-.25.35-.25s.27.08.35.25L153,91.86a8,8,0,0,0,6.75,4.92l63.92,5.16c.15,0,.24,0,.33.29S224,102.63,223.84,102.73Z\"/></svg>", "trash": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z\"/></svg>", "play": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M232.4,114.49,88.32,26.35a16,16,0,0,0-16.2-.3A15.86,15.86,0,0,0,64,39.87V216.13A15.94,15.94,0,0,0,80,232a16.07,16.07,0,0,0,8.36-2.35L232.4,141.51a15.81,15.81,0,0,0,0-27ZM80,215.94V40l143.83,88Z\"/></svg>", "key": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M216.57,39.43A80,80,0,0,0,83.91,120.78L28.69,176A15.86,15.86,0,0,0,24,187.31V216a16,16,0,0,0,16,16H72a8,8,0,0,0,8-8V208H96a8,8,0,0,0,8-8V184h16a8,8,0,0,0,5.66-2.34l9.56-9.57A79.73,79.73,0,0,0,160,176h.1A80,80,0,0,0,216.57,39.43ZM224,98.1c-1.09,34.09-29.75,61.86-63.89,61.9H160a63.7,63.7,0,0,1-23.65-4.51,8,8,0,0,0-8.84,1.68L116.69,168H96a8,8,0,0,0-8,8v16H72a8,8,0,0,0-8,8v16H40V187.31l58.83-58.82a8,8,0,0,0,1.68-8.84A63.72,63.72,0,0,1,96,95.92c0-34.14,27.81-62.8,61.9-63.89A64,64,0,0,1,224,98.1ZM192,76a12,12,0,1,1-12-12A12,12,0,0,1,192,76Z\"/></svg>", "caretDown": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z\"/></svg>", "globe": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M128,24h0A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm87.62,96H175.79C174,83.49,159.94,57.67,148.41,42.4A88.19,88.19,0,0,1,215.63,120ZM96.23,136h63.54c-2.31,41.61-22.23,67.11-31.77,77C118.45,203.1,98.54,177.6,96.23,136Zm0-16C98.54,78.39,118.46,52.89,128,43c9.55,9.93,29.46,35.43,31.77,77Zm11.36-77.6C96.06,57.67,82,83.49,80.21,120H40.37A88.19,88.19,0,0,1,107.59,42.4ZM40.37,136H80.21c1.82,36.51,15.85,62.33,27.38,77.6A88.19,88.19,0,0,1,40.37,136Zm108,77.6c11.53-15.27,25.56-41.09,27.38-77.6h39.84A88.19,88.19,0,0,1,148.41,213.6Z\"/></svg>", "tab": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V88H40V56Zm0,144H40V104H216v96Z\"/></svg>", "enter": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M200,32V176a8,8,0,0,1-8,8H67.31l34.35,34.34a8,8,0,0,1-11.32,11.32l-48-48a8,8,0,0,1,0-11.32l48-48a8,8,0,0,1,11.32,11.32L67.31,168H184V32a8,8,0,0,1,16,0Z\"/></svg>", "stop": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M200,40H56A16,16,0,0,0,40,56V200a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,160H56V56H200V200Z\"/></svg>", "warn": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm-8-80V80a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,172Z\"/></svg>", "retry": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M240,56v48a8,8,0,0,1-8,8H184a8,8,0,0,1,0-16H211.4L184.81,71.64l-.25-.24a80,80,0,1,0-1.67,114.78,8,8,0,0,1,11,11.63A95.44,95.44,0,0,1,128,224h-1.32A96,96,0,1,1,195.75,60L224,85.8V56a8,8,0,1,1,16,0Z\"/></svg>", "image": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V158.75l-26.07-26.06a16,16,0,0,0-22.63,0l-20,20-44-44a16,16,0,0,0-22.62,0L40,149.37V56ZM40,172l52-52,80,80H40Zm176,28H194.63l-36-36,20-20L216,181.38V200ZM144,100a12,12,0,1,1,12,12A12,12,0,0,1,144,100Z\"/></svg>", "plus": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z\"/></svg>", "chevron": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z\"/></svg>", "arrow": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z\"/></svg>", "pencil": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M229.66,58.34l-32-32a8,8,0,0,0-11.32,0l-96,96A8,8,0,0,0,88,128v32a8,8,0,0,0,8,8h32a8,8,0,0,0,5.66-2.34l96-96A8,8,0,0,0,229.66,58.34ZM124.69,152H104V131.31l64-64L188.69,88ZM200,76.69,179.31,56,192,43.31,212.69,64ZM224,128v80a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32h80a8,8,0,0,1,0,16H48V208H208V128a8,8,0,0,1,16,0Z\"/></svg>", "up": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M205.66,117.66a8,8,0,0,1-11.32,0L136,59.31V216a8,8,0,0,1-16,0V59.31L61.66,117.66a8,8,0,0,1-11.32-11.32l72-72a8,8,0,0,1,11.32,0l72,72A8,8,0,0,1,205.66,117.66Z\"/></svg>", "at": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M128,24a104,104,0,0,0,0,208c21.51,0,44.1-6.48,60.43-17.33a8,8,0,0,0-8.86-13.33C166,210.38,146.21,216,128,216a88,88,0,1,1,88-88c0,26.45-10.88,32-20,32s-20-5.55-20-32V88a8,8,0,0,0-16,0v4.26a48,48,0,1,0,5.93,65.1c6,12,16.35,18.64,30.07,18.64,22.54,0,36-17.94,36-48A104.11,104.11,0,0,0,128,24Zm0,136a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z\"/></svg>", "bolt": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z\"/></svg>", "chat": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M128,24A104,104,0,0,0,36.18,176.88L24.83,210.93a16,16,0,0,0,20.24,20.24l34.05-11.35A104,104,0,1,0,128,24Zm0,192a87.87,87.87,0,0,1-44.06-11.81,8,8,0,0,0-6.54-.67L40,216,52.47,178.6a8,8,0,0,0-.66-6.54A88,88,0,1,1,128,216Z\"/></svg>", "clock": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M136,80v43.47l36.12,21.67a8,8,0,0,1-8.24,13.72l-40-24A8,8,0,0,1,120,128V80a8,8,0,0,1,16,0Zm-8-48A95.44,95.44,0,0,0,60.08,60.15C52.81,67.51,46.35,74.59,40,82V64a8,8,0,0,0-16,0v40a8,8,0,0,0,8,8H72a8,8,0,0,0,0-16H49c7.15-8.42,14.27-16.35,22.39-24.57a80,80,0,1,1,1.66,114.75,8,8,0,1,0-11,11.64A96,96,0,1,0,128,32Z\"/></svg>", "bulb": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M176,232a8,8,0,0,1-8,8H88a8,8,0,0,1,0-16h80A8,8,0,0,1,176,232Zm40-128a87.55,87.55,0,0,1-33.64,69.21A16.24,16.24,0,0,0,176,186v6a16,16,0,0,1-16,16H96a16,16,0,0,1-16-16v-6a16,16,0,0,0-6.23-12.66A87.59,87.59,0,0,1,40,104.49C39.74,56.83,78.26,17.14,125.88,16A88,88,0,0,1,216,104Zm-16,0a72,72,0,0,0-73.74-72c-39,.92-70.47,33.39-70.26,72.39a71.65,71.65,0,0,0,27.64,56.3A32,32,0,0,1,96,186v6h64v-6a32.15,32.15,0,0,1,12.47-25.35A71.65,71.65,0,0,0,200,104Zm-16.11-9.34a57.6,57.6,0,0,0-46.56-46.55,8,8,0,0,0-2.66,15.78c16.57,2.79,30.63,16.85,33.44,33.45A8,8,0,0,0,176,104a9,9,0,0,0,1.35-.11A8,8,0,0,0,183.89,94.66Z\"/></svg>", "stopFill": "<svg viewBox=\"0 0 256 256\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M216,56V200a16,16,0,0,1-16,16H56a16,16,0,0,1-16-16V56A16,16,0,0,1,56,40H200A16,16,0,0,1,216,56Z\"/></svg>"}; // Phosphor (regular), MIT
+  const LOGO = {"groq": "<svg aria-hidden=\"true\" fill=\"currentColor\" fill-rule=\"evenodd\" style=\"flex:none;line-height:1\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><title>Groq</title><path d=\"M12.036 2c-3.853-.035-7 3-7.036 6.781-.035 3.782 3.055 6.872 6.908 6.907h2.42v-2.566h-2.292c-2.407.028-4.38-1.866-4.408-4.23-.029-2.362 1.901-4.298 4.308-4.326h.1c2.407 0 4.358 1.915 4.365 4.278v6.305c0 2.342-1.944 4.25-4.323 4.279a4.375 4.375 0 01-3.033-1.252l-1.851 1.818A7 7 0 0012.029 22h.092c3.803-.056 6.858-3.083 6.879-6.816v-6.5C18.907 4.963 15.817 2 12.036 2z\"></path></svg>", "gemini": "<svg aria-hidden=\"true\" style=\"flex:none;line-height:1\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><title>Gemini</title><path d=\"M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z\" fill=\"#3186FF\"></path><path d=\"M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z\" fill=\"url(#lobe-icons-gemini-0-_R_0_)\"></path><path d=\"M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z\" fill=\"url(#lobe-icons-gemini-1-_R_0_)\"></path><path d=\"M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z\" fill=\"url(#lobe-icons-gemini-2-_R_0_)\"></path><defs><linearGradient gradientUnits=\"userSpaceOnUse\" id=\"lobe-icons-gemini-0-_R_0_\" x1=\"7\" x2=\"11\" y1=\"15.5\" y2=\"12\"><stop stop-color=\"#08B962\"></stop><stop offset=\"1\" stop-color=\"#08B962\" stop-opacity=\"0\"></stop></linearGradient><linearGradient gradientUnits=\"userSpaceOnUse\" id=\"lobe-icons-gemini-1-_R_0_\" x1=\"8\" x2=\"11.5\" y1=\"5.5\" y2=\"11\"><stop stop-color=\"#F94543\"></stop><stop offset=\"1\" stop-color=\"#F94543\" stop-opacity=\"0\"></stop></linearGradient><linearGradient gradientUnits=\"userSpaceOnUse\" id=\"lobe-icons-gemini-2-_R_0_\" x1=\"3.5\" x2=\"17.5\" y1=\"13.5\" y2=\"12\"><stop stop-color=\"#FABC12\"></stop><stop offset=\".46\" stop-color=\"#FABC12\" stop-opacity=\"0\"></stop></linearGradient></defs></svg>", "zai": "<svg aria-hidden=\"true\" fill=\"currentColor\" fill-rule=\"evenodd\" style=\"flex:none;line-height:1\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><title>Z.ai</title><path d=\"M12.105 2L9.927 4.953H.653L2.83 2h9.276zM23.254 19.048L21.078 22h-9.242l2.174-2.952h9.244zM24 2L9.264 22H0L14.736 2H24z\"></path></svg>", "deepseek": "<svg aria-hidden=\"true\" style=\"flex:none;line-height:1\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><title>DeepSeek</title><path d=\"M23.748 4.482c-.254-.124-.364.113-.512.234-.051.039-.094.09-.137.136-.372.397-.806.657-1.373.626-.829-.046-1.537.214-2.163.848-.133-.782-.575-1.248-1.247-1.548-.352-.156-.708-.311-.955-.65-.172-.241-.219-.51-.305-.774-.055-.16-.11-.323-.293-.35-.2-.031-.278.136-.356.276-.313.572-.434 1.202-.422 1.84.027 1.436.633 2.58 1.838 3.393.137.093.172.187.129.323-.082.28-.18.552-.266.833-.055.179-.137.217-.329.14a5.526 5.526 0 01-1.736-1.18c-.857-.828-1.631-1.742-2.597-2.458a11.365 11.365 0 00-.689-.471c-.985-.957.13-1.743.388-1.836.27-.098.093-.432-.779-.428-.872.004-1.67.295-2.687.684a3.055 3.055 0 01-.465.137 9.597 9.597 0 00-2.883-.102c-1.885.21-3.39 1.102-4.497 2.623C.082 8.606-.231 10.684.152 12.85c.403 2.284 1.569 4.175 3.36 5.653 1.858 1.533 3.997 2.284 6.438 2.14 1.482-.085 3.133-.284 4.994-1.86.47.234.962.327 1.78.397.63.059 1.236-.03 1.705-.128.735-.156.684-.837.419-.961-2.155-1.004-1.682-.595-2.113-.926 1.096-1.296 2.746-2.642 3.392-7.003.05-.347.007-.565 0-.845-.004-.17.035-.237.23-.256a4.173 4.173 0 001.545-.475c1.396-.763 1.96-2.015 2.093-3.517.02-.23-.004-.467-.247-.588zM11.581 18c-2.089-1.642-3.102-2.183-3.52-2.16-.392.024-.321.471-.235.763.09.288.207.486.371.739.114.167.192.416-.113.603-.673.416-1.842-.14-1.897-.167-1.361-.802-2.5-1.86-3.301-3.307-.774-1.393-1.224-2.887-1.298-4.482-.02-.386.093-.522.477-.592a4.696 4.696 0 011.529-.039c2.132.312 3.946 1.265 5.468 2.774.868.86 1.525 1.887 2.202 2.891.72 1.066 1.494 2.082 2.48 2.914.348.292.625.514.891.677-.802.09-2.14.11-3.054-.614zm1-6.44a.306.306 0 01.415-.287.302.302 0 01.2.288.306.306 0 01-.31.307.303.303 0 01-.304-.308zm3.11 1.596c-.2.081-.399.151-.59.16a1.245 1.245 0 01-.798-.254c-.274-.23-.47-.358-.552-.758a1.73 1.73 0 01.016-.588c.07-.327-.008-.537-.239-.727-.187-.156-.426-.199-.688-.199a.559.559 0 01-.254-.078c-.11-.054-.2-.19-.114-.358.028-.054.16-.186.192-.21.356-.202.767-.136 1.146.016.352.144.618.408 1.001.782.391.451.462.576.685.914.176.265.336.537.445.848.067.195-.019.354-.25.452z\" fill=\"#4D6BFE\"></path></svg>", "openrouter": "<svg aria-hidden=\"true\" fill=\"currentColor\" fill-rule=\"evenodd\" style=\"flex:none;line-height:1\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><title>OpenRouter</title><path d=\"M18.654 3.87a5.087 5.087 0 110 10.174L23.7 19.09c.64.641.187 1.737-.72 1.737H8.48a8.479 8.479 0 010-16.958h10.175zM8.479 7.26a5.087 5.087 0 100 10.176 5.087 5.087 0 000-10.175z\"></path></svg>"}; // provider logos: @lobehub/icons (MIT)
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const wsUrl = new URLSearchParams(location.search).get("ws");
+  if (new URLSearchParams(location.search).get("glass")) document.documentElement.classList.add("glass");
+  const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  const capital = (s) => (s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : "");
+
+  $("close").innerHTML = ICON.x;
+  $("newchat").innerHTML = ICON.pencil;
+  $("more").innerHTML = ICON.more;
+  $("caret").innerHTML = ICON.caretDown;
+  $("curtab-caret").innerHTML = ICON.caretDown;
+  $("browser-ic").innerHTML = ICON.globe;
+  $("at").innerHTML = ICON.at;
+  $("model-caret").innerHTML = ICON.caretDown;
+  document.querySelector('[data-mode="chat"]').innerHTML = `${ICON.chat}<span>Chat</span>`;
+  document.querySelector('[data-mode="direct"]').innerHTML = `${ICON.bolt}<span>Direct</span>`;
+
+  // ── state ───────────────────────────────────────────────
+  let ws = null;
+  let model = "";
+  let browserBusy = false; // switching browsers: the server restarts, so disconnects are expected
+  let view = "chat"; // chat | chats | saved | secrets | sitenotes
+  let current = null; // the message awaiting a result
+  let busy = false;
+  let lastText = "", lastMode = "chat"; // for Retry
+  let saved = [];
+  let secrets = [];
+  let addingSecret = false;
+  let addingSaved = false;
+  let siteNotes = { current: "", sites: [] };
+  let addingNote = false;
+  let usage = null;
+  let recall = -1;
+  let prompt = null; // keyboard shortcuts for the visible prompt: { primary, cancel, numbered: [fn] }
+  let newId = null; // message to animate in
+  let models = null; // { preferred, models: [{ id, label, provider, vision, resting }], missing: [{ name, label, env, keyUrl }] }
+  // the server's task state: { running, queued, position: { n, of }, side, paused, canTakeOver, background, undo }
+  let queue = null;
+
+  // Chat: plain-language requests, each done as a goal that knows the conversation.
+  // Direct: the instant command mode (one step, no back-and-forth).
+  let mode = localStorage.getItem("vb.mode") === "direct" ? "direct" : "chat";
+  function setMode(m) {
+    mode = m === "direct" ? "direct" : "chat";
+    localStorage.setItem("vb.mode", mode);
+    for (const b of document.querySelectorAll(".modes [data-mode]")) b.setAttribute("aria-checked", String(b.dataset.mode === mode));
+    cmd.dataset.placeholder = mode === "chat" ? "Ask anything, or tell it what to do" : "One step: scroll down, click sign in, next tab";
+    renderModel();
+    if (!chat().msgs.length) render();
+  }
+  for (const b of document.querySelectorAll(".modes [data-mode]")) {
+    b.addEventListener("mousedown", (e) => e.preventDefault());
+    b.onclick = () => { setMode(b.dataset.mode); caretToEnd(); };
+  }
+
+  // ── chats, kept between launches ────────────────────────
+  // { id, title, at, msgs: [{ id, text, icons, mode, at, status, detail, steps, note, table, recipe, resolved, cost, done }] }
+  const CHATS_KEY = "vb.chats.v1";
+  const chats = (() => {
+    try {
+      const list = JSON.parse(localStorage.getItem(CHATS_KEY) || "[]");
+      for (const c of list) for (const m of c.msgs || []) {
+        delete m.ask;
+        if (m.status === "running") { m.status = "ignored"; m.detail = "Interrupted"; for (const s of m.steps || []) if (s.status === "running") s.status = "ignored"; }
+        if (m.status === "queued") { m.status = "ignored"; m.detail = "Not run"; }
+      }
+      return Array.isArray(list) ? list.filter((c) => c && c.id && Array.isArray(c.msgs)) : [];
+    } catch { return []; }
+  })();
+  let activeId = localStorage.getItem("vb.chat") || null;
+  const chat = () => {
+    let c = chats.find((x) => x.id === activeId);
+    if (!c) { c = chats[0] && !chats[0].msgs.length ? chats[0] : { id: uid(), title: "", at: Date.now(), msgs: [] }; if (!chats.includes(c)) chats.unshift(c); activeId = c.id; }
+    return c;
+  };
+  let saveTimer = null;
+  const persist = () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      localStorage.setItem("vb.chat", activeId || "");
+      // previews are big: keep the 12 newest; older ones fall back to "open the saved file"
+      let n = 0;
+      const keep = chats.filter((c) => c.msgs.length).slice(0, 40).map((c) => ({
+        ...c,
+        msgs: c.msgs.slice(-200).reverse().map((m) => (m.images ? { ...m, images: m.images.map((im) => (im.src && n++ < 12 ? im : { ...im, src: undefined })) } : m)).reverse(),
+      }));
+      localStorage.setItem(CHATS_KEY, JSON.stringify(keep, (k, v) => (k === "ask" ? undefined : v)));
+    }, 200);
+  };
+  // A running task keeps going when you switch chats; its reply lands in its own chat.
+  function newChat() {
+    const c = chat();
+    if (c.msgs.length) { const n = { id: uid(), title: "", at: Date.now(), msgs: [] }; chats.unshift(n); activeId = n.id; }
+    view = "chat";
+    clearStatus();
+    render();
+    caretToEnd();
+  }
+  function openChat(id) {
+    activeId = id;
+    view = "chat";
+    render(true);
+    caretToEnd();
+  }
+  function deleteChat(id) {
+    const i = chats.findIndex((c) => c.id === id);
+    if (i < 0) return;
+    chats.splice(i, 1);
+    send({ type: "chat:delete", thread: id });
+    if (activeId === id) activeId = null;
+    render();
+  }
+  const send = (obj) => ws && ws.readyState === 1 && (ws.send(JSON.stringify(obj)), true);
+
+  // ── spend meter ─────────────────────────────────────────
+  const money = (usd) => (usd < 0.01 ? `${(usd * 100).toFixed(usd < 0.001 ? 3 : 2)}¢` : `$${usd.toFixed(usd < 0.1 ? 3 : 2)}`);
+  function renderSpend() {
+    const b = $("spend");
+    if (!usage) return;
+    b.hidden = false;
+    const lim = usage.limitUsd;
+    b.textContent = money(usage.todayUsd);
+    b.title = `AI spending today: ${money(usage.todayUsd)}${lim ? ` of your $${lim.toFixed(2)} daily limit` : " (no daily limit)"}. Click to change the limit.`;
+    b.classList.toggle("near", Boolean(lim && usage.todayUsd >= lim * 0.8));
+  }
+  function openSpend() {
+    if (!usage) return;
+    const s = $("status");
+    const models = Object.entries(usage.byModel || {}).sort((a, b) => b[1].usd - a[1].usd).slice(0, 3).map(([m, v]) => `${m} ${money(v.usd)} (${v.calls})`).join(", ");
+    s.className = "status on info";
+    s.innerHTML = `<form class="form" id="limit-form" style="flex:1;padding:0;align-items:center">
+      <span class="msgt" style="flex:1 1 auto" title="${esc(models)}">Today ${money(usage.todayUsd)} in ${usage.calls} AI call${usage.calls === 1 ? "" : "s"}, this week ${money(usage.weekUsd)}. <span style="color:var(--text-3)">Daily limit ($):</span></span>
+      <input class="field" id="limit-usd" inputmode="decimal" placeholder="None" aria-label="Daily limit in dollars" value="${usage.limitUsd ?? ""}" style="flex:0 0 64px" />
+      <button class="btn primary" type="submit">Set</button></form>`;
+    clearTimeout(statusTimer);
+    $("limit-usd").select();
+    $("limit-form").onsubmit = (e) => {
+      e.preventDefault();
+      const v = $("limit-usd").value.trim().replace(/^\$/, "");
+      send({ type: "usage:limit", usd: v ? Number(v) : null });
+      setStatus(v && Number(v) > 0 ? `AI calls stop for the day once they reach $${Number(v).toFixed(2)}.` : "No daily limit.", "ok");
+      caretToEnd();
+    };
+  }
+  function tableHTML(t) {
+    const more = t.total > t.rows.length ? `<div class="more">and ${t.total - t.rows.length} more row${t.total - t.rows.length === 1 ? "" : "s"}</div>` : "";
+    return `<div class="tbl"><table><thead><tr>${t.columns.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${t.rows.map((r) => `<tr>${r.map((c) => `<td title="${esc(c)}">${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>${more}</div>`;
+  }
+  const recipeSlots = (c) => (c.recipe || []).flatMap((st) => [st.slot, ...(st.fields || []).map((f) => f.slot)]).filter(Boolean);
+
+  // ── accent: the user's macOS accent colour ──────────────
+  function applyAccent(hex) {
+    if (!/^#[0-9a-f]{6}$/i.test(hex || "")) return;
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    const lin = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    document.documentElement.style.setProperty("--accent", hex);
+    let k = 1, fill = [r, g, b];
+    const lum = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+    while (1.05 / (lum(fill) + 0.05) < 4.5 && k > 0.4) { k -= 0.03; fill = [r * k, g * k, b * k]; }
+    const toHex = (c) => "#" + c.map((v) => Math.round(v * 255).toString(16).padStart(2, "0")).join("");
+    document.documentElement.style.setProperty("--accent-fill", toHex(fill));
+  }
+  window.bar.getAccent?.().then(applyAccent).catch(() => {});
+
+  // ── status line: connection, browser, saving; replies live in the chat ──
+  let statusTimer = null;
+  function setStatus(text, kind = "info", actions = []) {
+    clearTimeout(statusTimer);
+    const s = $("status");
+    const ic = kind === "busy" ? '<span class="spin"></span>' : kind === "ok" ? ICON.check : kind === "warn" || kind === "err" ? ICON.warn : "";
+    s.className = `status on ${kind}`;
+    s.innerHTML = `${ic ? `<span class="ic">${ic}</span>` : ""}<span class="msgt">${esc(text)}</span><span class="acts"></span>`;
+    for (const a of actions) s.querySelector(".acts").appendChild(button(a));
+    if (kind === "ok" || kind === "info") statusTimer = setTimeout(clearStatus, 5000);
+  }
+  function clearStatus() { clearTimeout(statusTimer); $("status").className = "status"; $("status").innerHTML = ""; }
+  /** { label, kbd, primary, n, link, icon, action } -> <button> */
+  function button(a) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = a.link ? "link" : `btn${a.primary ? " primary" : ""}`;
+    b.innerHTML = `${a.icon ? ICON[a.icon] : ""}${a.n ? `<span class="n">${a.n}</span>` : ""}<span>${esc(a.label)}</span>${a.kbd ? `<kbd>${esc(a.kbd)}</kbd>` : ""}`;
+    b.onclick = (e) => { e.stopPropagation(); a.action(); };
+    return b;
+  }
+
+  // ── prompts: confirm / allow / which one, inside the reply ──
+  function ask(text, choices, { numbered = false } = {}) {
+    if (!current) { setStatus(text, "warn", choices); return; }
+    current.ask = { text, choices };
+    prompt = {
+      primary: choices.find((c) => c.primary)?.action || null,
+      cancel: choices.find((c) => c.cancel)?.action || null,
+      numbered: numbered ? choices.map((c) => c.action) : null,
+    };
+    render();
+  }
+  function closeAsk() {
+    if (current) delete current.ask;
+    prompt = null;
+    render();
+  }
+  const answer = (fn) => () => { closeAsk(); fn(); };
+
+  // ── rendering ───────────────────────────────────────────
+  const shortUrl = (u) => {
+    try { const x = new URL(u); return (x.host.replace(/^www\./, "") + decodeURIComponent(x.pathname + x.search)).replace(/\/$/, "").slice(0, 90); }
+    catch { return String(u || "").slice(0, 90); }
+  };
+  const ago = (t) => {
+    const s = Math.round((Date.now() - t) / 1000);
+    return s < 10 ? "now" : s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h` : `${Math.floor(s / 86400)}d`;
+  };
+  const secs = (ms) => (ms < 60000 ? `${Math.max(1, Math.round(ms / 1000))} s` : `${Math.floor(ms / 60000)} min ${Math.round((ms % 60000) / 1000)} s`);
+  const MARK = { ok: "check", fail: "x", ignored: "skip", awaiting: "hand" };
+  const LABEL = { ok: "Done", fail: "Failed", ignored: "Skipped", awaiting: "Waiting for you", running: "Running", pending: "Not started" };
+  const mark = (status) =>
+    status === "running"
+      ? `<span class="mark" title="Running"><span class="spin"></span></span>`
+      : `<span class="mark ${status}" title="${LABEL[status] || ""}">${MARK[status] ? ICON[MARK[status]] : ""}<span class="sr">${LABEL[status] || ""}</span></span>`;
+
+  function render(jump = false) {
+    persist();
+    const box = $("chat");
+    const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+    if (view === "saved") renderSaved(box);
+    else if (view === "secrets") renderSecrets(box);
+    else if (view === "chats") renderChats(box);
+    else if (view === "sitenotes") renderSiteNotes(box);
+    else renderChat(box);
+    paintChips(box);
+    if (view === "chat" && (jump || nearBottom || newId)) box.scrollTop = box.scrollHeight;
+    newId = null;
+  }
+
+  const EXAMPLES = {
+    chat: [
+      "open youtube and play some lo-fi beats",
+      "what is this page about?",
+      "find a highly rated pizza place near me",
+      "fill this form with realistic test data",
+    ],
+    direct: ["scroll down", "go back", "next tab", "click sign in"],
+  };
+  function renderChat(box) {
+    const c = chat();
+    if (!c.msgs.length) {
+      box.innerHTML = `<div class="hello">
+        <h1>${mode === "chat" ? "What can I do for you?" : "Direct mode"}</h1>
+        <p>${mode === "chat" ? "Ask in plain words, then follow up: “another one”, “no, the second”, “now share it”." : "Instant one-step commands, no back-and-forth. Switch to Chat for anything with several steps."}</p>
+        <div class="ex">${EXAMPLES[mode].map((x) => `<button class="example" type="button" data-example="${esc(x)}">${ICON.chevron}<span>${esc(x)}</span></button>`).join("")}</div>
+        <div class="keys"><span><kbd>@</kbd>mention a tab</span><span><kbd>⇥</kbd>${mode === "chat" ? "Direct mode" : "Chat mode"}</span><span><kbd id="hk">${esc(hotkeyLabel)}</kbd>open from anywhere</span><span title="Hold Option while the panel is focused, or click the mic"><kbd>⌥</kbd>hold to talk</span></div>
+      </div>`;
+      return;
+    }
+    box.innerHTML = c.msgs.map(msgHTML).join("");
+    for (const el of box.querySelectorAll("[data-ask]")) {
+      const m = c.msgs.find((x) => x.id === el.closest(".msg").dataset.id);
+      for (const ch of m?.ask?.choices || []) el.appendChild(button(ch));
+    }
+  }
+
+  function msgHTML(m) {
+    const queued = m.status === "queued";
+    const qn = queued ? (queue?.queued || []).findIndex((x) => x.id === m.id) : -1;
+    const user = `<div class="msg user${queued ? " queued" : ""}" data-id="${m.id}"${m.id === newId ? " data-new" : ""}>
+      ${queued ? `<span class="qtag">${ICON.clock}${qn === 0 ? "Up next" : "Queued"}<button class="qx" type="button" data-act="unqueue" title="Don't run this message">${ICON.x}Remove</button></span>` : ""}
+      ${m.mode === "direct" ? `<span class="mode">${ICON.bolt}Direct</span>` : m.voice ? `<span class="mode voiced">${ICON.mic}Spoken</span>` : ""}
+      <div class="urow"><div class="uacts"><button class="act" type="button" data-act="edit" title="Edit and send again" aria-label="Edit">${ICON.pencil}</button><button class="act" type="button" data-act="save" title="Save as a named command" aria-label="Save">${ICON.bookmark}</button></div><div class="bubble">${richText(m.text, m.icons)}</div></div>
+    </div>`;
+    return user + (queued ? "" : agentHTML(m));
+  }
+
+  function agentHTML(m) {
+    const running = m.status === "running";
+    const direct = m.mode === "direct";
+    const steps = m.steps || [];
+    const showSteps = steps.length && (running || m.ask || m.showSteps);
+    const doneSteps = steps.filter((s) => s.status === "ok").length;
+    let body = "";
+    if (m.resolved) body += `<div class="understood"><b>Understood as</b>${esc(m.resolved)}</div>`;
+    if (running && !m.ask) {
+      const now = m.progress || (steps.length ? steps.at(-1).text : mode === "direct" ? "" : "Looking at the page");
+      body += `<div class="working"><span class="dots"><i></i><i></i><i></i></span>${now ? `<span class="now">${esc(capital(now))}</span>` : ""}</div>`;
+    }
+    if (!running && m.detail) {
+      if (direct) body += `<div class="text"><span class="mk">${MARK[m.status] ? ICON[MARK[m.status]] : ""}</span><span>${esc(m.detail)}${m.cost >= 0.00005 ? `<span class="dcost">${money(m.cost)}</span>` : ""}</span></div>`;
+      else body += `${m.status === "fail" ? `<div class="failhead">${ICON.warn}Didn't finish</div>` : ""}<div class="text">${esc(m.detail)}</div>`;
+    }
+    if (m.note) body += `<p class="note">${esc(m.note)}</p>`;
+    else if (m.bgTab && !running) body += `<p class="note">In a background tab, so yours stayed as it was. <button class="inlink" type="button" data-act="show-tab" title="Bring “${esc(m.bgTab)}” to the front of your browser">Show it</button></p>`;
+    if (m.table) body += tableHTML(m.table);
+    if (m.images?.length) body += `<div class="shots">${m.images.map((im, k) => `<figure class="shot">
+      ${im.src ? `<img src="${esc(im.src)}" alt="Screenshot${im.title ? ` of ${esc(im.title)}` : ""}" data-act="shot-open" data-k="${k}" title="Open the full screenshot">` : `<button type="button" class="gone" data-act="shot-open" data-k="${k}">${ICON.image}<span>Screenshot (open the saved file)</span></button>`}
+      ${im.path ? `<div class="sacts"><button type="button" data-act="shot-copy" data-k="${k}">${ICON.copy}<span>Copy</span></button><button type="button" data-act="shot-reveal" data-k="${k}">${ICON.image}<span>Show in Finder</span></button></div>` : ""}
+    </figure>`).join("")}</div>`;
+    if (showSteps) body += `<ol class="steps">${steps.map((s) => `<li class="step ${s.status}">${mark(s.status)}<span class="t">${esc(s.text)}${s.detail ? `<small>${esc(s.detail)}</small>` : ""}</span></li>`).join("")}</ol>`;
+    if (m.ask) body += `<div class="ask"><p>${esc(m.ask.text)}</p><div class="acts" data-ask></div></div>`;
+    if (!running) {
+      const info = [];
+      if (m.done && m.at && !direct) info.push(`Worked for ${secs(m.done - m.at)}`);
+      const names = (m.models || []).map((x) => String(x).split("/").pop());
+      if (names.length && !direct) info.push(names.length > 1 ? `${names[0]} +${names.length - 1}` : names[0]);
+      if (m.cost >= 0.00005 && !direct) info.push(money(m.cost));
+      const acts = [
+        steps.length && !direct ? `<button class="act tog" type="button" data-act="steps" aria-expanded="${Boolean(m.showSteps)}" title="Show the steps">${ICON.chevron}<span>${steps.length} step${steps.length === 1 ? "" : "s"}</span></button>` : "",
+        info.length ? `<span class="info"${names.length > 1 ? ` title="Models used: ${esc(names.join(", "))}"` : ""}>${esc(info.join(" · "))}</span>` : "",
+        m.detail && !direct ? `<button class="act hov" type="button" data-act="copy" title="Copy" aria-label="Copy">${ICON.copy}</button>` : "",
+        m.detail ? speakActHTML(m) : "",
+        m.recipe ? `<button class="act hov" type="button" data-act="save-recipe" title="Save these ${doneSteps || steps.length} steps as a command that runs without the AI" aria-label="Save as command">${ICON.bookmark}</button>` : "",
+        m.status === "fail" || m.status === "ignored" ? `<button class="act hov" type="button" data-act="retry" title="Try again" aria-label="Try again">${ICON.retry}</button>` : "",
+        m.shot ? `<button class="act hov" type="button" data-act="open" title="${m.status === "fail" ? "Screenshot of the page" : "Open"}" aria-label="Open">${ICON.image}</button>` : "",
+        m.alt ? `<button class="link hov" type="button" data-act="alt">${esc(m.alt.label)}</button>` : "",
+        queue?.undo?.id === m.id && !busy ? `<button class="link" type="button" data-act="undo-task" title="Put back the tabs this request changed: ${queue.undo.changes} change${queue.undo.changes === 1 ? "" : "s"}">${ICON.undo}Go back to where I was</button>` : "",
+        m.link ? `<button class="link" type="button" data-act="link" title="${esc(m.link.url)}">${esc(m.link.label)}</button>` : "",
+      ].join("");
+      if (acts.replace(/\s/g, "")) body += `<div class="meta">${acts}</div>`;
+      for (const [k, l] of (m.learned || []).entries()) body += `<div class="learned" title="Saved as a note for ${esc(l.site)}. It's used the next time you're there.">${ICON.bulb}<span class="lt">Learned: ${esc(l.text)}<button class="link" type="button" data-act="unlearn" data-k="${k}" title="Forget this note">Undo</button></span></div>`;
+    }
+    return `<div class="msg agent ${m.status}${direct ? " direct" : ""}" data-id="${m.id}" role="article" aria-busy="${running}">${body}</div>`;
+  }
+
+  function renderChats(box) {
+    const list = chats.filter((c) => c.msgs.length);
+    box.innerHTML = `<div class="view">
+      <div class="vhead"><h2>Past chats</h2><button class="back" type="button" data-act="back">${ICON.chevron}Back</button></div>
+      ${list.length ? list.map((c) => `
+        <div class="row${c.id === activeId ? " on" : ""}" role="button" tabindex="0" data-chat="${c.id}">
+          <span class="rmark">${ICON.chat}</span>
+          <div class="main"><div class="line"><span class="cmd">${richText(c.title || c.msgs[0]?.text || "Untitled")}</span><span class="time">${ago(c.msgs.at(-1)?.at || c.at)}</span></div>
+            <div class="sub">${esc(c.msgs.at(-1)?.detail || c.msgs.at(-1)?.text || "")}</div></div>
+          <div class="acts-row"><button class="act" type="button" data-act="delete-chat" data-id="${c.id}" title="Delete chat" aria-label="Delete chat">${ICON.trash}</button></div>
+        </div>`).join("") : `<p class="empty">No chats yet.</p>`}
+    </div>`;
+  }
+
+  function renderSaved(box) {
+    box.innerHTML = `<div class="view">
+      <div class="vhead"><h2>Saved commands</h2><button class="btn" id="add-saved" type="button">${ICON.plus}<span>New</span></button><button class="back" type="button" data-act="back">${ICON.chevron}Back</button></div>
+      <p class="vnote">Run one by typing its name. Put <span class="token">{}</span> where a value goes, then type it after the name.</p>
+      ${addingSaved ? `<form class="form" id="saved-form">
+        <input class="field" id="saved-name" placeholder="Name, e.g. yt" aria-label="Name" autocomplete="off" spellcheck="false" style="flex:0 0 90px" />
+        <input class="field" id="saved-text" placeholder="e.g. open youtube, search for {}" aria-label="Command" autocomplete="off" spellcheck="false" />
+        <button class="btn primary" type="submit">Save</button></form>` : ""}
+      ${saved.map((c) => `
+      <div class="row" role="button" tabindex="0" data-saved="${esc(c.name)}" title="Put it in the message box">
+        <span class="rmark">${ICON.bookmark}</span>
+        <div class="main"><div class="line"><span class="cmd name">${esc(c.name)}</span><span class="time">${c.recipe ? `${c.recipe.length} step${c.recipe.length === 1 ? "" : "s"}, no AI` : ""}</span></div><div class="sub">${esc(c.text)}${recipeSlots(c).length ? `<br>Values: ${recipeSlots(c).map((n) => `<span class="token">${esc(n)}</span>`).join(" ")}` : ""}</div></div>
+        <div class="acts-row">
+          <button class="act" type="button" data-act="run-saved" data-name="${esc(c.name)}" title="Run" aria-label="Run">${ICON.play}</button>
+          <button class="act" type="button" data-act="delete-cmd" data-name="${esc(c.name)}" title="Delete" aria-label="Delete">${ICON.trash}</button>
+        </div>
+      </div>`).join("")}
+      ${!saved.length && !addingSaved ? `<p class="empty">Nothing saved yet. After a request finishes, use the bookmark under the reply to keep its steps.</p>` : ""}
+    </div>`;
+    $("add-saved").onclick = () => { addingSaved = !addingSaved; render(); if (addingSaved) $("saved-name").focus(); };
+    $("saved-form")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = $("saved-name").value.trim(), text = $("saved-text").value.trim();
+      if (!name || !text) return;
+      send({ type: "commands:save", name, text });
+      addingSaved = false;
+      setStatus(`Saved. Type “${name.toLowerCase().replace(/\s+/g, "-")}${hasSlots(text) ? " …" : ""}” to run it.`, "ok");
+    });
+  }
+
+  function renderSecrets(box) {
+    box.innerHTML = `<div class="view">
+      <div class="vhead"><h2>Passwords</h2><button class="btn" id="add-secret" type="button">${ICON.plus}<span>Add</span></button><button class="back" type="button" data-act="back">${ICON.chevron}Back</button></div>
+      <p class="vnote">Use <span class="token">{{name}}</span> in a message. The value is typed into the page and never sent to the AI.</p>
+      ${addingSecret ? `<form class="form" id="secret-form">
+        <input class="field" id="secret-name" placeholder="Name, e.g. dev-password" aria-label="Name" autocomplete="off" spellcheck="false" />
+        <input class="field" id="secret-value" type="password" placeholder="Password" aria-label="Password" autocomplete="new-password" />
+        <button class="btn primary" type="submit">Save</button></form>` : ""}
+      ${secrets.map((n) => `
+        <div class="row" tabindex="0">
+          <span class="rmark">${ICON.key}</span>
+          <div class="main"><div class="line"><span class="cmd token">{{${esc(n)}}}</span><span class="time">In Keychain</span></div></div>
+          <div class="acts-row"><button class="act" type="button" data-act="delete-secret" data-name="${esc(n)}" title="Delete from Keychain" aria-label="Delete">${ICON.trash}</button></div>
+        </div>`).join("")}
+      ${!secrets.length && !addingSecret ? `<p class="empty">No passwords yet.</p>` : ""}
+    </div>`;
+    $("add-secret").onclick = () => { addingSecret = !addingSecret; render(); if (addingSecret) $("secret-name").focus(); };
+    $("secret-form")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = $("secret-name").value.trim(), value = $("secret-value").value;
+      if (!name || !value) return setStatus("Give the password a name and a value.", "warn");
+      send({ type: "secrets:set", name, value });
+      addingSecret = false;
+      setStatus(`Saved {{${name}}} to your Keychain.`, "ok");
+    });
+  }
+
+  const SOURCE = { learned: ["bulb", "Learned"], starter: ["star", "Built in"], user: ["pencil", "Added by you"] };
+  function renderSiteNotes(box) {
+    const sites = [...siteNotes.sites];
+    if (siteNotes.current && !sites.some((x) => x.key === siteNotes.current)) sites.unshift({ key: siteNotes.current, label: "", current: true, notes: [] });
+    box.innerHTML = `<div class="view">
+      <div class="vhead"><h2>Site notes</h2><button class="btn" id="add-note" type="button">${ICON.plus}<span>Add</span></button><button class="back" type="button" data-act="back">${ICON.chevron}Back</button></div>
+      <p class="vnote">Tips it uses on each site. It picks up more after tasks, or say “remember that here …”.</p>
+      ${addingNote ? `<form class="form" id="note-form">
+        <input class="field" id="note-site" placeholder="Site, e.g. youtube.com" aria-label="Site" value="${esc(siteNotes.current)}" autocomplete="off" spellcheck="false" style="flex:0 0 120px" />
+        <input class="field" id="note-text" placeholder="e.g. Bills are under Sales" aria-label="Note" autocomplete="off" maxlength="200" />
+        <button class="btn primary" type="submit">Save</button></form>` : ""}
+      ${sites.map((g) => `<div class="sgroup">
+        <div class="shead"><span>${esc(g.label || g.key)}</span>${g.label ? `<span class="key">${esc(g.key)}</span>` : ""}${g.current ? `<span class="tag">This tab</span>` : ""}</div>
+        ${g.notes.map((n) => `<div class="row" tabindex="0">
+          <span class="rmark">${ICON[(SOURCE[n.source] || SOURCE.user)[0]]}</span>
+          <div class="main"><div class="ntext">${esc(n.text)}</div><div class="nsrc">${(SOURCE[n.source] || SOURCE.user)[1]}${n.hits ? ` · used ${n.hits} time${n.hits === 1 ? "" : "s"}` : ""}</div></div>
+          <div class="acts-row"><button class="act" type="button" data-act="delete-note" data-site="${esc(g.key)}" data-id="${esc(n.id)}" title="Delete note" aria-label="Delete note">${ICON.trash}</button></div>
+        </div>`).join("") || `<p class="empty">Nothing yet for this site.</p>`}
+      </div>`).join("")}
+      ${!sites.length && !addingNote ? `<p class="empty">No notes yet.</p>` : ""}
+    </div>`;
+    $("add-note").onclick = () => { addingNote = !addingNote; render(); if (addingNote) $("note-text").focus(); };
+    $("note-form")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const site = $("note-site").value.trim(), text = $("note-text").value.trim();
+      if (!text) return setStatus("Write the note first.", "warn");
+      send({ type: "sitenotes:add", site, text });
+      addingNote = false;
+      render();
+      setStatus(`Saved for ${site || "this site"}.`, "ok");
+    });
+  }
+
+  function setView(v) {
+    view = v;
+    if (v === "secrets") send({ type: "secrets:list" });
+    if (v === "sitenotes") send({ type: "sitenotes:list" });
+    render(v === "chat");
+  }
+
+  $("chat").addEventListener("click", (e) => {
+    const ex = e.target.closest("[data-example]");
+    if (ex) return setCmd(ex.dataset.example);
+    const act = e.target.closest("[data-act]");
+    const msgEl = e.target.closest(".msg");
+    const m = msgEl ? chat().msgs.find((x) => x.id === msgEl.dataset.id) : null;
+    if (act) {
+      e.stopPropagation();
+      const a = act.dataset.act, name = act.dataset.name;
+      if (a === "back") setView("chat");
+      else if (a === "steps" && m) { m.showSteps = !m.showSteps; render(); }
+      else if (a === "copy" && m) copyText(m.detail);
+      else if (a === "speak" && m) speakMsg(m);
+      else if (a === "speak-stop") stopSpeaking();
+      else if (a === "edit" && m) { setMode(m.mode === "direct" ? "direct" : "chat"); setCmd(m.text); }
+      else if (a === "save" && m) askSaveAs(m.text, null);
+      else if (a === "save-recipe" && m) askSaveAs(m.text, m.recipe);
+      else if (a === "retry" && m) retry(m);
+      else if (a === "open" && m?.shot) window.bar.openPath(m.shot);
+      else if (a === "shot-open" && m?.images) window.bar.openPath(m.images[Number(act.dataset.k)]?.path);
+      else if (a === "shot-reveal" && m?.images) window.bar.revealPath?.(m.images[Number(act.dataset.k)]?.path);
+      else if (a === "shot-copy" && m?.images) window.bar.copyImage?.(m.images[Number(act.dataset.k)]?.path).then((ok) => setStatus(ok ? "Screenshot copied. Paste it anywhere." : "Couldn't copy the screenshot.", ok ? "ok" : "err"));
+      else if (a === "alt" && m?.alt) run(m.alt.text, { as: m.alt.mode });
+      else if (a === "unqueue" && m) { send({ type: "queue:remove", id: m.id }); m.status = "ignored"; m.detail = "Removed from the queue"; m.done = Date.now(); render(); }
+      else if (a === "undo-task" && m) { send({ type: "task:undo", id: m.id }); m.note = "Going back…"; queue = { ...queue, undo: null }; render(); }
+      else if (a === "link" && m?.link) window.bar.openUrl?.(m.link.url);
+      else if (a === "show-tab") send({ type: "tab:show" });
+      else if (a === "delete-chat") deleteChat(act.dataset.id);
+      else if (a === "run-saved") { const c = saved.find((x) => x.name === name); setView("chat"); if (c && hasSlots(c.text)) { setCmd(`${name} `); setStatus(`Type ${slotNames(c.text)} after the name, then press Enter.`, "info"); } else run(name); }
+      else if (a === "delete-cmd") { send({ type: "commands:delete", name }); setStatus(`Deleted “${name}”.`, "ok"); }
+      else if (a === "delete-note") { send({ type: "sitenotes:delete", site: act.dataset.site, id: act.dataset.id }); setStatus("Note deleted.", "ok"); }
+      else if (a === "unlearn" && m?.learned) { const l = m.learned.splice(Number(act.dataset.k), 1)[0]; if (l) send({ type: "sitenotes:delete", site: l.site, id: l.id }); render(); setStatus("Forgotten.", "ok"); }
+      else if (a === "delete-secret") { send({ type: "secrets:delete", name }); setStatus(`Removed {{${name}}} from your Keychain.`, "ok"); }
+      return;
+    }
+    const row = e.target.closest(".row");
+    if (row?.dataset.chat) return openChat(row.dataset.chat);
+    if (row?.dataset.saved) { setView("chat"); return setCmd(row.dataset.saved); }
+  });
+  $("chat").addEventListener("keydown", (e) => {
+    const row = e.target.closest?.(".row");
+    if (!row || e.target !== row) return;
+    const rows = [...$("chat").querySelectorAll(".row")];
+    const k = rows.indexOf(row);
+    if (e.key === "ArrowDown") { e.preventDefault(); rows[k + 1]?.focus(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); rows[k - 1]?.focus(); }
+    else if (e.key === "Enter") { e.preventDefault(); row.click(); }
+  });
+
+  function askSaveAs(text, recipe) {
+    const suggestion = recipe
+      ? text.toLowerCase().replace(/@\[[^\]]*\]/g, " ").split(/[^a-z0-9]+/).filter((w) => w && !/^(go|to|and|in|on|create|add|make|a|an|the|some|with|dummy|data|please|of|for|it|open|me)$/.test(w)).slice(0, 2).join("-") || "task"
+      : (text.match(/(?:localhost|[\w-]+\.\w+)[^\s,]*/)?.[0] || text).split(/[/:,\s]/)[0].slice(0, 20).toLowerCase();
+    const s = $("status");
+    s.className = "status on";
+    s.innerHTML = `<form class="form" id="save-form" style="flex:1;padding:0;align-items:center">
+      <span class="msgt" style="flex:0 0 auto">Save as</span>
+      <input class="field" id="save-name" placeholder="Name, e.g. login-dev" aria-label="Name" value="${esc(suggestion)}" spellcheck="false" />
+      <button class="btn primary" type="submit">Save</button><button class="btn" type="button" id="save-cancel">Cancel</button></form>`;
+    clearTimeout(statusTimer);
+    $("save-name").select();
+    $("save-cancel").onclick = () => { clearStatus(); caretToEnd(); };
+    $("save-form").onsubmit = (e) => {
+      e.preventDefault();
+      const name = $("save-name").value.trim();
+      if (!name) return;
+      send({ type: "commands:save", name, text, recipe });
+      const slug = name.toLowerCase().replace(/\s+/g, "-");
+      const slots = recipeSlots({ recipe });
+      setStatus(recipe ? `Saved. Type “${slug}” to repeat it without the AI${slots.length ? `; change values with “${slug} ${slots.join(", ")}”` : ""}.` : `Saved. Type “${slug}” to run it.`, "ok");
+      caretToEnd();
+    };
+  }
+  setInterval(() => view === "chats" && !document.activeElement?.closest?.(".row, .form") && render(), 30000);
+
+  // ── sending ─────────────────────────────────────────────
+  /** reply: an answer to a prompt ("confirm", "2"): same message, nothing new in the chat. */
+  // While something runs, a new message waits its turn (the server decides: it may also be a question
+  // answered right away, or "stop, …" which interrupts). A bare "stop" is the Stop button.
+  function run(text, { reply = false, icons = null, as = null, voice = false } = {}) {
+    const c = chat();
+    if (busy && !reply && /^(?:stop|cancel|halt|abort)[.!]?$/i.test(text.trim())) return stopAll();
+    // typing the answer to a question the task is asking ("yes", "2")
+    if (busy && !reply && current?.ask && /^(?:yes|no|ok|okay|confirm|cancel|allow|[1-9])[.!]?$/i.test(text.trim())) reply = true;
+    const m0 = as || mode;
+    const msgMode = reply ? current?.mode || m0 : m0;
+    const isChat = msgMode === "chat";
+    const id = uid();
+    if (!send({ type: "command", id, text, thread: c.id, followUp: isChat, chat: isChat, reply })) return setStatus("Not connected to the browser service yet.", "err");
+    if (reply) return render();
+    lastText = text; lastMode = msgMode;
+    const m = { id, text, mode: msgMode, status: busy ? "queued" : "running", at: Date.now(), sentAt: Date.now(), ...(icons && Object.keys(icons).length ? { icons } : {}), ...(voice ? { voice: true } : {}) };
+    if (!busy) Object.assign(m, { usd0: usage?.todayUsd }), (current = m);
+    c.msgs.push(m);
+    c.at = Date.now();
+    if (!c.title) c.title = text.slice(0, 80);
+    chats.splice(chats.indexOf(c), 1);
+    chats.unshift(c);
+    newId = m.id;
+    busy = true;
+    view = "chat";
+    syncGo();
+    render(true);
+    renderTasks();
+  }
+  // Screenshots arrive as JPEG previews; keep a smaller copy in the chat (the PNG stays in Downloads).
+  function shrink(src, max = 760) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, max / img.naturalWidth);
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.naturalWidth * k);
+        c.height = Math.round(Math.min(img.naturalHeight * k, max * 1.6));
+        c.getContext("2d").drawImage(img, 0, 0, img.naturalWidth * k, img.naturalHeight * k);
+        resolve(c.toDataURL("image/jpeg", 0.78));
+      };
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  }
+  function attachImages(m, list) {
+    const shots = (list || []).filter((x) => x?.image || x?.path);
+    if (!m || !shots.length) return;
+    m.images = shots.map((x) => ({ path: x.path, title: x.title }));
+    shots.forEach((x, k) => x.image && shrink(x.image).then((src) => { if (m.images[k]) { m.images[k].src = src; render(); } }));
+  }
+  function setProgress(text) {
+    if (current) { current.progress = text; render(); }
+  }
+  /** `m`: a message other than the running one (a question answered next to it). */
+  function finish(status, detail, m = current) {
+    if (!m) return;
+    if (m.status === "running") notifyDone(m, status, detail);
+    if (m.usd0 != null && usage) { m.cost = Math.max(0, usage.todayUsd - m.usd0); }
+    delete m.usd0;
+    delete m.progress;
+    m.status = status;
+    m.done = Date.now();
+    if (detail !== undefined && detail !== null) m.detail = detail;
+    for (const s of m.steps || []) if (s.status === "running" || s.status === "awaiting") s.status = status === "ok" ? "ok" : "ignored";
+    delete m.ask;
+    if (m === current) {
+      prompt = null;
+      current = null;
+      // the next queued message starts when the server says so ("queue")
+      busy = Boolean(queue?.queued?.length);
+    }
+    syncGo();
+    render();
+    renderTasks();
+    if (m.voice && m.mode !== "direct" && (status === "ok" || status === "fail") && m.detail) speakMsg(m, { auto: true });
+  }
+  const findMsg = (id) => { for (const c of chats) { const m = c.msgs.find((x) => x.id === id); if (m) return m; } return null; };
+
+  /** The server's task state: which message runs, which wait, take over, background, undo. */
+  function applyQueue(q) {
+    queue = q || null;
+    const waiting = new Set((q?.queued || []).map((x) => x.id));
+    const side = new Set((q?.side || []).map((x) => x.id));
+    if (current && waiting.has(current.id)) { current.status = "queued"; current = null; }
+    if (q?.running) {
+      const m = findMsg(q.running.id);
+      if (m && m !== current) {
+        if (current?.status === "running") finish("ignored", "Stopped");
+        current = m;
+        Object.assign(m, { status: "running", at: Date.now(), usd0: usage?.todayUsd });
+      }
+    }
+    for (const c of chats) for (const m of c.msgs) {
+      if (m.status !== "queued") continue;
+      if (waiting.has(m.id)) m.seen = true;
+      else if (side.has(m.id)) Object.assign(m, { status: "running", side: true, at: Date.now() });
+      // gone from the queue (Stop, removed elsewhere); a message just sent may not have arrived yet
+      else if (m !== current && (m.seen || Date.now() - (m.sentAt || 0) > 4000)) Object.assign(m, { status: "ignored", detail: "Not run", done: Date.now() });
+    }
+    busy = Boolean(current?.status === "running" || q?.running || q?.queued?.length);
+    syncGo();
+    render();
+    renderTasks();
+    renderCurTab();
+  }
+
+  /** The strip above the composer: what's running, how many wait, take over / hand back. */
+  function renderTasks() {
+    const el = $("tasks");
+    const q = queue;
+    const paused = q?.paused;
+    const running = Boolean(q?.running) && busy;
+    if (!running && !paused) { el.className = "tasks"; el.innerHTML = ""; return; }
+    const acts = [];
+    let html;
+    if (paused?.state === "paused") {
+      const what = paused.reason === "need_user" ? (paused.message || "The page needs you.") : "It's paused. Do what you need in the tab.";
+      html = `<span class="tic">${ICON.hand}</span><span class="ttext"><b>Your turn.</b> ${esc(what)}</span>`;
+      acts.push({ label: "Hand back", primary: true, action: () => { send({ type: "task:handback" }); setProgress("Continuing"); } });
+      acts.push({ label: "Stop", action: stopAll });
+    } else if (paused?.state === "requested") {
+      html = `<span class="tdot"></span><span class="ttext">Pausing after this step…</span>`;
+      acts.push({ label: "Keep going", action: () => send({ type: "task:handback" }) });
+    } else {
+      const pos = q.position && q.position.of > 1 ? `Working on ${q.position.n} of ${q.position.of}` : "Working";
+      html = `<span class="tdot"></span><span class="ttext">${pos}${q.background ? " in a background tab" : ""}</span>`;
+      if (q.canTakeOver) acts.push({ label: "Take over", icon: "hand", action: () => send({ type: "task:takeover" }) });
+    }
+    el.className = `tasks on${paused?.state === "paused" ? " yours" : ""}`;
+    el.innerHTML = `${html}<span class="acts"></span>`;
+    for (const a of acts) el.querySelector(".acts").appendChild(button(a));
+  }
+  // A reply that took a while, while you were in another app, becomes a macOS notification.
+  function notifyDone(e, status, detail) {
+    if (document.hasFocus() || Date.now() - e.at < 4000 || status === "ignored") return;
+    window.bar.notify?.(status === "ok" ? "Done" : "Didn't finish", detail || e.text.replace(/@\[([^\]]+)\]/g, "$1"));
+  }
+  const SLOT = /(?<!\{)\{([\w-]*)\}(?!\})/g;
+  const hasSlots = (t) => SLOT.test(t) && !(SLOT.lastIndex = 0);
+  const slotNames = (t) => [...t.matchAll(SLOT)].map((m) => m[1] || "a value").join(", ");
+  async function copyText(text) {
+    if (!text) return;
+    try { await navigator.clipboard.writeText(text); setStatus("Copied.", "ok"); }
+    catch { setStatus("Couldn't copy.", "err"); }
+  }
+  // Stop: the running task, and everything queued after it.
+  function stopAll() {
+    send({ type: "stop" });
+    if (current) delete current.ask;
+    prompt = null;
+    for (const c of chats) for (const m of c.msgs) if (m.status === "queued") Object.assign(m, { status: "ignored", detail: "Not run", done: Date.now() });
+    if (queue) queue = { ...queue, queued: [], position: null };
+    if (current?.status === "running") finish("ignored", "Stopped");
+    busy = false;
+    syncGo();
+    renderTasks();
+    caretToEnd();
+  }
+  // Retrying something that changes data puts it back in the message box instead of running it again.
+  const RISKY = /\b(delete|remove|approve|reject|pay|submit|send|archive|cancel|purchase|buy|order|transfer|publish|merge|deploy)\b/i;
+  function retry(m) {
+    const text = m?.text ?? lastText, as = m?.mode ?? lastMode;
+    if (RISKY.test(text)) { setMode(as); setCmd(text); setStatus("Check it, then press Enter to send it again.", "info"); }
+    else run(text, { as });
+  }
+
+  // ── server connection ───────────────────────────────────
+  function connect() {
+    ws = new WebSocket(wsUrl);
+    ws.onopen = () => {
+      setEnabled(true);
+      caretToEnd();
+      send({ type: "secrets:list" });
+      refreshTabs(true);
+      if (/Reconnecting|Can't reach/.test($("status").textContent)) clearStatus();
+    };
+    ws.onclose = () => {
+      setEnabled(false);
+      if (!browserBusy) setStatus("Can't reach the browser service. Reconnecting…", "err");
+      setTimeout(connect, 800);
+    };
+    ws.onmessage = (ev) => handle(JSON.parse(ev.data));
+  }
+
+  function handle({ type, payload }) {
+    switch (type) {
+      case "hello": model = payload.model || ""; break;
+      case "tab-list": tabList = payload || []; tabsLoaded = true; renderMentions(); renderCurTab(); break;
+      case "commands": saved = payload || []; if (view === "saved") render(); break;
+      case "secrets": secrets = payload || []; if (view === "secrets") render(); break;
+      case "sitenotes": siteNotes = payload || { current: "", sites: [] }; if (view === "sitenotes" && !document.activeElement?.closest?.(".form")) render(); break;
+      case "sitenotes-learned": {
+        // lessons arrive a moment after the reply: put them under the reply for that goal
+        const m = chats.flatMap((c) => c.msgs).filter((x) => x.goal === payload.goal).at(-1);
+        if (m) { m.learned = [...(m.learned || []), ...payload.notes]; render(); }
+        break;
+      }
+      case "store-error": setStatus(payload, "err"); break;
+      case "stopped": break;
+      case "queue": applyQueue(payload); break;
+      case "task-undo": {
+        const m = findMsg(payload.id);
+        if (m) { m.note = payload.detail; render(); }
+        else setStatus(payload.detail, "ok");
+        break;
+      }
+      case "tab-switched":
+        if (current && !payload.rest) finish("ok", `${payload.current ? "Using" : "Switched to"} “${payload.title}”.`);
+        else setProgress(`In “${payload.title}”`);
+        break;
+      case "tab-error":
+        if (current) finish("fail", payload.error);
+        else setStatus(payload.error, "err");
+        break;
+      case "resolved":
+        if (current) { current.resolved = payload.goal; render(); }
+        break;
+      case "expanded":
+        if (current && !current.steps) { current.resolved = payload.text; render(); }
+        break;
+      case "decision": {
+        const p = payload.policy;
+        if (p.decision === "act") setProgress(capital(p.summary));
+        else if (p.decision === "ignore" && current && !current.steps) {
+          if (current.mode === "direct") current.alt = { label: "Ask in Chat instead", text: current.text, mode: "chat" };
+          finish("ignored", "That isn't a one-step command.");
+        }
+        break;
+      }
+      case "action": {
+        const ok = payload.ok !== false;
+        const detail = ok ? shortUrl(payload.detail) : payload.detail;
+        if (current?.steps) {
+          const s = current.steps.find((x) => x.status === "running");
+          if (s) { s.detail = detail; render(); }
+        } else if (current) {
+          const check = /^(assert|wait)_/.test(payload.action?.type || "");
+          if (!ok && payload.screenshot) current.shot = payload.screenshot;
+          const what = capital(String(payload.label || payload.action?.label || "").trim());
+          const plain = /^[\w.-]+=/.test(String(payload.detail || "")) ? "" : detail;
+          finish(ok ? "ok" : "fail", ok ? (check ? payload.detail.replace(/^✓ /, "") : what ? `${what}${plain ? ` · ${plain}` : ""}` : plain || "Done") : payload.detail);
+        }
+        break;
+      }
+      case "chain": {
+        if (!current) break;
+        if (!current.steps) current.steps = payload.steps.map((text) => ({ text, status: "pending" }));
+        current.steps.forEach((s, i) => {
+          if (i < payload.index) s.status = "ok";
+          else if (i === payload.index) s.status = payload.status === "failed" ? "fail" : payload.status === "done" ? "ok" : payload.status === "cancelled" ? "ignored" : "running";
+        });
+        const n = payload.steps.length;
+        if (payload.status === "running") setProgress(`Step ${payload.index + 1} of ${n}: ${payload.steps[payload.index]}`);
+        else if (payload.status === "done") finish("ok", `Done, ${n} steps.`);
+        else if (payload.status === "failed") { if (payload.screenshot) current.shot = payload.screenshot; finish("fail", capital(payload.reason)); }
+        else if (payload.status === "cancelled") finish("ignored", "Stopped");
+        break;
+      }
+      case "pending":
+        if (payload) ask(`${capital(payload.summary)}?`, [
+          { label: "Confirm", kbd: "↵", primary: true, action: answer(() => run("confirm", { reply: true })) },
+          { label: "Cancel", kbd: "esc", cancel: true, action: answer(() => run("cancel", { reply: true })) },
+        ]);
+        break;
+      case "candidates":
+        if (payload?.length) ask("Which one did you mean?", payload.map((c) => ({ n: c.n, label: c.label.replace(/^\w+ "?|"$/g, ""), action: answer(() => run(String(c.n), { reply: true })) })), { numbered: true });
+        break;
+      case "gaveup":
+        if (current && !current.steps) {
+          current.alt = { label: "Ask in Chat instead", text: current.text, mode: "chat" };
+          finish("fail", "Couldn't work that out as a one-step command.");
+        }
+        break;
+      case "table":
+        if (current) {
+          current.table = { columns: payload.columns, rows: payload.rows.slice(0, payload.scope === "compare" ? 8 : 6), total: payload.total };
+          if (payload.path) current.shot = payload.path;
+          if (payload.note) current.note = payload.note;
+          if (payload.model) current.models = [payload.model];
+          finish("ok", `${payload.detail}${payload.copied ? ". Copied, paste it into a spreadsheet." : ""}`);
+        }
+        break;
+      case "usage": usage = payload; renderSpend(); break;
+      case "models": models = payload; renderModel(); renderVoice(); break;
+      case "utility":
+        if (current) {
+          if (payload.image) attachImages(current, [payload]);
+          else if (payload.path) current.shot = payload.path;
+          finish("ok", payload.detail || (payload.copied ? "Copied to the clipboard." : "Done."));
+        }
+        break;
+      case "answer":
+        if (payload.task && findMsg(payload.task)) { // a question answered next to the running task
+          const m = findMsg(payload.task);
+          if (payload.model) m.models = [payload.model];
+          m.note = payload.source === "general" ? "From general knowledge, not the page." : payload.scope === "tabs" ? `Read ${payload.read} tabs` : "From the tab you're looking at.";
+          finish("ok", payload.answer, m);
+        } else if (current) {
+          if (payload.model) current.models = [payload.model];
+          const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
+          const webHosts = [...new Set((payload.sources || []).map((x) => host(x.url)).filter(Boolean))].slice(0, 3);
+          current.note = payload.source === "general" ? "From general knowledge, not the page."
+            : payload.source === "web" ? `From the web${webHosts.length ? `: ${webHosts.join(", ")}` : ""}`
+            : payload.cite ? payload.cite
+            : payload.scope === "tabs" ? (payload.tabs?.length ? `From ${payload.tabs.map((t) => `“${t}”`).join(", ")}` : `Read ${payload.read} tabs`)
+            : "";
+          // a moment in a video: offer to open it there
+          if (payload.source === "web" && payload.sources?.[0]?.url) current.link = { url: payload.sources[0].url, label: `Open ${host(payload.sources[0].url) || "source"}` };
+          if (payload.link) current.link = { url: payload.link, label: `Play from ${(payload.cite.match(/\d+:\d{2}(?::\d{2})?/) || [""])[0] || "there"}` };
+          finish("ok", payload.answer);
+        }
+        break;
+      case "fill": {
+        const ok = payload.filled.filter((f) => !f.error);
+        const bad = payload.filled.filter((f) => f.error).map((f) => f.label);
+        let msg = `Filled ${ok.length} field${ok.length === 1 ? "" : "s"}: ${ok.map((f) => `${f.label} ${f.value}`).join(", ")}.`;
+        if (bad.length) msg += ` Couldn't fill ${bad.join(", ")}.`;
+        if (payload.missing?.length) msg += ` No field for ${payload.missing.join(", ")}.`;
+        msg += " Not submitted yet: review it, then say “submit it”.";
+        if (current) finish(ok.length ? "ok" : "fail", msg);
+        break;
+      }
+      case "goal": {
+        if (!current) break;
+        current.steps = payload.steps.map((s) => ({ text: s.text, status: s.status, detail: s.detail }));
+        current.goal = payload.goal;
+        if (payload.models?.length) current.models = payload.models;
+        if (payload.status === "running") { current.progress = payload.steps.length ? payload.steps.at(-1).text : "Looking at the page"; render(); }
+        else if (payload.status === "done") {
+          attachImages(current, payload.images);
+          if (payload.recipe && !payload.replay) current.recipe = payload.recipe;
+          if (payload.replay) current.note = "Ran the saved steps, no AI used.";
+          if (payload.background) current.bgTab = payload.background.title || "the agent's tab";
+          finish("ok", payload.summary || "Done.");
+        }
+        else if (payload.status === "failed") { attachImages(current, payload.images); finish("fail", capital(payload.summary)); }
+        else if (payload.status === "cancelled") finish("ignored", /new (?:message|command)/.test(payload.summary || "") ? "Stopped for your next message." : "Stopped.");
+        break;
+      }
+      case "goal-confirm":
+        ask(`Allow this step? ${capital(payload.description)}.`, [
+          { label: "Allow", kbd: "↵", primary: true, action: answer(() => { send({ type: "goal:answer", ok: true }); setProgress("Continuing"); }) },
+          { label: "Stop", kbd: "esc", cancel: true, action: answer(() => send({ type: "goal:answer", ok: false })) },
+          { label: "Allow the rest", link: true, action: answer(() => { send({ type: "goal:answer", ok: true, all: true }); setProgress("Continuing without asking again"); }) },
+        ]);
+        break;
+      case "smart-error":
+        if (payload.task && findMsg(payload.task)) finish("fail", payload.error, findMsg(payload.task));
+        else if (current && current.status === "running") finish("fail", payload.error);
+        else setStatus(payload.error, "err");
+        break;
+      case "log":
+        if (payload.level === "error" && busy && current) setProgress(capital(payload.msg));
+        break;
+    }
+  }
+
+  // ── composer: text + inline tab chips ───────────────────
+  // The message is plain text where "@[Tab title]" marks a tab; in the editor each mention is a
+  // chip (favicon + title) that behaves like one character.
+  const cmd = $("cmd");
+  let tabList = [];
+  let tabListAt = 0;
+  let tabsLoaded = false;
+  function refreshTabs(force) {
+    if (!force && Date.now() - tabListAt < 1500) return;
+    tabListAt = Date.now();
+    send({ type: "tabs:list", sync: Boolean(force) });
+  }
+  let mention = null;
+  let mentionSel = 0;
+
+  const ICONS_KEY = "vb.icons.v1";
+  const iconCache = (() => { try { return JSON.parse(localStorage.getItem(ICONS_KEY) || "{}"); } catch { return {}; } })();
+  function rememberIcon(title, icon) {
+    if (!icon || iconCache[title] === icon) return;
+    iconCache[title] = icon;
+    const keys = Object.keys(iconCache);
+    for (const k of keys.slice(0, Math.max(0, keys.length - 40))) delete iconCache[k];
+    try { localStorage.setItem(ICONS_KEY, JSON.stringify(iconCache)); } catch {}
+  }
+  const normTitle = (t) => String(t || "").replace(/^\(\d+\+?\)\s*/, "").replace(/\s+/g, " ").trim().toLowerCase();
+  function iconFor(title, extra) {
+    if (extra?.[title]) return extra[title];
+    const n = normTitle(title);
+    return tabList.find((t) => t.title === title)?.icon || iconCache[title] || tabList.find((t) => t.icon && normTitle(t.title) === n)?.icon || Object.entries(iconCache).find(([k]) => normTitle(k) === n)?.[1] || null;
+  }
+  const urlFor = (title) => tabList.find((t) => t.title === title || normTitle(t.title) === normTitle(title))?.url || "";
+  function hashColor(s) {
+    let h = 0;
+    for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const hue = h % 360, sat = 0.32, l = 0.5;
+    const a = sat * Math.min(l, 1 - l), f = (n) => { const k = (n + hue / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); };
+    return `${f(0)} ${f(8)} ${f(4)}`;
+  }
+  const colorCache = new Map();
+  function dominantColor(img) {
+    try {
+      const c = document.createElement("canvas");
+      c.width = c.height = 24;
+      const g = c.getContext("2d", { willReadFrequently: true });
+      g.drawImage(img, 0, 0, 24, 24);
+      const d = g.getImageData(0, 0, 24, 24).data;
+      const buckets = new Map();
+      let greyN = 0, grey = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        const [r, gg, b, al] = [d[i], d[i + 1], d[i + 2], d[i + 3]];
+        if (al < 140) continue;
+        const max = Math.max(r, gg, b), min = Math.min(r, gg, b);
+        if ((max === 0 ? 0 : (max - min) / max) < 0.25 || max < 80) { greyN++; grey += (r + gg + b) / 3; continue; }
+        const key = `${r >> 5},${gg >> 5},${b >> 5}`;
+        const e = buckets.get(key) || { n: 0, r: 0, g: 0, b: 0 };
+        e.n++; e.r += r; e.g += gg; e.b += b;
+        buckets.set(key, e);
+      }
+      const best = [...buckets.values()].sort((x, y) => y.n - x.n)[0];
+      if (best && best.n >= 4) return `${Math.round(best.r / best.n)} ${Math.round(best.g / best.n)} ${Math.round(best.b / best.n)}`;
+      if (greyN) return grey / greyN > 128 ? "150 152 160" : "dark";
+    } catch {}
+    return null;
+  }
+  function paintChips(root = document) {
+    for (const chip of root.querySelectorAll(".chip:not([data-painted])")) {
+      const img = chip.querySelector("img");
+      if (!img) { chip.dataset.painted = "1"; continue; }
+      const apply = () => {
+        let rgb = colorCache.get(img.src);
+        if (rgb === undefined) { rgb = dominantColor(img); colorCache.set(img.src, rgb); }
+        if (rgb === "dark") { chip.dataset.dark = "1"; rgb = "120 124 134"; }
+        if (rgb) chip.style.setProperty("--chip", rgb);
+        chip.dataset.painted = "1";
+      };
+      if (img.complete && img.naturalWidth) apply();
+      else img.addEventListener("load", apply, { once: true });
+    }
+  }
+  function chipLabel(title) {
+    let t = String(title).replace(/^\(\d+\+?\)\s*/, "").trim();
+    const m = t.match(/^(.{6,}?)\s+[-–—|·]\s+[^-–—|·]{2,30}$/);
+    return m ? m[1] : t;
+  }
+  function chipHTML(title, removable = false, icons = null) {
+    const icon = iconFor(title, icons);
+    const letter = (title.replace(/^\(\d+\+?\)\s*/, "").match(/[\p{L}\p{N}]/u)?.[0] || "?").toUpperCase();
+    const known = icon && colorCache.get(icon);
+    const style = icon ? (known && known !== "dark" ? ` style="--chip:${known}"` : "") : ` style="--chip:${hashColor(urlFor(title).replace(/^https?:\/\//, "").split("/")[0] || normTitle(title))}"`;
+    const ic = icon ? `<img src="${esc(icon)}" alt="" onerror="this.outerHTML='<span class=letter>${esc(letter)}</span>'">` : `<span class="letter">${esc(letter)}</span>`;
+    return `<span class="chip" contenteditable="false" data-title="${esc(title)}" title="${esc(title)}"${style}${icon && known ? ` data-painted="1"${known === "dark" ? " data-dark" : ""}` : ""}>${ic}<span class="t">${esc(chipLabel(title))}</span>${removable ? `<button class="x" tabindex="-1" type="button" aria-label="Remove">${ICON.x}</button>` : ""}</span>`;
+  }
+  const richText = (text, icons = null) => {
+    const m = String(text ?? "").match(/^(goal|task|do)\s*:\s*/i);
+    const body = m ? String(text).slice(m[0].length) : String(text ?? "");
+    return body.split(/@\[([^\]]+)\]/g).map((p, i) => (i % 2 ? chipHTML(p, false, icons) : esc(p))).join("");
+  };
+  function composerIcons() {
+    const out = {};
+    for (const chip of cmd.querySelectorAll(".chip")) {
+      const src = chip.querySelector("img")?.getAttribute("src");
+      if (src) out[chip.dataset.title] = src;
+    }
+    return out;
+  }
+  function cmdText() {
+    let out = "";
+    for (const n of cmd.childNodes) {
+      if (n.nodeType === 3) out += n.nodeValue;
+      else if (n.classList?.contains("chip")) out += ` @[${n.dataset.title}] `;
+      else out += n.textContent || "";
+    }
+    return out.replace(/ /g, " ").replace(/\s+/g, " ").replace(/\]\s+([,.;:!?])/g, "]$1").trim();
+  }
+  function caretToEnd() {
+    if (cmd.contentEditable !== "true") return;
+    cmd.focus();
+    const r = document.createRange();
+    r.selectNodeContents(cmd);
+    r.collapse(false);
+    const sel = getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+  }
+  function setCmd(text) {
+    cmd.innerHTML = text ? String(text).split(/@\[([^\]]+)\]/g).map((p, i) => (i % 2 ? chipHTML(p, true) : esc(p))).join("") : "";
+    paintChips(cmd);
+    if (cmd.lastChild && cmd.lastChild.nodeType !== 3) cmd.appendChild(document.createTextNode(" "));
+    syncGo();
+    caretToEnd();
+  }
+  function setEnabled(on) {
+    cmd.contentEditable = on ? "true" : "false";
+    cmd.classList.toggle("off", !on);
+    syncGo();
+  }
+  // the send button turns into Stop while something runs and the box is empty
+  function syncGo() {
+    const has = Boolean(cmdText());
+    const stop = busy && !has;
+    const g = $("go");
+    g.disabled = cmd.contentEditable !== "true" || (!has && !stop);
+    g.classList.toggle("ready", has);
+    g.classList.toggle("stop", stop);
+    g.innerHTML = stop ? ICON.stopFill : ICON.up;
+    g.title = stop ? "Stop (Esc)" : busy ? "Add to the queue (Enter)" : "Send (Enter)";
+    cmd.dataset.placeholder = busy ? "Queue another request, or ask about the page" : mode === "chat" ? "Ask anything, or tell it what to do" : "One step: scroll down, click sign in, next tab";
+    g.setAttribute("aria-label", stop ? "Stop" : "Send");
+  }
+  function tidy() {
+    if (!cmd.querySelector(".chip") && !cmd.textContent.replace(/ /g, " ").trim()) cmd.innerHTML = "";
+  }
+  function submit() {
+    const text = cmdText();
+    if (!text) return busy ? stopAll() : undefined;
+    const icons = composerIcons();
+    setCmd("");
+    closeMentions();
+    run(text, { icons });
+    recall = -1;
+  }
+  $("form").addEventListener("submit", (e) => { e.preventDefault(); submit(); });
+
+  // ── "@": open tabs ──────────────────────────────────────
+  function mentionAtCursor() {
+    const sel = getSelection();
+    if (!sel.rangeCount || !sel.isCollapsed) return null;
+    const node = sel.anchorNode;
+    if (!node || node.nodeType !== 3 || !cmd.contains(node)) return null;
+    const upto = node.nodeValue.slice(0, sel.anchorOffset);
+    const m = upto.match(/(?:^|[\s(,; ])@([^\s@,; ]*)$/);
+    if (!m) return null;
+    return { node, start: sel.anchorOffset - m[1].length - 1, query: m[1] };
+  }
+  const mentionMatches = () => {
+    const q = (mention?.query || "").toLowerCase();
+    if (mention?.pick) return tabList;
+    return tabList.filter((t) => !q || `${t.title} ${t.url}`.toLowerCase().includes(q)).slice(0, 12);
+  };
+  function closeMentions() { mention = null; $("mentions").hidden = true; veil(); }
+  // blur the chat while a popover (tab list, model or browser picker) is open
+  const veil = () => document.body.classList.toggle("veiled", !$("mentions").hidden || !$("picker").hidden);
+  function renderMentions() {
+    const box = $("mentions");
+    if (!mention) { box.hidden = true; return veil(); }
+    const items = mentionMatches();
+    mentionSel = Math.min(mentionSel, Math.max(0, items.length - 1));
+    if (mention.pick) { box.style.top = `${document.querySelector(".top").getBoundingClientRect().bottom}px`; box.style.bottom = "auto"; box.style.transformOrigin = "top"; }
+    else { box.style.top = "auto"; box.style.bottom = `${innerHeight - $("form").getBoundingClientRect().top + 6}px`; box.style.transformOrigin = "bottom"; }
+    box.innerHTML = (mention.pick ? `<div class="head">The agent works in…</div>` : "") + (items.length
+      ? items.map((t, i) => `<div class="mention${i === mentionSel ? " on" : ""}" role="option" aria-selected="${i === mentionSel}" data-i="${i}"><span class="ic">${tabIconHTML(t)}</span><span class="t">${esc(t.title || "Untitled")}${t.active ? '<span class="cur">Current tab</span>' : ""}</span><span class="u">${esc(shortUrl(t.url))}</span></div>`).join("")
+      : `<div class="none">${tabList.length ? "No open tab matches." : tabsLoaded ? "No tabs are open in the controlled browser." : "Loading tabs…"}</div>`);
+    box.hidden = false;
+    veil();
+    box.querySelector(".mention.on")?.scrollIntoView({ block: "nearest" });
+  }
+  function tabIconHTML(t) {
+    const letter = ((t.title || "").replace(/^\(\d+\+?\)\s*/, "").match(/[\p{L}\p{N}]/u)?.[0] || "?").toUpperCase();
+    return t.icon ? `<img src="${esc(t.icon)}" alt="">` : `<span class="letter" style="--chip:${hashColor(t.url.replace(/^https?:\/\//, "").split("/")[0] || t.title)}">${esc(letter)}</span>`;
+  }
+  // The tab the agent works in, in the header. It follows the browser; click to pick another.
+  function renderCurTab() {
+    const t = tabList.find((x) => x.active);
+    $("curtab").hidden = !t;
+    const bg = Boolean(t && queue?.background && busy);
+    $("curtab").classList.toggle("bg", bg);
+    $("curshow").hidden = !bg;
+    if (!t) return;
+    $("curtab-ic").innerHTML = tabIconHTML(t);
+    $("curtab-name").textContent = t.title || shortUrl(t.url) || "Untitled";
+    $("curtab").title = bg
+      ? `Working in the background in “${t.title || shortUrl(t.url)}”. Your tab stays as it is. Show brings it to the front.`
+      : `The agent works in “${t.title || shortUrl(t.url)}”. It follows the tab you switch to in the browser, and opens or switches tabs itself when a request needs it. Click to pick another tab.`;
+  }
+  function openTabPicker() {
+    if (mention?.pick) return closeMentions();
+    refreshTabs(true);
+    mention = { pick: true, query: "" };
+    mentionSel = Math.max(0, tabList.findIndex((t) => t.active));
+    cmd.focus();
+    renderMentions();
+  }
+  $("curtab").addEventListener("mousedown", (e) => e.preventDefault());
+  $("curtab").addEventListener("click", openTabPicker);
+  $("curshow").addEventListener("mousedown", (e) => e.preventDefault());
+  $("curshow").addEventListener("click", () => send({ type: "tab:show" }));
+  // "@" button: type an @ at the caret, which opens the tab list
+  $("at").addEventListener("mousedown", (e) => e.preventDefault());
+  $("at").addEventListener("click", () => {
+    if (document.activeElement !== cmd) caretToEnd();
+    const t = cmdText();
+    document.execCommand("insertText", false, t && !/\s$/.test(cmd.textContent) ? " @" : "@");
+    updateMention();
+  });
+
+  function pickMention(i) {
+    const t = mentionMatches()[i];
+    if (mention?.pick) {
+      if (t) send({ type: "tab:select", index: t.index, show: true }); // you picked it: show it
+      return closeMentions();
+    }
+    const at = mentionAtCursor() || mention;
+    if (!t || !at) return closeMentions();
+    const title = (t.title || shortUrl(t.url)).replace(/[\[\]]/g, "");
+    rememberIcon(title, t.icon);
+    const sel = getSelection();
+    const range = document.createRange();
+    range.setStart(at.node, at.start);
+    range.setEnd(at.node, sel.anchorNode === at.node ? sel.anchorOffset : at.start + 1 + at.query.length);
+    range.deleteContents();
+    const tpl = document.createElement("template");
+    tpl.innerHTML = chipHTML(title, true);
+    const chip = tpl.content.firstChild;
+    range.insertNode(chip);
+    paintChips(cmd);
+    let after = chip.nextSibling;
+    if (!after || after.nodeType !== 3) { after = document.createTextNode(" "); chip.after(after); }
+    else if (!/^[\s ]/.test(after.nodeValue)) after.nodeValue = " " + after.nodeValue;
+    const r = document.createRange();
+    r.setStart(after, 1);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+    closeMentions();
+    syncGo();
+    cmd.focus();
+  }
+  function updateMention() {
+    if (mention?.pick && !cmdText()) return;
+    mention = mentionAtCursor();
+    if (!mention) return closeMentions();
+    refreshTabs();
+    renderMentions();
+  }
+  cmd.addEventListener("input", () => { tidy(); syncGo(); updateMention(); });
+  cmd.addEventListener("click", updateMention);
+  cmd.addEventListener("blur", () => setTimeout(closeMentions, 150));
+  cmd.addEventListener("mousedown", (e) => {
+    const x = e.target.closest(".chip .x");
+    if (!x) return;
+    e.preventDefault();
+    const chip = x.closest(".chip");
+    const next = chip.nextSibling;
+    if (next?.nodeType === 3) next.nodeValue = next.nodeValue.replace(/^[\s ]/, "");
+    chip.remove();
+    tidy();
+    cmd.dispatchEvent(new Event("input"));
+    cmd.focus();
+  });
+  cmd.addEventListener("paste", (e) => {
+    e.preventDefault();
+    document.execCommand("insertText", false, (e.clipboardData?.getData("text/plain") || "").replace(/\s*\n\s*/g, " "));
+  });
+  $("mentions").addEventListener("mousedown", (e) => {
+    const it = e.target.closest(".mention");
+    if (it) { e.preventDefault(); pickMention(Number(it.dataset.i)); }
+  });
+  // the tab list, while open, owns the arrow keys / Enter / Tab / Esc
+  cmd.addEventListener("keydown", (e) => {
+    if ($("mentions").hidden || !mention) return;
+    const n = mentionMatches().length;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { mentionSel = n ? (mentionSel + (e.key === "ArrowDown" ? 1 : -1) + n) % n : 0; renderMentions(); }
+    else if ((e.key === "Enter" || e.key === "Tab") && n) pickMention(mentionSel);
+    else if (e.key === "Escape") closeMentions();
+    else return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }, true);
+  cmd.addEventListener("keydown", (e) => {
+    const empty = !cmdText();
+    if (e.key === "Tab" && !e.shiftKey && !e.metaKey && !e.altKey) { e.preventDefault(); return setMode(mode === "chat" ? "direct" : "chat"); }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (empty && prompt?.primary) return prompt.primary();
+      return submit();
+    }
+    if (empty && prompt?.numbered && /^[1-9]$/.test(e.key)) { e.preventDefault(); return prompt.numbered[Number(e.key) - 1]?.(); }
+    // ↑ / ↓ in an empty box: earlier messages of this chat
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    const texts = [...new Set(chat().msgs.map((m) => m.text).reverse())];
+    if (!texts.length || (!empty && recall < 0)) return;
+    e.preventDefault();
+    recall = e.key === "ArrowUp" ? Math.min(recall + 1, texts.length - 1) : Math.max(recall - 1, -1);
+    setCmd(recall < 0 ? "" : texts[recall]);
+  });
+
+  // global keys: Esc stops / cancels / closes a view / hides; ⌘N new chat; ⌘1-5 views
+  document.addEventListener("keydown", (e) => {
+    if (recording) return;
+    if (e.metaKey && e.key.toLowerCase() === "n") { e.preventDefault(); return newChat(); }
+    if (e.metaKey && /^[1-5]$/.test(e.key)) { e.preventDefault(); return setView(["chat", "saved", "secrets", "chats", "sitenotes"][Number(e.key) - 1]); }
+    if (e.key !== "Escape" || e.defaultPrevented) return;
+    e.preventDefault();
+    if (prompt?.cancel) return prompt.cancel();
+    if (busy) return stopAll();
+    if (view !== "chat") return setView("chat");
+    if (document.activeElement?.closest?.(".row, .field")) return caretToEnd();
+    if ($("status").classList.contains("on")) return clearStatus();
+    window.bar.hide();
+  });
+  $("close").onclick = () => window.bar.hide();
+  $("newchat").addEventListener("mousedown", (e) => e.preventDefault());
+  $("newchat").onclick = newChat;
+
+  // ── shortcut recording ──────────────────────────────────
+  const SYM = { Command: "⌘", CommandOrControl: "⌘", Control: "⌃", Alt: "⌥", Shift: "⇧" };
+  let hotkeyLabel = "⌘⇧Space";
+  const showHotkey = (accel) => {
+    hotkeyLabel = (accel || "None").split("+").map((k) => SYM[k] || (k.length === 1 ? k.toUpperCase() : k)).join("");
+    if ($("hk")) $("hk").textContent = hotkeyLabel;
+  };
+  function keyName(e) {
+    const c = e.code;
+    if (/^Key[A-Z]$/.test(c)) return c.slice(3);
+    if (/^Digit\d$/.test(c)) return c.slice(5);
+    if (/^F\d{1,2}$/.test(c)) return c;
+    const map = { Space: "Space", Enter: "Enter", Tab: "Tab", Backquote: "`", Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]", Backslash: "\\", Semicolon: ";", Quote: "'", Comma: ",", Period: ".", Slash: "/", ArrowUp: "Up", ArrowDown: "Down", ArrowLeft: "Left", ArrowRight: "Right" };
+    return map[c] || null;
+  }
+  let recording = false;
+  function stopRecording() {
+    recording = false;
+    window.bar.pauseHotkey(false);
+    document.removeEventListener("keydown", onRecordKey, true);
+  }
+  async function onRecordKey(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.key === "Escape") { stopRecording(); showHotkey(await window.bar.getHotkey()); setStatus("Shortcut unchanged.", "info"); return; }
+    if (["Meta", "Control", "Alt", "Shift"].includes(e.key)) return;
+    const key = keyName(e);
+    const mods = [e.metaKey && "Command", e.ctrlKey && "Control", e.altKey && "Alt", e.shiftKey && "Shift"].filter(Boolean);
+    if (!key || (!mods.length && !/^F\d/.test(key)) || (mods.length === 1 && mods[0] === "Shift")) {
+      setStatus("Use ⌘, ⌃ or ⌥ together with a key. Press Esc to cancel.", "warn");
+      return;
+    }
+    stopRecording();
+    const r = await window.bar.setHotkey([...mods, key].join("+"));
+    showHotkey(r.hotkey);
+    setStatus(r.ok ? `Shortcut set to ${hotkeyLabel}.` : r.error, r.ok ? "ok" : "err");
+  }
+  function recordHotkey() {
+    if (recording) return;
+    recording = true;
+    setStatus("Press the new shortcut. Esc cancels.", "info");
+    clearTimeout(statusTimer);
+    window.bar.pauseHotkey(true);
+    document.addEventListener("keydown", onRecordKey, true);
+  }
+  $("spend").onclick = openSpend;
+  window.bar.getHotkey().then(showHotkey);
+
+  // ── AI model: Auto, or one you pick; add providers by key ──
+  // A popover in the panel (not a native menu) so each provider shows its logo.
+  let picker = null; // { sel, adding } while open
+  // each inlined logo gets its own gradient ids: with duplicates, a copy inside the hidden picker
+  // would be the one the visible chip points at, and the gradient would fall back to a flat colour
+  let logoN = 0;
+  const logo = (id) => {
+    const svg = LOGO[id];
+    if (!svg) return ICON.globe;
+    const n = ++logoN;
+    return svg.replace(/id="([^"]+)"/g, `id="$1-${n}"`).replace(/url\(#([^)]+)\)/g, `url(#$1-${n})`).replace(/href="#([^"]+)"/g, `href="#$1-${n}"`);
+  };
+  function renderModel() {
+    const b = $("model");
+    b.hidden = !models || mode !== "chat";
+    if (!models) return;
+    const pick = models.models.find((m) => m.id === models.preferred);
+    // the logo already names the brand, so the chip drops it ("Gemini 3.1 Flash-Lite" -> "3.1 Flash-Lite")
+    $("model-name").textContent = pick ? pick.label.replace(/^(?:Gemini|GLM|DeepSeek)\s+(?=\S)/i, "") : "Auto";
+    $("model-logo").innerHTML = pick ? logo(pick.providerId) : ICON.bolt;
+    b.title = pick ? `${pick.label} (${pick.provider}) answers first; the others step in when it's busy.` : `Auto: the fastest model for each request, from ${models.models.length} available.`;
+    if (picker) renderPicker();
+  }
+  // the rows you can move through with the arrow keys
+  function pickerItems() {
+    if (picker?.kind === "browser") return (picker.browsers?.list || []).map((b) => ({ kind: "browser", id: b.id, b }));
+    if (!models) return [];
+    return [
+      { kind: "auto", id: "auto" },
+      ...models.models.map((m) => ({ kind: "model", id: m.id, m })),
+      ...(models.missing || []).map((p) => ({ kind: "add", id: `add:${p.name}`, p })),
+    ];
+  }
+  function renderPicker() {
+    const box = $("picker");
+    $("model").setAttribute("aria-expanded", String(Boolean(picker)));
+    $("browser").setAttribute("aria-expanded", String(picker?.kind === "browser"));
+    if (!picker || (picker.kind !== "browser" && !models)) { box.hidden = true; return veil(); }
+    const items = pickerItems();
+    picker.sel = Math.max(0, Math.min(picker.sel, items.length - 1));
+    const check = (on) => `<span class="ck">${on ? ICON.check : ""}</span>`;
+    let html = "", prev = null, i = 0;
+    if (picker.kind === "browser") html += `<div class="pk-head">Browser to control</div>`;
+    for (const it of items) {
+      const on = i === picker.sel ? " on" : "";
+      if (it.kind === "browser") {
+        const b = it.b, cur = picker.browsers.current === b.id;
+        html += `<button type="button" class="pk-row${on}" role="option" data-i="${i}" aria-selected="${cur}">
+          <span class="lg${b.icon ? " app" : ""}">${b.icon ? `<img src="${esc(b.icon)}" alt="">` : ICON.globe}</span><span class="t">${esc(b.name)}</span>${check(cur)}
+          <span class="s">${esc(cur ? "Connected" : b.note)}</span></button>`;
+      } else if (it.kind === "auto") {
+        html += `<button type="button" class="pk-row${on}" role="option" data-i="${i}" aria-selected="${models.preferred === "auto"}">
+          <span class="lg">${ICON.bolt}</span><span class="t">Auto</span>${check(models.preferred === "auto")}
+          <span class="s">Fastest model for each request; switches when one is busy</span></button>`;
+      } else if (it.kind === "model") {
+        const m = it.m;
+        if (prev !== m.providerId) html += `<div class="pk-sep"></div>`;
+        const s = [m.provider, m.vision ? "Reads screenshots" : "Text only", m.fast ? "Fast" : ""].filter(Boolean).join(" · ");
+        html += `<button type="button" class="pk-row${on}" role="option" data-i="${i}" aria-selected="${models.preferred === m.id}">
+          <span class="lg">${logo(m.providerId)}</span><span class="t">${esc(m.label)}</span>${check(models.preferred === m.id)}
+          <span class="s">${esc(s)}${m.resting ? ` · <span class="rest">${esc(capital(m.resting))}</span>` : ""}</span></button>`;
+        prev = m.providerId;
+      } else {
+        const p = it.p, group = p.search ? "search" : "add";
+        if (prev !== group) html += `<div class="pk-sep"></div><div class="pk-head">${p.search ? "Better web search (optional, free tier)" : "Add a provider"}</div>`;
+        html += `<button type="button" class="pk-row add${on}" role="option" data-i="${i}">
+          <span class="lg">${p.search ? ICON.globe : logo(p.name)}</span><span class="t">${esc(p.label)}</span><span class="ck">${ICON.plus}</span>
+          <span class="s">${p.search ? "Paste an API key; the agent searches with it first" : "Paste an API key to use its models"}</span></button>`;
+        if (picker.adding === p.name) {
+          html += `<form class="pk-form" id="pk-form"><input class="field" id="pk-key" type="password" placeholder="${esc(p.label)} API key" aria-label="${esc(p.label)} API key" autocomplete="off" spellcheck="false" />
+            <button class="btn primary" type="submit">Add</button><button class="link" type="button" id="pk-get">Get a key</button></form>`;
+        }
+        prev = group;
+      }
+      i++;
+    }
+    box.innerHTML = html;
+    box.classList.toggle("below", picker.kind === "browser");
+    if (picker.kind === "browser") { box.style.top = `${document.querySelector(".top").getBoundingClientRect().bottom}px`; box.style.bottom = "auto"; }
+    else { box.style.top = "auto"; box.style.bottom = `${innerHeight - $("form").getBoundingClientRect().top + 6}px`; }
+    box.hidden = false;
+    veil();
+    if (!picker.adding) box.querySelector(".pk-row.on")?.scrollIntoView({ block: "nearest" });
+    const f = $("pk-form");
+    if (f) {
+      const p = models.missing.find((x) => x.name === picker.adding);
+      $("pk-get").onclick = () => window.bar.openUrl?.(p.keyUrl);
+      f.onsubmit = (e) => {
+        e.preventDefault();
+        const key = $("pk-key").value.trim();
+        if (!key) return;
+        send({ type: "provider:key", provider: p.name, key });
+        closePicker();
+        setStatus(p.search ? `Added ${p.label}. The agent searches with it first now.` : `Added ${p.label}. Its models are in the list now, and Auto uses them too.`, "ok");
+      };
+    }
+  }
+  function openPicker() {
+    send({ type: "models:list" });
+    closeMentions();
+    picker = { kind: "model", sel: 0, adding: null };
+    picker.sel = Math.max(0, pickerItems().findIndex((it) => it.id === models?.preferred));
+    renderPicker();
+  }
+  async function openBrowserPicker() {
+    closeMentions();
+    const browsers = await window.bar.listBrowsers?.().catch(() => null);
+    if (!browsers) return window.bar.browserMenu(); // older app shell: the native menu
+    picker = { kind: "browser", sel: 0, browsers };
+    picker.sel = Math.max(0, pickerItems().findIndex((it) => it.id === browsers.current));
+    renderPicker();
+  }
+  function closePicker(refocus = true) {
+    if (!picker) return;
+    picker = null;
+    renderPicker();
+    if (refocus) caretToEnd();
+  }
+  function choosePicker(i) {
+    const it = pickerItems()[i];
+    if (!it) return;
+    if (it.kind === "browser") {
+      const cur = picker.browsers.current;
+      closePicker();
+      if (it.id !== cur) window.bar.chooseBrowser(it.id);
+      return;
+    }
+    if (it.kind === "add") {
+      picker.sel = i;
+      picker.adding = picker.adding === it.p.name ? null : it.p.name;
+      renderPicker();
+      return $("pk-key")?.focus();
+    }
+    send({ type: "models:pick", id: it.id });
+    models.preferred = it.id;
+    renderModel();
+    closePicker();
+  }
+  $("model").addEventListener("mousedown", (e) => e.preventDefault());
+  $("model").onclick = () => (picker?.kind === "model" ? closePicker() : models && openPicker());
+  $("picker").addEventListener("mousedown", (e) => { if (!e.target.closest(".pk-form")) e.preventDefault(); });
+  // the row under the mouse is the selected row, so hover and arrow keys never highlight two rows
+  $("picker").addEventListener("mouseover", (e) => {
+    const row = e.target.closest(".pk-row");
+    if (!row || !picker || Number(row.dataset.i) === picker.sel) return;
+    picker.sel = Number(row.dataset.i);
+    for (const r of $("picker").querySelectorAll(".pk-row")) r.classList.toggle("on", r === row);
+  });
+  $("picker").addEventListener("click", (e) => {
+    const row = e.target.closest(".pk-row");
+    if (row) choosePicker(Number(row.dataset.i));
+  });
+  document.addEventListener("mousedown", (e) => { if (picker && !e.target.closest("#picker, #model, #browser")) closePicker(false); });
+  // while open, the picker owns the arrow keys / Enter / Esc (except while typing a key)
+  document.addEventListener("keydown", (e) => {
+    if (!picker || e.target.closest?.(".pk-form")) {
+      if (picker && e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); picker.adding = null; renderPicker(); }
+      return;
+    }
+    const n = pickerItems().length;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { picker.sel = (picker.sel + (e.key === "ArrowDown" ? 1 : -1) + n) % n; renderPicker(); }
+    else if (e.key === "Enter") choosePicker(picker.sel);
+    else if (e.key === "Escape") closePicker();
+    else return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }, true);
+
+  // ── controlled browser ──────────────────────────────────
+  const shortName = (b) => (b.id === "builtin" ? "Chromium" : `${b.name.replace(/^Google |^Microsoft /, "")}${b.separate ? " (own profile)" : ""}`);
+  function showBrowser(b) {
+    browserBusy = Boolean(b.busy);
+    if (!b.busy) $("browser-ic").innerHTML = b.icon ? `<img src="${esc(b.icon)}" alt="">` : ICON.globe;
+    $("browser-name").textContent = b.busy ? "Switching…" : shortName(b);
+    $("browser").dataset.state = b.busy ? "off" : "on";
+    $("browser").title = b.busy ? b.busy : `Controlling ${b.id === "builtin" ? "the built-in Chromium" : b.name}. Click to choose another browser.`;
+    if (b.busy) setStatus(b.busy, "busy");
+    else if (b.error) setStatus(b.error, "err");
+    else if (b.note) setStatus(b.note, "warn");
+  }
+  window.bar.onBrowserState((b) => {
+    showBrowser(b);
+    if (!b.busy && !b.error) setStatus(b.id === "builtin" ? "Controlling the built-in Chromium." : `Connected to ${b.name}.${b.separate ? " It uses its own profile, so sign in there once." : ""}`, "ok");
+  });
+  window.bar.onBrowserConfirm((b) => {
+    const short = b.name.replace(/^Google |^Microsoft /, "");
+    const cancel = { label: "Cancel", action: () => { clearStatus(); caretToEnd(); } };
+    if (b.ownProfile || b.separate) {
+      setStatus(`${b.name} can only be controlled in a separate profile. Your main window stays as it is.`, "warn", [{ label: `Open ${short}`, primary: true, action: () => window.bar.switchBrowser(b.id) }, cancel]);
+    } else {
+      setStatus(`Quit ${b.name} and reopen it so Gofer can control it? Your tabs come back.`, "warn", [{ label: `Restart ${short}`, primary: true, action: () => window.bar.switchBrowser(b.id) }, cancel]);
+    }
+    clearTimeout(statusTimer);
+  });
+  $("browser").addEventListener("mousedown", (e) => e.preventDefault());
+  $("browser").onclick = () => (picker?.kind === "browser" ? closePicker() : openBrowserPicker());
+  $("more").onclick = () => window.bar.appMenu({ model });
+  window.bar.onMenuAction?.((a) => {
+    if (a === "undo") send({ type: "undo" });
+    else if (a === "record-hotkey") recordHotkey();
+    else if (a === "new-chat") newChat();
+    else if (a === "view-chats") setView("chats");
+    else if (a === "view-saved") setView("saved");
+    else if (a === "view-secrets") setView("secrets");
+    else if (a === "view-sitenotes") setView("sitenotes");
+    else if (a === "models") openPicker();
+  });
+  window.bar.onFocusInput(() => { caretToEnd(); refreshTabs(true); });
+  window.addEventListener("focus", () => refreshTabs(true));
+  window.bar.onServerExit((info) => setStatus(`The browser service keeps stopping (code ${info.code}). Details are in ~/.gofer/server.log. Reopen the app to try again.`, "err"));
+
+  // ── voice: speak a request, hear the reply ──────────────
+  // Recording happens here (MediaRecorder); the service transcribes it with Groq Whisper and reads
+  // replies with Groq Orpheus, using the user's GROQ_API_KEY. Groq's free speech limits are tiny, so
+  // only replies to spoken requests are read out on their own.
+  ICON.mic = '<svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V232a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"/></svg>';
+  ICON.speaker = '<svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M155.51,24.81a8,8,0,0,0-8.42.88L77.25,80H32A16,16,0,0,0,16,96v64a16,16,0,0,0,16,16H77.25l69.84,54.31A8,8,0,0,0,160,224V32A8,8,0,0,0,155.51,24.81ZM32,96H72v64H32ZM144,207.64,88,164.09V91.91l56-43.55Zm54-106.08a40,40,0,0,1,0,52.88,8,8,0,0,1-12-10.58,24,24,0,0,0,0-31.72,8,8,0,0,1,12-10.58ZM248,128a79.9,79.9,0,0,1-20.37,53.34,8,8,0,0,1-11.92-10.67,64,64,0,0,0,0-85.33,8,8,0,1,1,11.92-10.67A79.83,79.83,0,0,1,248,128Z"/></svg>';
+  // the service's http origin, from ?ws=ws://127.0.0.1:PORT
+  const httpBase = (() => { try { return `http://${new URL(wsUrl).host}`; } catch { return ""; } })();
+  const groqMissing = () => Boolean(models?.missing?.some((p) => p.name === "groq"));
+  const MAX_REC_MS = 120000;
+  let voice = null; // { state: "starting" | "rec" | "thinking", ptt, stream, rec, ctx, analyser, chunks, t0, levels, raf, tick, cancelled }
+  let speaking = null; // { id, loading, audio, url, system }
+  let voiceSendTimer = null;
+  let pttTimer = null;
+  let termsNoted = false;
+
+  function needGroqKey() {
+    setStatus("Voice uses Groq for speech. Add a free Groq key to turn it on.", "warn", [{ label: "Add Groq key", primary: true, action: () => {
+      clearStatus();
+      if (!models) return;
+      openPicker();
+      const i = pickerItems().findIndex((it) => it.id === "add:groq");
+      if (i >= 0) choosePicker(i);
+    } }]);
+    clearTimeout(statusTimer);
+  }
+
+  function renderVoice() {
+    const box = $("voice"), mic = $("mic");
+    $("form").classList.toggle("voicing", Boolean(voice));
+    box.hidden = !voice;
+    const rec = voice?.state === "rec" || voice?.state === "starting";
+    mic.classList.toggle("on", rec);
+    mic.classList.toggle("nokey", !voice && groqMissing());
+    mic.innerHTML = rec ? ICON.stopFill : ICON.mic;
+    mic.setAttribute("aria-pressed", String(rec));
+    mic.title = rec ? "Stop and send (Enter)" : groqMissing() ? "Voice needs a Groq key. Click to add one." : "Speak a request (click, or hold ⌥)";
+    mic.setAttribute("aria-label", rec ? "Stop and send" : "Speak a request");
+    if (!voice) { box.innerHTML = ""; return; }
+    if (voice.state === "thinking") {
+      box.innerHTML = `<span class="busy"><span class="spin"></span>Transcribing…</span><button class="act" type="button" id="voice-x" title="Cancel (Esc)" aria-label="Cancel">${ICON.x}</button>`;
+    } else if (!box.querySelector(".meter")) {
+      box.innerHTML = `<span class="dot" aria-hidden="true"></span><span class="meter" aria-hidden="true"></span><span class="time" id="voice-time">0:00</span>
+        <span class="hint">${voice.ptt ? "Release ⌥ to send" : "<kbd>↵</kbd> send"}</span>
+        <button class="act" type="button" id="voice-x" title="Cancel (Esc)" aria-label="Cancel recording">${ICON.x}</button><span class="sr">Recording</span>`;
+    }
+    $("voice-x").onclick = () => cancelVoice();
+    paintMeter();
+  }
+  // a scrolling level meter: one bar per ~60 ms of sound, newest on the right
+  function paintMeter() {
+    const meter = $("voice").querySelector(".meter");
+    if (!meter || !voice) return;
+    const n = Math.max(8, Math.floor(meter.clientWidth / 5));
+    while (meter.children.length < n) meter.prepend(document.createElement("i"));
+    while (meter.children.length > n) meter.firstChild.remove();
+    const lv = voice.levels.slice(-n);
+    const bars = meter.children;
+    for (let i = 0; i < n; i++) {
+      const v = lv[i - (n - lv.length)] ?? 0;
+      bars[i].style.height = `${Math.round(3 + v * 19)}px`;
+    }
+    if ($("voice-time") && voice.t0) {
+      const s = Math.floor((Date.now() - voice.t0) / 1000);
+      $("voice-time").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+    }
+  }
+
+  async function startVoice({ ptt = false } = {}) {
+    if (voice) return;
+    if (cmd.contentEditable !== "true") return setStatus("Not connected to the browser service yet.", "err");
+    if (groqMissing()) return needGroqKey();
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return setStatus("This window can't record audio.", "err");
+    stopSpeaking();
+    cancelVoiceSend();
+    closeMentions();
+    closePicker(false);
+    const me = voice = { state: "starting", ptt, levels: [], chunks: [] };
+    renderVoice();
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    } catch (err) {
+      if (voice === me) { voice = null; renderVoice(); }
+      return setStatus(err?.name === "NotAllowedError" || err?.name === "SecurityError"
+        ? "Microphone access is off. Turn on Gofer in System Settings › Privacy & Security › Microphone."
+        : err?.name === "NotFoundError" ? "No microphone found." : `Couldn't open the microphone (${err?.message || err}).`, "err");
+    }
+    if (voice !== me || me.cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+    me.stream = stream;
+    const type = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"].find((t) => MediaRecorder.isTypeSupported?.(t)) || "";
+    me.rec = new MediaRecorder(stream, type ? { mimeType: type, audioBitsPerSecond: 32000 } : undefined);
+    me.rec.ondataavailable = (e) => e.data?.size && me.chunks.push(e.data);
+    me.rec.onstop = () => voiceStopped(me);
+    try {
+      me.ctx = new AudioContext();
+      me.analyser = me.ctx.createAnalyser();
+      me.analyser.fftSize = 1024;
+      me.ctx.createMediaStreamSource(stream).connect(me.analyser);
+    } catch {}
+    const buf = new Float32Array(1024);
+    let last = 0;
+    const loop = (t) => {
+      if (voice !== me || me.state !== "rec") return;
+      if (me.analyser && t - last > 60) {
+        last = t;
+        me.analyser.getFloatTimeDomainData(buf);
+        let sum = 0;
+        for (const v of buf) sum += v * v;
+        me.levels.push(Math.min(1, Math.sqrt(Math.sqrt(sum / buf.length)) * 1.6)); // perceptual-ish: quiet speech still moves
+        if (me.levels.length > 200) me.levels.splice(0, 100);
+        paintMeter();
+      }
+      if (Date.now() - me.t0 > MAX_REC_MS) return stopVoice();
+      me.raf = requestAnimationFrame(loop);
+    };
+    me.rec.start(250);
+    me.t0 = Date.now();
+    me.state = "rec";
+    renderVoice();
+    me.raf = requestAnimationFrame(loop);
+    me.tick = setInterval(paintMeter, 250); // the clock keeps going even if frames are throttled
+  }
+  function releaseMic(me) {
+    cancelAnimationFrame(me.raf);
+    clearInterval(me.tick);
+    me.stream?.getTracks().forEach((t) => t.stop());
+    me.ctx?.close().catch(() => {});
+  }
+  /** Stop recording and send what was said. */
+  function stopVoice() {
+    const me = voice;
+    if (!me) return;
+    if (me.state === "starting") return cancelVoice(); // released before the mic opened: a tap, not a request
+    if (me.state !== "rec") return;
+    me.state = "thinking";
+    me.dur = Date.now() - me.t0;
+    renderVoice();
+    if (me.rec.state !== "inactive") me.rec.stop();
+  }
+  function cancelVoice() {
+    const me = voice;
+    if (!me) return;
+    me.cancelled = true;
+    me.abort?.abort();
+    if (me.rec && me.rec.state !== "inactive") me.rec.stop();
+    releaseMic(me);
+    voice = null;
+    renderVoice();
+    caretToEnd();
+  }
+  async function voiceStopped(me) {
+    releaseMic(me);
+    if (me.cancelled || voice !== me) return;
+    const blob = new Blob(me.chunks, { type: me.rec.mimeType || "audio/webm" });
+    if (me.dur < 400 || blob.size < 1000) {
+      voice = null; renderVoice(); caretToEnd();
+      return setStatus("That was too short to hear. Hold ⌥ or click the mic, then speak.", "info");
+    }
+    me.abort = new AbortController();
+    let text = "", err = null;
+    try {
+      const r = await fetch(`${httpBase}/api/transcribe`, { method: "POST", headers: { "Content-Type": blob.type.split(";")[0] || "audio/webm" }, body: blob, signal: me.abort.signal });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) err = data.error ? data : { error: `Transcription failed (${r.status}).` };
+      else text = String(data.text || "").trim();
+    } catch (e) {
+      err = e?.name === "AbortError" ? null : { error: "Couldn't reach the browser service to transcribe." };
+      if (!err) return;
+    }
+    if (voice !== me) return;
+    voice = null;
+    renderVoice();
+    if (err) return err.code === "no_key" ? needGroqKey() : setStatus(err.error, err.code === "rate_limited" ? "warn" : "err");
+    if (!text) { caretToEnd(); return setStatus("Didn't catch any words. Try again a little closer to the mic.", "warn"); }
+    // show what was heard for a moment, then send it; typing in the box keeps it there instead
+    setCmd(text);
+    voiceSendTimer = setTimeout(() => {
+      voiceSendTimer = null;
+      if (cmdText() !== text) return;
+      const icons = composerIcons();
+      setCmd("");
+      closeMentions();
+      run(text, { icons, voice: true });
+    }, 650);
+  }
+  function cancelVoiceSend() { clearTimeout(voiceSendTimer); voiceSendTimer = null; }
+  cmd.addEventListener("input", cancelVoiceSend);
+
+  $("mic").innerHTML = ICON.mic;
+  $("mic").addEventListener("mousedown", (e) => e.preventDefault());
+  $("mic").addEventListener("click", () => (voice ? (voice.state === "rec" ? stopVoice() : voice.state === "starting" ? cancelVoice() : null) : startVoice()));
+
+  // ── reading replies aloud ──
+  function speakActHTML(m) {
+    if (speaking?.id !== m.id) return `<button class="act hov" type="button" data-act="speak" title="Read aloud" aria-label="Read aloud">${ICON.speaker}</button>`;
+    return `<button class="act speaking" type="button" data-act="speak-stop" title="Stop reading (Esc)" aria-label="Stop reading">${speaking.loading ? '<span class="spin"></span>' : '<span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>'}<span>${speaking.loading ? "Getting voice" : "Speaking"}</span>${ICON.stopFill}</button>`;
+  }
+  // a sentence or two, for the Mac's own voice when Groq's can't be used
+  const shortSpeech = (t) => {
+    const s = String(t || "").replace(/@\[([^\]]+)\]/g, "$1").replace(/https?:\/\/\S+/g, "").replace(/[*_#`|>]+/g, " ").replace(/\s+/g, " ").trim();
+    const parts = s.match(/[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/g) || [s];
+    let out = "";
+    for (const p of parts) { if ((out + p).length > 240 && out) break; out += p; }
+    return out.trim().slice(0, 300);
+  };
+  function systemSpeak(me, text) {
+    if (!window.speechSynthesis || !text) return false;
+    const u = new SpeechSynthesisUtterance(text);
+    u.onend = u.onerror = () => speaking === me && stopSpeaking();
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+    me.system = true;
+    me.loading = false;
+    render();
+    return true;
+  }
+  async function speakMsg(m, { auto = false } = {}) {
+    stopSpeaking();
+    const text = m.detail;
+    if (!text) return;
+    const me = speaking = { id: m.id, loading: true };
+    render();
+    let err = null;
+    if (groqMissing()) err = { code: "no_key" };
+    else {
+      try {
+        const r = await fetch(`${httpBase}/api/speak`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+        if (speaking !== me) return;
+        if (!r.ok) err = await r.json().catch(() => ({ error: `Speech failed (${r.status}).` }));
+        else {
+          me.url = URL.createObjectURL(await r.blob());
+          if (speaking !== me) return URL.revokeObjectURL(me.url);
+          me.audio = new Audio(me.url);
+          me.audio.onended = () => speaking === me && stopSpeaking();
+          me.audio.onerror = () => speaking === me && (systemSpeak(me, shortSpeech(text)) || stopSpeaking());
+          await me.audio.play();
+          me.loading = false;
+          return render();
+        }
+      } catch (e) {
+        if (speaking !== me) return;
+        err = { error: "Couldn't play the voice." };
+      }
+    }
+    if (speaking !== me) return;
+    // Groq's voice isn't available: use the Mac's, and say why once in a while (never a crash)
+    const fell = systemSpeak(me, shortSpeech(text));
+    if (!fell) stopSpeaking();
+    if (err.code === "rate_limited") setStatus(`Groq's free voice limit is used up for a minute${fell ? ", so that was your Mac's voice" : ""}.`, "info");
+    else if (err.code === "terms" && !termsNoted) {
+      termsNoted = true;
+      setStatus(`Groq's voice needs its terms accepted once${fell ? "; using your Mac's voice for now" : ""}.`, "info", err.url ? [{ label: "Open Groq", link: true, action: () => window.bar.openUrl?.(err.url) }] : []);
+    }
+    else if (err.code === "no_key") { if (!auto) needGroqKey(); }
+    else if (err.code !== "terms") setStatus(err.error || "Couldn't read that aloud.", "warn");
+  }
+  function stopSpeaking() {
+    const me = speaking;
+    if (!me) return;
+    speaking = null;
+    if (me.audio) { me.audio.pause(); me.audio.src = ""; }
+    if (me.url) URL.revokeObjectURL(me.url);
+    if (me.system) window.speechSynthesis?.cancel();
+    render();
+  }
+
+  // keys: Esc cancels a recording or stops speech; Enter sends a recording; hold ⌥ to talk.
+  // Option alone types nothing on a Mac and has no other job in the panel, so it's free for
+  // push-to-talk; ⌥ with another key (a special character) never starts it.
+  document.addEventListener("keydown", (e) => {
+    if (recording) return; // a new shortcut is being recorded
+    const stop = () => { e.preventDefault(); e.stopImmediatePropagation(); };
+    if (voice) {
+      if (e.key === "Escape") { stop(); cancelVoice(); }
+      else if (e.key === "Enter" && voice.state === "rec") { stop(); stopVoice(); }
+      else if (e.key !== "Alt" && !e.metaKey) stop(); // nothing types into the hidden box while listening
+      return;
+    }
+    if (e.key === "Escape" && speaking) { stop(); return stopSpeaking(); }
+    if (e.key === "Alt" && !e.repeat && !e.metaKey && !e.ctrlKey && !e.shiftKey && !picker) {
+      clearTimeout(pttTimer);
+      pttTimer = setTimeout(() => startVoice({ ptt: true }), 220); // a held key, not a tap or a ⌥-combo
+    } else clearTimeout(pttTimer);
+  }, true);
+  document.addEventListener("keyup", (e) => {
+    if (e.key !== "Alt") return;
+    clearTimeout(pttTimer);
+    if (voice?.ptt) stopVoice();
+  }, true);
+  window.addEventListener("blur", () => { clearTimeout(pttTimer); if (voice?.ptt) cancelVoice(); });
+
+  setMode(mode);
+  render(true);
+  (async () => {
+    setStatus("Starting the browser", "busy");
+    const r = await window.bar.ensureServer();
+    window.bar.getBrowser().then(showBrowser);
+    if (!r.ok) setStatus(r.error, "warn");
+    else clearStatus();
+    connect(); // keeps retrying until the service is up
+  })();
+</script>
+</body>
+</html>

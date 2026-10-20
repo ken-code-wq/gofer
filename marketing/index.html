@@ -28,9 +28,9 @@
 
 <main id="top">
   <header class="hero">
-    <div class="wrap">
+    <div class="wrap wide">
       <!-- the live demo -->
-      <div class="desk grain" id="desk" role="img" aria-label="A demo: the user types “open youtube and play a prince of egypt song”. Gofer opens YouTube in the browser, searches, clicks “When You Believe” and plays it. The user types “no, another one” and it plays “Deliver Us” instead.">
+      <div class="desk grain" id="desk" role="img" aria-label="A demo of the real Gofer chat panel next to YouTube. The user types: open youtube and play a prince of egypt song. Gofer opens YouTube, searches and plays Deliver Us. The user types: no, another one. It skips two songs that are not from the film and plays Through Heaven’s Eyes.">
         <div class="menubar" aria-hidden="true">
           <b class="keep">Dia</b><span>File</span><span>Edit</span><span>View</span><span>History</span><span>Window</span>
           <div class="right"><span class="tray" id="tray"><svg viewBox="-70 -60 450 450" aria-hidden="true"><path d="M0 0 L0 312 C0 330 20 338 32 325 L102 250 L152 360 C158 374 174 380 188 374 L222 358 C236 352 242 336 236 322 L186 214 L290 214 C308 214 316 192 302 180 L28 -10 C16 -20 0 -14 0 0 Z" fill="currentColor" stroke="currentColor" stroke-width="20" stroke-linejoin="round"/></svg></span><span class="keep">Tue 20 Oct 9:41</span></div>
@@ -43,45 +43,17 @@
               <div class="bw-url" id="bw-url">Search or type a URL</div>
             </div>
             <div class="bw-page" id="bw-page">
-              <span class="agent-cursor" id="agent-cursor" style="color:#4f4cd8"><svg viewBox="-24 -34 350 430" aria-hidden="true"><path d="M0 0 L0 312 C0 330 20 338 32 325 L102 250 L152 360 C158 374 174 380 188 374 L222 358 C236 352 242 336 236 322 L186 214 L290 214 C308 214 316 192 302 180 L28 -10 C16 -20 0 -14 0 0 Z" fill="currentColor" stroke="#fff" stroke-width="24" stroke-linejoin="round"/></svg></span>
               <div class="pg pg-new on" data-pg="new"><div class="q">Search or type a URL</div></div>
-              <div class="pg" data-pg="home">
-                <div class="search">Search</div>
-                <div class="grid-yt"><i class="art-hill"></i><i class="art-sea"></i><i class="art-dawn"></i><i class="art-dusk"></i><i class="art-sea"></i><i class="art-hill"></i></div>
-              </div>
-              <div class="pg" data-pg="results">
-                <div class="search">prince of egypt song</div>
-                <div class="results">
-                  <div class="res" data-song="believe"><i class="art-dusk"></i><div><b>When You Believe (From The Prince of Egypt)</b><small>Whitney Houston, Mariah Carey · 4:52</small></div></div>
-                  <div class="res" data-song="deliver"><i class="art-dawn"></i><div><b>Deliver Us (From The Prince of Egypt)</b><small>Ofra Haza, Eden Riegel · 5:01</small></div></div>
-                  <div class="res"><i class="art-sea"></i><div><b>Through Heaven's Eyes (From The Prince of Egypt)</b><small>Brian Stokes Mitchell · 3:47</small></div></div>
-                </div>
-              </div>
-              <div class="pg pg-video" data-pg="video">
-                <div class="player"><i class="art art-dusk"></i><div class="bar"><i></i></div></div>
-                <h3></h3><p></p>
-              </div>
+              <img class="pg" data-pg="home" src="assets/demo/home.webp" alt="" decoding="async" />
+              <img class="pg" data-pg="results" src="assets/demo/results.webp" alt="" decoding="async" />
+              <img class="pg" data-pg="results2" src="assets/demo/results2.webp" alt="" decoding="async" />
+              <img class="pg" data-pg="watch1" src="assets/demo/watch1.webp" alt="" decoding="async" />
+              <img class="pg" data-pg="watch2" src="assets/demo/watch2.webp" alt="" decoding="async" />
+              <span class="ring" id="ring"></span>
+              <span class="agent-cursor" id="agent-cursor" style="color:#4f4cd8"><svg viewBox="-24 -34 350 430" aria-hidden="true"><path d="M0 0 L0 312 C0 330 20 338 32 325 L102 250 L152 360 C158 374 174 380 188 374 L222 358 C236 352 242 336 236 322 L186 214 L290 214 C308 214 316 192 302 180 L28 -10 C16 -20 0 -14 0 0 Z" fill="currentColor" stroke="#fff" stroke-width="24" stroke-linejoin="round"/></svg></span>
             </div>
           </div>
-
-          <div class="panel">
-            <div class="p-top">
-              <span class="x"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg></span>
-              <span class="pill tab" id="p-tab"><i class="fav"></i><span>New Tab</span></span>
-              <span class="pill br"><img src="assets/dia.png" alt="" /><span>Dia</span></span>
-              <span class="ic"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,58.34l-32-32a8,8,0,0,0-11.32,0l-96,96A8,8,0,0,0,88,128v32a8,8,0,0,0,8,8h32a8,8,0,0,0,5.66-2.34l96-96A8,8,0,0,0,229.66,58.34ZM124.69,152H104V131.31l64-64L188.69,88ZM200,76.69,179.31,56,192,43.31,212.69,64ZM224,128v80a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32h80a8,8,0,0,1,0,16H48V208H208V128a8,8,0,0,1,16,0Z"/></svg></span><span class="ic"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"/></svg></span>
-            </div>
-            <div class="p-chat" id="p-chat"></div>
-            <div class="p-box">
-              <div class="p-in" id="p-in" data-ph="Ask anything, or tell it what to do"></div>
-              <div class="p-tools">
-                <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24a104,104,0,0,0,0,208c21.51,0,44.1-6.48,60.43-17.33a8,8,0,0,0-8.86-13.33C166,210.38,146.21,216,128,216a88,88,0,1,1,88-88c0,26.45-10.88,32-20,32s-20-5.55-20-32V88a8,8,0,0,0-16,0v4.26a48,48,0,1,0,5.93,65.1c6,12,16.35,18.64,30.07,18.64,22.54,0,36-17.94,36-48A104.11,104.11,0,0,0,128,24Zm0,136a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg> <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V232a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"/></svg>
-                <span class="modes"><span class="on"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,0,0,36.18,176.88L24.83,210.93a16,16,0,0,0,20.24,20.24l34.05-11.35A104,104,0,1,0,128,24Zm0,192a87.87,87.87,0,0,1-44.06-11.81,8,8,0,0,0-6.54-.67L40,216,52.47,178.6a8,8,0,0,0-.66-6.54A88,88,0,1,1,128,216Z"/></svg>Chat</span><span><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z"/></svg>Direct</span></span>
-                <span class="auto"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z"/></svg>Auto <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></span>
-                <span class="send" id="p-send"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M205.66,117.66a8,8,0,0,1-11.32,0L136,59.31V216a8,8,0,0,1-16,0V59.31L61.66,117.66a8,8,0,0,1-11.32-11.32l72-72a8,8,0,0,1,11.32,0l72,72A8,8,0,0,1,205.66,117.66Z"/></svg></span>
-              </div>
-            </div>
-          </div>
+          <div class="pframe"><iframe id="panel-frame" src="panel.html" title="Gofer chat panel" tabindex="-1"></iframe></div>
         </div>
         <div class="dock" aria-hidden="true">
           <img class="on" src="assets/dia.png" alt="" /><img src="assets/arc.png" alt="" /><img src="assets/google-chrome.png" alt="" /><img class="on" src="assets/app-icon.png" alt="" />
@@ -325,7 +297,6 @@
   </div>
 </footer>
 
-<script>window.VB_ICONS = { check: `<svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>`, chevron: `<svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>` };</script>
 <script src="demo.js"></script>
 </body>
 </html>

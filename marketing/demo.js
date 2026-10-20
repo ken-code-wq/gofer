@@ -1,183 +1,115 @@
-// The hero: a scripted run of the real thing. Plays once when it scrolls into view; "Play again" replays.
-// With reduced motion it shows the finished conversation straight away.
+// The hero: the real panel (panel.html, built from desktop/bar.html) next to real YouTube pages.
+// This file plays the server's side: it types into the panel, receives the command, and sends back
+// the events the real server sends during that task, while the browser window shows each page.
+// Plays once when the desktop scrolls into view; "Play again" replays. Reduced motion: no animation.
 (() => {
-  const $ = (s, r = document) => r.querySelector(s);
-  const desk = $("#desk");
-  if (!desk) return;
-  const chat = $("#p-chat"), input = $("#p-in"), send = $("#p-send");
-  const tabTitle = $("#bw-tab-title"), url = $("#bw-url"), pTab = $("#p-tab"), tray = $("#tray");
-  const cursor = $("#agent-cursor"), replay = $("#replay"), page = $("#bw-page");
-  const ICON = window.VB_ICONS;
+  const $ = (s) => document.querySelector(s);
+  const desk = $("#desk"), frame = $("#panel-frame");
+  if (!desk || !frame) return;
+  const page = $("#bw-page"), cursor = $("#agent-cursor"), ring = $("#ring"), replay = $("#replay"), tray = $("#tray");
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const HITS = { size: [1440, 900], results: [264, 112, 1152, 281], results2: [264, 250, 1152, 281] }; // from the captures (assets/demo)
+  const MODELS = ["groq:openai/gpt-oss-120b", "groq:qwen/qwen3.8-27b"];
+
   let run = 0;
-  const sleep = (ms, id) => new Promise((ok, no) => setTimeout(() => (id === run ? ok() : no(new Error("stale"))), ms));
-  const el = (tag, cls, html) => Object.assign(document.createElement(tag), { className: cls || "", innerHTML: html || "" });
+  const PACE = 1.3; // a little slower than a real run, so each step can be read
+  const sleep = (ms, id) => new Promise((ok, no) => setTimeout(() => (id === run ? ok() : no(new Error("stale"))), reduce ? 0 : ms * PACE));
+  const post = (m) => frame.contentWindow?.postMessage({ gofer: true, ...m }, "*");
+  const emit = (type, payload) => post({ kind: "emit", type, payload });
+  let waiting = null; // { kind, resolve }
+  const next = (kind) => new Promise((resolve) => { waiting = { kind, resolve }; });
+  let ready = false;
+  addEventListener("message", (e) => {
+    const m = e.data;
+    if (!m || !m.gofer || e.source !== frame.contentWindow) return;
+    if (m.kind === "ready") ready = true;
+    if (waiting && waiting.kind === m.kind) { const w = waiting; waiting = null; w.resolve(m); }
+  });
 
-  const SONGS = {
-    believe: { title: "When You Believe (From The Prince of Egypt)", by: "Whitney Houston, Mariah Carey", art: "dusk", len: "4:52", tab: "When You Believe - The Prince of Egypt" },
-    deliver: { title: "Deliver Us (From The Prince of Egypt)", by: "Ofra Haza, Eden Riegel", art: "dawn", len: "5:01", tab: "Deliver Us - The Prince of Egypt" },
-  };
-
-  function showPage(name) {
+  function show(name, title, url) {
     for (const p of page.querySelectorAll(".pg")) p.classList.toggle("on", p.dataset.pg === name);
+    $("#bw-tab-title").textContent = title;
+    $("#bw-url").textContent = url;
+    $("#bw-fav").className = `fav${name === "new" ? "" : " yt"}`;
+    post({ kind: "tabs", tabs: [{ index: 0, title, url: name === "new" ? "about:blank" : `https://www.${url}`, active: true, shown: true, icon: name === "new" ? null : "yt" }] });
   }
-  function setTab(title, href, yt = true) {
-    tabTitle.textContent = title;
-    url.textContent = href;
-    $("#bw-fav").className = `fav${yt ? " yt" : ""}`;
-    pTab.querySelector("span").textContent = title;
-    pTab.querySelector(".fav").className = `fav${yt ? " yt" : ""}`;
-  }
-  function playVideo(song) {
-    const v = $(".pg-video");
-    v.querySelector(".art").className = `art art-${song.art}`;
-    v.querySelector("h3").textContent = song.title;
-    v.querySelector("p").textContent = `${song.by} · ${song.len}`;
-    v.querySelector(".player").classList.remove("playing");
-    void v.offsetWidth;
-    v.querySelector(".player").classList.add("playing");
-  }
-  async function pointAt(target, id) {
-    const r = target.getBoundingClientRect(), base = page.getBoundingClientRect();
+  /** Move the agent's pointer to a result (in capture coordinates), ring it, click. */
+  async function click(rect, id) {
+    const k = page.clientWidth / HITS.size[0];
+    const [x, y, w, h] = rect.map((v) => v * k);
+    Object.assign(ring.style, { left: `${x - 6}px`, top: `${y - 6}px`, width: `${w + 12}px`, height: `${h + 12}px` });
     cursor.classList.add("on");
-    cursor.style.transform = `translate(${r.left - base.left + 60}px, ${r.top - base.top + r.height / 2}px)`;
-    await sleep(750, id);
+    cursor.style.transform = `translate(${x + w * .52}px, ${y + 40 * k}px)`;
+    await sleep(800, id);
+    ring.classList.add("on");
     cursor.classList.remove("tap"); void cursor.offsetWidth; cursor.classList.add("tap");
-    target.classList.add("hit");
-    await sleep(500, id);
+    await sleep(450, id);
   }
+  function unclick() { ring.classList.remove("on"); cursor.classList.remove("on"); }
 
-  async function type(text, id, ms = 38) {
-    input.classList.add("caret");
-    for (const ch of text) { input.textContent += ch; send.classList.add("ready"); await sleep(ms, id); }
-    await sleep(350, id);
-  }
-  function sendMine(text) {
-    const me = el("div", "me", "");
-    me.textContent = text;
-    chat.append(me);
-    input.textContent = ""; input.classList.remove("caret"); send.classList.remove("ready");
-    $(".empty", chat)?.remove();
-  }
-  /** A reply in progress: steps tick off; finish() turns it into the answer. */
-  function reply() {
-    const it = el("div", "it", '<ol class="steps"></ol>');
-    chat.append(it);
-    const steps = it.querySelector(".steps");
-    let cur = null;
-    return {
-      step(text) {
-        if (cur) cur.done();
-        const li = el("li", "step", `<span class="mk"><span class="spin"></span></span><span class="t"></span>`);
-        li.querySelector(".t").textContent = text;
-        steps.append(li);
-        cur = { li, done: (detail) => { li.querySelector(".mk").innerHTML = ICON.check; if (detail) li.querySelector(".t").append(el("small", "", detail)); } };
-        return cur;
-      },
-      finish(text, n, secs) {
-        if (cur) cur.done();
-        it.innerHTML = "";
-        it.append(document.createTextNode(text));
-        it.append(el("div", "meta", `<span class="tog">${ICON.chevron}${n} steps</span><span>Worked for ${secs} s · gpt-oss-120b +1</span>`));
-      },
-    };
-  }
-
-  function reset() {
-    chat.innerHTML = '<p class="empty"><b>What should it do?</b>Ask about the page, or hand it a task.</p>';
-    input.textContent = ""; input.classList.remove("caret"); send.classList.remove("ready");
-    setTab("New Tab", "Search or type a URL", false);
-    showPage("new");
-    cursor.classList.remove("on");
-    for (const r of page.querySelectorAll(".hit")) r.classList.remove("hit");
-    replay.classList.remove("on");
+  const step = (text, status = "ok", detail) => ({ text, status, ...(detail ? { detail } : {}) });
+  /** One request: type it, then play the task's events. Each beat: wait, then click / page / steps. */
+  async function request(id, text, beats, summary) {
+    post({ kind: "type", text, ms: reduce ? 0 : 34 });
+    const { id: mid } = await next("command");
+    tray.classList.add("on");
+    emit("queue", { running: { id: mid, text }, queued: [], side: [], paused: null, canTakeOver: true, background: false, undo: null });
+    let steps = [];
+    for (const b of beats) {
+      await sleep(b.wait ?? 700, id);
+      if (b.click) await click(b.click, id);
+      if (b.page) { show(...b.page); unclick(); }
+      steps = b.steps;
+      emit("goal", { status: "running", goal: text, steps, models: MODELS });
+    }
+    await sleep(800, id);
+    emit("goal", { status: "done", goal: text, steps: steps.map((s) => ({ ...s, status: "ok" })), summary, models: MODELS });
+    emit("queue", { running: null, queued: [], side: [], paused: null, canTakeOver: false, background: false, undo: null });
     tray.classList.remove("on");
   }
 
   async function play() {
     const id = ++run;
-    reset();
+    replay.classList.remove("on");
+    unclick();
+    ready = false;
+    frame.src = `panel.html?run=${id}`; // a fresh panel each time
     try {
+      while (!ready) await sleep(60, id);
+      show("new", "New Tab", "Search or type a URL");
       await sleep(900, id);
-      // 1. the request
-      await type("open youtube and play a prince of egypt song", id, 34);
-      sendMine("open youtube and play a prince of egypt song");
-      tray.classList.add("on");
-      const a = reply();
-      await sleep(500, id);
-      a.step("Open youtube.com");
-      await sleep(700, id);
-      setTab("YouTube", "youtube.com");
-      showPage("home");
-      await sleep(700, id);
-      a.step("Search for “prince of egypt song”");
-      await sleep(900, id);
-      setTab("prince of egypt song - YouTube", "youtube.com/results?search_query=prince+of+egypt+song");
-      showPage("results");
-      await sleep(800, id);
-      a.step("Click “When You Believe (From The Prince of Egypt)”");
-      await pointAt(page.querySelector('[data-song="believe"]'), id);
-      setTab(SONGS.believe.tab, "youtube.com/watch?v=LKaXY4IdZ40");
-      playVideo(SONGS.believe);
-      showPage("video");
-      cursor.classList.remove("on");
-      await sleep(600, id);
-      a.step("Play the video").done("Playing · 0:03 of 4:52");
-      await sleep(900, id);
-      a.finish("I opened YouTube and played “When You Believe” by Whitney Houston and Mariah Carey.", 4, 6);
-      tray.classList.remove("on");
-      await sleep(2000, id);
 
-      // 2. the follow-up
-      await type("no, another one", id, 55);
-      sendMine("no, another one");
-      tray.classList.add("on");
-      const b = reply();
-      await sleep(500, id);
-      b.step("Search for “prince of egypt song”");
-      await sleep(700, id);
-      for (const r of page.querySelectorAll(".hit")) r.classList.remove("hit");
-      setTab("prince of egypt song - YouTube", "youtube.com/results?search_query=prince+of+egypt+song");
-      showPage("results");
-      await sleep(800, id);
-      b.step("Click “Deliver Us (From The Prince of Egypt)”");
-      await pointAt(page.querySelector('[data-song="deliver"]'), id);
-      setTab(SONGS.deliver.tab, "youtube.com/watch?v=0bb5dvcvoqk");
-      playVideo(SONGS.deliver);
-      showPage("video");
-      cursor.classList.remove("on");
+      const q = "prince of egypt song";
+      const results = ["results", `${q} - YouTube`, "youtube.com/results?search_query=prince+of+egypt+song"];
+      const a1 = step("Open youtube.com", "ok", "youtube.com"), a2 = step(`Search for “${q}”`), a3 = step("Click “Deliver Us (Opening Song) | The Prince of Egypt”");
+      await request(id, "open youtube and play a prince of egypt song", [
+        { wait: 500, steps: [step("Open youtube.com", "running")] },
+        { wait: 700, page: ["home", "YouTube", "youtube.com"], steps: [a1, { ...a2, status: "running" }] },
+        { wait: 900, page: results, steps: [a1, a2, { ...a3, status: "running" }] },
+        { wait: 600, click: HITS.results, page: ["watch1", "Deliver Us (Opening Song) | The Prince of Egypt | TUNE - YouTube", "youtube.com/watch?v=fQhcOJHTdb4"], steps: [a1, a2, a3, step("Play the video", "running")] },
+        { wait: 700, steps: [a1, a2, a3, step("Play the video", "ok", "Playing · 1:35 of 6:37")] },
+      ], "I opened YouTube and played “Deliver Us”, the opening song of The Prince of Egypt.");
+      await sleep(1800, id);
+
+      const b1 = step("Go back to the results"), b2 = step("Scroll past the two mofe songs"), b3 = step("Click “Through Heaven's Eyes | The Prince of Egypt”");
+      await request(id, "no, another one", [
+        { wait: 500, steps: [{ ...b1, status: "running" }] },
+        { wait: 700, page: results, steps: [b1, { ...b2, status: "running" }] },
+        { wait: 900, page: ["results2", `${q} - YouTube`, "youtube.com/results?search_query=prince+of+egypt+song"], steps: [b1, b2, { ...b3, status: "running" }] },
+        { wait: 600, click: HITS.results2, page: ["watch2", "Through Heaven's Eyes | The Prince of Egypt | TUNE - YouTube", "youtube.com/watch?v=bQt2_IQD6J8"], steps: [b1, b2, b3, step("Play the video", "running")] },
+        { wait: 700, steps: [b1, b2, b3, step("Play the video", "ok", "Playing · 1:02 of 3:37")] },
+      ], "Now playing “Through Heaven's Eyes”. I skipped the two mofe songs, since they aren't from the film.");
       await sleep(600, id);
-      b.step("Play the video").done("Playing · 0:01 of 5:01");
-      await sleep(900, id);
-      b.finish("Now playing “Deliver Us”, the opening song. I skipped “When You Believe” since you just heard it.", 3, 4);
-      tray.classList.remove("on");
-      await sleep(1200, id);
       replay.classList.add("on");
     } catch {}
   }
 
-  function finished() {
-    reset();
-    run++;
-    $(".empty", chat)?.remove();
-    sendMine("open youtube and play a prince of egypt song");
-    reply().finish("I opened YouTube and played “When You Believe” by Whitney Houston and Mariah Carey.", 4, 6);
-    sendMine("no, another one");
-    reply().finish("Now playing “Deliver Us”, the opening song. I skipped “When You Believe” since you just heard it.", 3, 4);
-    setTab(SONGS.deliver.tab, "youtube.com/watch?v=0bb5dvcvoqk");
-    playVideo(SONGS.deliver);
-    showPage("video");
-    replay.classList.add("on");
-  }
-
   replay.addEventListener("click", () => play());
-  if (reduce) return finished();
-  reset();
   let started = false;
   new IntersectionObserver((entries) => {
     for (const e of entries) {
       if (e.isIntersecting && !started) { started = true; play(); }
-      if (!e.isIntersecting && started && !replay.classList.contains("on")) { run++; replay.classList.add("on"); } // stop when scrolled away
+      else if (!e.isIntersecting && started && !replay.classList.contains("on")) { run++; replay.classList.add("on"); } // stop when scrolled away
     }
-  }, { threshold: .35 }).observe(desk);
+  }, { threshold: .3 }).observe(desk);
 })();
