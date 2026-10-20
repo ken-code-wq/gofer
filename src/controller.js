@@ -593,7 +593,10 @@ export class Controller extends EventEmitter {
     const steps = g.steps.map(({ record, ...s }) => ({ ...s }));
     // screenshots it took go to the chat with the final reply (they're large, so not with every step)
     const images = status === "running" || status === "awaiting" ? undefined : g.images;
-    this.emit("goal", { status, goal: g.goal, steps, summary, recipe, replay: g.replay ? g.replay.name : undefined, models: g.models || [], images });
+    // finished in a tab you're not looking at: the reply says so and offers to show it
+    const b = this.browser;
+    const background = status !== "running" && status !== "awaiting" && b.active && b.shown && b.active !== b.shown && !b.active.isClosed?.() ? { title: this.snapshot?.title || "" } : undefined;
+    this.emit("goal", { status, goal: g.goal, steps, summary, recipe, replay: g.replay ? g.replay.name : undefined, models: g.models || [], images, background });
   }
 
   _endGoal(g, status, summary = "") {

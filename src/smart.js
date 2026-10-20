@@ -379,6 +379,7 @@ const GOAL_SYSTEM =
   "The user keeps working while you do: never take over the tab they are looking at (marked 'user is looking at this') to go " +
   "somewhere else. If the goal is about that page ('this page', 'here', 'summarize this') work on it; if it needs a different " +
   "site, open it with new_tab (new tabs open in the background, so the user isn't disturbed) and work there. " +
+  "When you finish in a tab the user isn't looking at, say it's ready in a background tab (never 'the current tab'). " +
   "You are not limited to the current tab: open a new tab (new_tab, with a url to load in it), switch to any open tab " +
   "(switch_tab with its number) or close the current tab (close_tab) whenever the goal calls for it. Opening a new tab " +
   "leaves the user's other tabs untouched, so prefer it when asked for a new tab. " +

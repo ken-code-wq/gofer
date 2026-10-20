@@ -149,6 +149,8 @@
   .msg.agent .failhead { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; font-size: 12px; font-weight: 500; color: var(--err); }
   .msg.agent .failhead svg { width: 13px; height: 13px; }
   .msg.agent .note { margin-top: 4px; font-size: 12px; color: var(--text-3); }
+  .note .inlink { font: inherit; color: var(--text-2); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+  .note .inlink:hover { color: var(--text); }
   .understood { margin-bottom: 6px; font-size: 12px; color: var(--text-3); }
   .understood b { font-weight: 500; margin-right: 4px; }
   /* direct mode: one quiet line */
@@ -817,6 +819,7 @@
       else body += `${m.status === "fail" ? `<div class="failhead">${ICON.warn}Didn't finish</div>` : ""}<div class="text">${esc(m.detail)}</div>`;
     }
     if (m.note) body += `<p class="note">${esc(m.note)}</p>`;
+    else if (m.bgTab && !running) body += `<p class="note">In a background tab, so yours stayed as it was. <button class="inlink" type="button" data-act="show-tab" title="Bring “${esc(m.bgTab)}” to the front of your browser">Show it</button></p>`;
     if (m.table) body += tableHTML(m.table);
     if (m.images?.length) body += `<div class="shots">${m.images.map((im, k) => `<figure class="shot">
       ${im.src ? `<img src="${esc(im.src)}" alt="Screenshot${im.title ? ` of ${esc(im.title)}` : ""}" data-act="shot-open" data-k="${k}" title="Open the full screenshot">` : `<button type="button" class="gone" data-act="shot-open" data-k="${k}">${ICON.image}<span>Screenshot (open the saved file)</span></button>`}
@@ -985,6 +988,7 @@
       else if (a === "unqueue" && m) { send({ type: "queue:remove", id: m.id }); m.status = "ignored"; m.detail = "Removed from the queue"; m.done = Date.now(); render(); }
       else if (a === "undo-task" && m) { send({ type: "task:undo", id: m.id }); m.note = "Going back…"; queue = { ...queue, undo: null }; render(); }
       else if (a === "link" && m?.link) window.bar.openUrl?.(m.link.url);
+      else if (a === "show-tab") send({ type: "tab:show" });
       else if (a === "delete-chat") deleteChat(act.dataset.id);
       else if (a === "run-saved") { const c = saved.find((x) => x.name === name); setView("chat"); if (c && hasSlots(c.text)) { setCmd(`${name} `); setStatus(`Type ${slotNames(c.text)} after the name, then press Enter.`, "info"); } else run(name); }
       else if (a === "delete-cmd") { send({ type: "commands:delete", name }); setStatus(`Deleted “${name}”.`, "ok"); }
@@ -1367,6 +1371,7 @@
           attachImages(current, payload.images);
           if (payload.recipe && !payload.replay) current.recipe = payload.recipe;
           if (payload.replay) current.note = "Ran the saved steps, no AI used.";
+          if (payload.background) current.bgTab = payload.background.title || "the agent's tab";
           finish("ok", payload.summary || "Done.");
         }
         else if (payload.status === "failed") { attachImages(current, payload.images); finish("fail", capital(payload.summary)); }
