@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Changed
-- **Voice Browser is now Gofer**, with a new icon: a pointer moving forward. The app installs as
+- **Voice Browser is now Gofer**, with a new icon: a white pointer with a black outline on an indigo gradient that fades to black. The app installs as
   `/Applications/Gofer.app` and the old Voice Browser.app is removed. On first launch your data moves from
   `~/.voice-browser` to `~/.gofer`, and the panel's chats and window settings come along. Passwords stay in
   the Keychain under the old service name, so nothing needs re-entering. Because the app's identity changed,

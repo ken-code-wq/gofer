@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/icon.png" width="112" alt="Gofer icon: a pointer moving forward" />
+  <img src="docs/images/icon.png" width="112" alt="Gofer icon: a white pointer on an indigo-to-black gradient" />
 </p>
 
 <h1 align="center">Gofer</h1>
