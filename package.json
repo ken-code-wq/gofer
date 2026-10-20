@@ -1,6 +1,6 @@
 {
   "name": "voice-browser",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Chat with your real browser: a macOS chat panel that drives Dia, Arc, Chrome or Chromium \u2014 tasks, page and web questions, forms, voice and follow-ups.",

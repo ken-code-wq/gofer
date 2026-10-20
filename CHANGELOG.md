@@ -1,8 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 — 2026-10-20
 
 ### Added
+- **Background tabs, a task queue and take over.** When a task would take the tab you're looking at to another
+  site, it opens a background tab instead (Show brings it forward; a task that finished there says so, with
+  Show it). Messages sent while a task runs wait their turn, and questions are answered alongside it. Take over
+  pauses the task after its current step so you can log in or solve a captcha, then Hand back; the agent asks
+  for this itself when a page needs you. Go back to where I was puts back the tabs a request changed.
 - **Video controls without the AI**: "move back 10 seconds and play", "skip ahead 1 minute", "go to 2:15", "pause",
   "speed 1.5x", "mute" act on the page's video directly — instant, exact, and the reply says where it is now
   ("Went back 10 s, playing: now at 1:13 / 10:02"). The agent gets the same as a `video_control` tool, and each step
@@ -38,6 +43,8 @@
   tabs" / "compare @A @B" answers with a table and a one-line verdict.
 
 ### Fixed
+- The header's Show button was always visible (and squeezed the browser name to one letter); it now only
+  appears while a task works in a background tab.
 - The agent couldn't see menus that sites add at the end of the page (YouTube's ⋮ menu: "Add to queue") because
   the element scan stopped first; open menus, dialogs and popups are now read first and marked "[in open menu]".
 - Opening a menu or a step that only shows a toast was taken for "the page didn't change" (only the URL and title
