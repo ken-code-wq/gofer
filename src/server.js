@@ -17,7 +17,14 @@ import { listCommands, saveCommand, deleteCommand } from "./store.js";
 import { listSecrets, setSecret, deleteSecret } from "./secrets.js";
 import { deleteChat } from "./memory.js";
 import { listSites, addNote, deleteNote, siteKey, siteNoteEvents } from "./sitenotes.js";
-import { listModels, setPreferred, PROVIDERS } from "./brain.js";
+import { listModels as brainModels, setPreferred, PROVIDERS } from "./brain.js";
+import { SEARCH_KEYS, missingSearchKeys } from "./websearch.js";
+
+// the model picker also offers keys for better web search
+const listModels = () => {
+  const l = brainModels();
+  return { ...l, missing: [...l.missing, ...missingSearchKeys()] };
+};
 import { mountVoice } from "./voice.js";
 import fs from "node:fs";
 
@@ -141,7 +148,7 @@ export async function startServer(opts = {}) {
           broadcast("models", listModels());
           break;
         case "provider:key": {
-          const prov = PROVIDERS[String(msg.provider || "")];
+          const prov = PROVIDERS[String(msg.provider || "")] || SEARCH_KEYS[String(msg.provider || "")];
           const key = String(msg.key || "").trim();
           if (!prov || !/^[\x21-\x7e]{8,300}$/.test(key)) {
             reply("store-error", "That doesn't look like an API key.");

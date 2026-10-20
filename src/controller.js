@@ -694,13 +694,30 @@ export class Controller extends EventEmitter {
           note = note ? `${note} ${g.hint}` : g.hint;
           g.hint = null;
         }
-        r = await nextGoalStep(this, g.goal, g.done, note, g.context);
+        r = await nextGoalStep(this, g.goal, g.done, note, g.context, {
+          // background searches and page reads show up as steps, like browser actions
+          onResearch: (res) => {
+            if (g.cancelled || res.detail === "already done") return; // a repeat the model was told off for: not news to the user
+            g.steps.push({ text: res.description, status: res.ok ? "ok" : "fail", detail: res.detail?.slice(0, 80) });
+            this._emitGoal(g, "running");
+          },
+        });
+        g.brainErrors = 0;
       } catch (err) {
+        if (g.cancelled) return;
+        // A model hiccup shouldn't end the task: wait a little and ask again (another model may take it).
+        if (!(err instanceof LimitError) && !isAbortError(err) && (g.brainErrors = (g.brainErrors || 0) + 1) <= 3) {
+          this._log("warn", `goal step: model error, retrying (${g.brainErrors}/3): ${err.message || err}`);
+          this._emitGoal(g, "running", "Model hiccup, trying again…");
+          await new Promise((res) => setTimeout(res, 1500 * g.brainErrors));
+          if (g.cancelled) return;
+          continue;
+        }
         return this._endGoal(g, "failed", String(err.message || err));
       }
       note = "";
       if (g.cancelled) return;
-      g.models = [...new Set([...(g.models || []), r.model])];
+      g.models = [...new Set([...(g.models || []), ...(r.models || [r.model])])];
       (g.sites ||= new Set()).add(siteKey(r.snap?.url || ""));
       const { step } = r;
       if (step.action?.text) (g.typed ||= []).push(String(step.action.text));

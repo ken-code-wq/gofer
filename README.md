@@ -191,6 +191,7 @@ server — the UI never sees your keys.
 | `ZAI_API_KEY`, `DEEPSEEK_API_KEY`, `OPENROUTER_API_KEY` | the same (optional) | GLM 5.3 Flash, DeepSeek, any OpenRouter model (`OPENROUTER_MODEL`) |
 | `BRAIN_PROVIDER` + `BRAIN_API_KEY` | optional | the older single-provider setting (`zai`, `deepseek`, `openrouter`, `groq`, `custom`), tried first |
 | `BRAIN_MODEL`, `BRAIN_BASE_URL`, `BRAIN_VISION` | optional | override a preset / point `custom` at any OpenAI-compatible API |
+| `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY` | optional | better web search for the agent ([Tavily](https://app.tavily.com), [Brave Search API](https://api-dashboard.search.brave.com)); without them it uses Brave's public results, then Gemini / Groq search |
 | `CDP_URL` | optional | attach to a browser you started with `--remote-debugging-port` |
 | `PORT` | optional | local server port (default `8787`, bound to `127.0.0.1`) |
 

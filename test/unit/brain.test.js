@@ -60,3 +60,32 @@ test("several providers: screenshots go to models that read them, text to the fa
   reset();
   Object.entries(saved).forEach(([k, v]) => v !== undefined && (process.env[k] = v));
 });
+
+test("tool calls: an odd 400 from one model hands the request to the next; tool arguments are parsed", async () => {
+  reset();
+  process.env.GROQ_API_KEY = "gq";
+  setPreferred("auto");
+  const realFetch = globalThis.fetch;
+  const seen = [];
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    seen.push(body.model);
+    if (seen.length === 1) return new Response(JSON.stringify({ error: { message: "Tool choice is none, but model called a tool" } }), { status: 400 });
+    assert.equal(body.tool_choice, "required");
+    assert.equal(body.tools[0].type, "function");
+    const tool_calls = [{ function: { name: "web_search", arguments: '{"query":"uncle pete toys jingle","description":"search"}' } }];
+    return new Response(JSON.stringify({ choices: [{ message: { content: "", tool_calls } }], usage: { prompt_tokens: 10, completion_tokens: 5 } }), { status: 200 });
+  };
+  try {
+    const { askTools } = await import("../../src/brain.js");
+    const tools = [{ name: "web_search", description: "search", parameters: { type: "object", properties: { query: { type: "string" } } } }];
+    const r = await askTools({ system: "s", text: "t", tools });
+    assert.equal(seen.length, 2);
+    assert.notEqual(seen[0], seen[1]);
+    assert.deepEqual(r.calls, [{ name: "web_search", args: { query: "uncle pete toys jingle", description: "search" } }]);
+  } finally {
+    globalThis.fetch = realFetch;
+    reset();
+    Object.entries(saved).forEach(([k, v]) => v !== undefined && (process.env[k] = v));
+  }
+});

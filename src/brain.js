@@ -267,21 +267,50 @@ export async function ask(req) {
 async function askAny({ system, text, images = [], schema, signal }) {
   text = String(text).toWellFormed(); // page text cut mid-emoji
   system = String(system).toWellFormed();
+  return tryModels({ images, signal }, async (c) => {
+    const call = c.kind === "gemini" ? callGemini : callOpenAI;
+    const r = await call(c, { system, text, images, schema, signal });
+    if (r.error) return r;
+    try {
+      return { value: { data: parseJsonReply(r.text) }, usage: r.usage };
+    } catch {
+      // one retry with a reminder, for models that wrap or truncate JSON
+      if (c.kind !== "gemini") {
+        try {
+          const r2 = await callOpenAI(c, { system, text, images, schema, signal }, "\n\n(Your previous reply was not a valid JSON object. Reply with the JSON object only.)");
+          if (!r2.error) return { value: { data: parseJsonReply(r2.text) }, usage: r2.usage };
+        } catch {}
+      }
+      return { invalid: "answer wasn't valid JSON" };
+    }
+  });
+}
+
+/**
+ * Try the models in Auto order until one answers. `attempt(c)` returns { value, usage } on success,
+ * { status, error, retryAfter } for an HTTP error, or { invalid } for an unusable reply. Busy,
+ * rate-limited or broken models rest for a while and the next one takes the request.
+ */
+async function tryModels({ images = [], signal }, attempt) {
   const list = modelsToTry({ images: images.length > 0 });
   if (!list.length) throw new BrainError("No AI model is set up. Add a key (GROQ_API_KEY, GEMINI_API_KEY, …) to .env, or use ⋯ → AI models in the panel.");
   let lastErr = null;
   let quota = false;
   for (const c of list) {
     const t0 = Date.now();
-    const call = c.kind === "gemini" ? callGemini : callOpenAI;
     let r;
     try {
-      r = await call(c, { system, text, images, schema, signal });
+      r = await attempt(c);
     } catch (err) {
       if (signal?.aborted) throw err;
       lastErr = new BrainError(`${c.id}: ${err.name === "TimeoutError" ? "timed out" : err.message}`);
       console.warn(`brain: ${c.id} ${err.name === "TimeoutError" ? "timed out" : err.message} after ${Date.now() - t0}ms`);
       rest(c.id, 60_000, err.name === "TimeoutError" ? "slow to answer" : "unreachable");
+      continue;
+    }
+    if (r.invalid) {
+      lastErr = new BrainError(`${c.id}: ${r.invalid}`);
+      console.warn(`brain: ${c.id} ${r.invalid}`);
       continue;
     }
     if (r.error) {
@@ -290,48 +319,107 @@ async function askAny({ system, text, images = [], schema, signal }) {
       if (r.status === 429 || r.status === 402) {
         quota = true;
         rest(c.id, r.retryAfter ?? (r.status === 402 ? 30 * 60_000 : 30_000), r.status === 402 ? "out of credit" : "rate limited");
-        continue;
-      }
-      if (r.status === 401 || r.status === 403) {
-        rest(c.id, 30 * 60_000, "key not accepted");
-        continue;
-      }
-      if (r.status === 404) {
-        rest(c.id, 30 * 60_000, "model not available");
-        continue;
-      }
-      if (r.status === 413 || (r.status === 400 && /too large|context|tokens/i.test(r.error))) {
-        rest(c.id, 60_000, "request too large"); // over its per-minute size: let the next one take it for a while
-        continue;
-      }
-      if (r.status >= 500) {
-        rest(c.id, 60_000, "provider busy");
-        continue;
-      }
-      throw lastErr;
+      } else if (r.status === 401 || r.status === 403) rest(c.id, 30 * 60_000, "key not accepted");
+      else if (r.status === 404) rest(c.id, 30 * 60_000, "model not available");
+      else if (r.status === 413 || (r.status === 400 && /too large|context|tokens/i.test(r.error))) rest(c.id, 60_000, "request too large"); // over its per-minute size
+      else if (r.status >= 500) rest(c.id, 60_000, "provider busy");
+      // anything else (e.g. Groq's "Tool choice is none, but model called a tool") is usually a
+      // one-off quirk of that model's reply: let the next model answer instead of failing the task
+      else rest(c.id, 15_000, "bad reply");
+      continue;
     }
-    try {
-      const data = parseJsonReply(r.text);
-      if (process.env.VB_BRAIN_LOG !== "0") console.log(`brain: ${c.id} ok in ${Date.now() - t0}ms (${r.usage?.prompt_tokens ?? r.usage?.promptTokenCount ?? "?"} in)`);
-      lastModel = { id: c.id, label: c.label || c.model };
-      return { data, model: c.model, modelId: c.id, modelLabel: c.label || c.model, ms: Date.now() - t0, usage: r.usage };
-    } catch {
-      // one retry with a reminder, for models that wrap or truncate JSON
-      if (c.kind !== "gemini") {
-        try {
-          const r2 = await callOpenAI(c, { system, text, images, schema, signal }, "\n\n(Your previous reply was not a valid JSON object. Reply with the JSON object only.)");
-          if (!r2.error) {
-            const data = parseJsonReply(r2.text);
-            lastModel = { id: c.id, label: c.label || c.model };
-            return { data, model: c.model, modelId: c.id, modelLabel: c.label || c.model, ms: Date.now() - t0, usage: r2.usage };
-          }
-        } catch {}
-      }
-      lastErr = new BrainError(`${c.id}: answer wasn't valid JSON`);
-    }
+    if (process.env.VB_BRAIN_LOG !== "0") console.log(`brain: ${c.id} ok in ${Date.now() - t0}ms (${r.usage?.prompt_tokens ?? r.usage?.promptTokenCount ?? "?"} in)`);
+    lastModel = { id: c.id, label: c.label || c.model };
+    return { ...r.value, model: c.model, modelId: c.id, modelLabel: c.label || c.model, ms: Date.now() - t0, usage: r.usage };
   }
   if (quota && /\b(429|402)\b/.test(lastErr?.message || "")) {
     throw new BrainError("Every AI model is at its limit right now. Try again in a minute, or add another provider's key (⋯ → AI models).");
   }
   throw lastErr || new BrainError("No AI model available");
+}
+
+// ── tool calls ─────────────────────────────────────────────────
+
+async function callGeminiTools(c, { system, text, images, tools, signal }) {
+  const parts = [...images.map((buf) => ({ inline_data: { mime_type: "image/jpeg", data: buf.toString("base64") } })), { text }];
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${c.model}:generateContent`, {
+    method: "POST",
+    headers: { "x-goog-api-key": c.key, "content-type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts }],
+      tools: [{ functionDeclarations: tools.map((t) => ({ name: t.name, description: t.description, parameters: t.parameters })) }],
+      toolConfig: { functionCallingConfig: { mode: "ANY" } },
+      generationConfig: { temperature: 0, thinkingConfig: thinkingFor(c.model) },
+    }),
+    signal: timeoutSignal(signal),
+  });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) return { status: res.status, error: d.error?.message?.split("\n")[0] || res.statusText, retryAfter: retryAfterMs(res) };
+  const out = d.candidates?.[0]?.content?.parts || [];
+  return {
+    calls: out.filter((p) => p.functionCall).map((p) => ({ name: p.functionCall.name, args: p.functionCall.args || {} })),
+    text: out.map((p) => p.text || "").join(""),
+    usage: d.usageMetadata || {},
+  };
+}
+
+async function callOpenAITools(c, { system, text, images, tools, signal }, retryNote = "") {
+  const useImages = c.vision && images.length;
+  const userContent = useImages
+    ? [{ type: "text", text: text + retryNote }, ...images.map((buf) => ({ type: "image_url", image_url: { url: `data:image/jpeg;base64,${buf.toString("base64")}` } }))]
+    : text + retryNote;
+  const body = {
+    model: c.model,
+    messages: [{ role: "system", content: system }, { role: "user", content: userContent }],
+    tools: tools.map((t) => ({ type: "function", function: t })),
+    tool_choice: "required",
+    temperature: 0,
+    max_tokens: 2048,
+    ...c.extra,
+  };
+  const res = await fetch(`${c.baseURL}/chat/completions`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${c.key}`, "content-type": "application/json" },
+    body: JSON.stringify(body),
+    signal: timeoutSignal(signal),
+  });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) return { status: res.status, error: (d.error?.message || d.message || res.statusText || "").toString().split("\n")[0], retryAfter: retryAfterMs(res) };
+  const m = d.choices?.[0]?.message || {};
+  const calls = [];
+  for (const tc of m.tool_calls || []) {
+    try {
+      calls.push({ name: tc.function?.name, args: tc.function?.arguments ? JSON.parse(tc.function.arguments) : {} });
+    } catch {}
+  }
+  return { calls, text: m.content || "", usage: d.usage || {} };
+}
+
+/**
+ * Ask a model to call one or more of `tools` ([{ name, description, parameters }] with JSON Schema
+ * parameters). Returns { calls: [{ name, args }], text, model, modelLabel, ms }. A model that
+ * answers without calling a known tool gets one reminder, then the next model takes over.
+ */
+export async function askTools({ system, text, images = [], tools, signal }) {
+  checkLimit();
+  text = String(text).toWellFormed();
+  system = String(system).toWellFormed();
+  const names = new Set(tools.map((t) => t.name));
+  const r = await tryModels({ images, signal }, async (c) => {
+    const call = c.kind === "gemini" ? callGeminiTools : callOpenAITools;
+    let r1 = await call(c, { system, text, images, tools, signal });
+    if (r1.error) return r1;
+    let calls = r1.calls.filter((x) => names.has(x.name));
+    if (!calls.length && c.kind !== "gemini") {
+      r1 = await callOpenAITools(c, { system, text, images, tools, signal }, "\n\n(Reply by calling one of the tools.)");
+      if (r1.error) return r1;
+      calls = r1.calls.filter((x) => names.has(x.name));
+    }
+    if (!calls.length) return { invalid: "didn't call a tool" };
+    return { value: { calls, text: r1.text }, usage: r1.usage };
+  });
+  const cost = brainCost(r.model, r.usage);
+  record({ source: "brain", model: r.model, ...cost });
+  return { ...r, costUsd: cost.usd };
 }

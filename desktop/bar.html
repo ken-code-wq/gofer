@@ -113,7 +113,7 @@
   .icon svg { width: 16px; height: 16px; }
 
   /* ── chat ───────────────────────────────────────────── */
-  .chat { flex: 1; min-height: 0; overflow-y: auto; padding: 6px 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+  .chat { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overflow-wrap: anywhere; padding: 6px 16px 16px; display: flex; flex-direction: column; gap: 14px; }
   .chat::-webkit-scrollbar { width: 8px; }
   .chat::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 4px; }
   .msg { display: flex; flex-direction: column; min-width: 0; }
@@ -1210,11 +1210,15 @@
       case "answer":
         if (current) {
           if (payload.model) current.models = [payload.model];
+          const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
+          const webHosts = [...new Set((payload.sources || []).map((x) => host(x.url)).filter(Boolean))].slice(0, 3);
           current.note = payload.source === "general" ? "From general knowledge, not the page."
+            : payload.source === "web" ? `From the web${webHosts.length ? `: ${webHosts.join(", ")}` : ""}`
             : payload.cite ? payload.cite
             : payload.scope === "tabs" ? (payload.tabs?.length ? `From ${payload.tabs.map((t) => `“${t}”`).join(", ")}` : `Read ${payload.read} tabs`)
             : "";
           // a moment in a video: offer to open it there
+          if (payload.source === "web" && payload.sources?.[0]?.url) current.link = { url: payload.sources[0].url, label: `Open ${host(payload.sources[0].url) || "source"}` };
           if (payload.link) current.link = { url: payload.link, label: `Play from ${(payload.cite.match(/\d+:\d{2}(?::\d{2})?/) || [""])[0] || "there"}` };
           finish("ok", payload.answer);
         }
@@ -1709,16 +1713,16 @@
           <span class="s">${esc(s)}${m.resting ? ` · <span class="rest">${esc(capital(m.resting))}</span>` : ""}</span></button>`;
         prev = m.providerId;
       } else {
-        if (prev !== "add") html += `<div class="pk-sep"></div><div class="pk-head">Add a provider</div>`;
-        const p = it.p;
+        const p = it.p, group = p.search ? "search" : "add";
+        if (prev !== group) html += `<div class="pk-sep"></div><div class="pk-head">${p.search ? "Better web search (optional, free tier)" : "Add a provider"}</div>`;
         html += `<button type="button" class="pk-row add${on}" role="option" data-i="${i}">
-          <span class="lg">${logo(p.name)}</span><span class="t">${esc(p.label)}</span><span class="ck">${ICON.plus}</span>
-          <span class="s">Paste an API key to use its models</span></button>`;
+          <span class="lg">${p.search ? ICON.globe : logo(p.name)}</span><span class="t">${esc(p.label)}</span><span class="ck">${ICON.plus}</span>
+          <span class="s">${p.search ? "Paste an API key; the agent searches with it first" : "Paste an API key to use its models"}</span></button>`;
         if (picker.adding === p.name) {
           html += `<form class="pk-form" id="pk-form"><input class="field" id="pk-key" type="password" placeholder="${esc(p.label)} API key" aria-label="${esc(p.label)} API key" autocomplete="off" spellcheck="false" />
             <button class="btn primary" type="submit">Add</button><button class="link" type="button" id="pk-get">Get a key</button></form>`;
         }
-        prev = "add";
+        prev = group;
       }
       i++;
     }
@@ -1739,7 +1743,7 @@
         if (!key) return;
         send({ type: "provider:key", provider: p.name, key });
         closePicker();
-        setStatus(`Added ${p.label}. Its models are in the list now, and Auto uses them too.`, "ok");
+        setStatus(p.search ? `Added ${p.label}. The agent searches with it first now.` : `Added ${p.label}. Its models are in the list now, and Auto uses them too.`, "ok");
       };
     }
   }
