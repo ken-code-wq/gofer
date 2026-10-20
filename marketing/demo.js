@@ -30,7 +30,7 @@
   }
   function playVideo(song) {
     const v = $(".pg-video");
-    v.querySelector(".art use").setAttribute("href", `#scene-${song.art}`);
+    v.querySelector(".art").className = `art art-${song.art}`;
     v.querySelector("h3").textContent = song.title;
     v.querySelector("p").textContent = `${song.by} · ${song.len}`;
     v.querySelector(".player").classList.remove("playing");

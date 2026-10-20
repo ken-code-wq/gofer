@@ -8,78 +8,14 @@
 <meta property="og:title" content="Gofer" />
 <meta property="og:description" content="Tell your browser what to do. A chat panel for your Mac that drives the browser you already use. Free and open source." />
 <meta property="og:image" content="assets/og.png" />
+<meta name="theme-color" content="#000000" />
 <link rel="icon" href="assets/app-icon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-
-<!-- painted scenes, displaced so the gradients read as brushwork -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <defs>
-    <filter id="brush" x="-5%" y="-5%" width="110%" height="110%">
-      <feTurbulence type="fractalNoise" baseFrequency="0.006 0.022" numOctaves="3" seed="7" />
-      <feDisplacementMap in="SourceGraphic" scale="46" xChannelSelector="R" yChannelSelector="G" />
-    </filter>
-    <filter id="soft"><feGaussianBlur stdDeviation="18" /></filter>
-    <linearGradient id="sky-dusk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c2654" /><stop offset=".42" stop-color="#4a4b93" /><stop offset=".72" stop-color="#a786c6" /><stop offset="1" stop-color="#f3b49b" /></linearGradient>
-    <linearGradient id="sky-day" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f6bb5" /><stop offset=".55" stop-color="#7fb0e3" /><stop offset="1" stop-color="#dfeaf3" /></linearGradient>
-    <linearGradient id="sky-dawn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3d5a94" /><stop offset=".5" stop-color="#b0a6cf" /><stop offset="1" stop-color="#f6d3b8" /></linearGradient>
-    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a6f9e" /><stop offset="1" stop-color="#123c62" /></linearGradient>
-    <symbol id="scene-dusk" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
-      <g filter="url(#brush)">
-        <rect x="-60" y="-60" width="1720" height="1120" fill="url(#sky-dusk)" />
-        <g filter="url(#soft)" opacity=".75">
-          <ellipse cx="300" cy="300" rx="380" ry="70" fill="#8f7ac0" />
-          <ellipse cx="1200" cy="220" rx="420" ry="60" fill="#6d63ad" />
-          <ellipse cx="950" cy="520" rx="520" ry="90" fill="#e5a9c3" opacity=".7" />
-          <ellipse cx="200" cy="610" rx="360" ry="70" fill="#f4bfa5" opacity=".7" />
-        </g>
-        <path d="M-60 760 C 220 690 420 720 640 700 S 1100 640 1300 690 S 1600 720 1660 700 V 1060 H -60 Z" fill="#3e3a7d" />
-        <path d="M-60 850 C 260 790 520 830 760 800 S 1240 770 1660 820 V 1060 H -60 Z" fill="#2a2862" />
-        <path d="M-60 940 C 300 900 700 930 1000 910 S 1500 900 1660 920 V 1060 H -60 Z" fill="#1c1b47" />
-      </g>
-    </symbol>
-    <symbol id="scene-day" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
-      <g filter="url(#brush)">
-        <rect x="-60" y="-60" width="1720" height="1120" fill="url(#sky-day)" />
-        <g filter="url(#soft)" fill="#fff">
-          <ellipse cx="380" cy="260" rx="300" ry="80" opacity=".85" />
-          <ellipse cx="1250" cy="380" rx="380" ry="90" opacity=".8" />
-          <ellipse cx="800" cy="560" rx="560" ry="70" opacity=".6" />
-        </g>
-        <path d="M-60 700 C 300 620 600 660 900 640 S 1400 600 1660 650 V 1060 H -60 Z" fill="#7ea660" />
-        <path d="M-60 820 C 400 760 800 800 1100 770 S 1500 760 1660 790 V 1060 H -60 Z" fill="#4f7d3d" />
-        <path d="M-60 930 C 500 890 900 920 1660 900 V 1060 H -60 Z" fill="#2f5a2a" />
-      </g>
-    </symbol>
-    <symbol id="scene-sea" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
-      <g filter="url(#brush)">
-        <rect x="-60" y="-60" width="1720" height="1120" fill="url(#sky-dawn)" />
-        <g filter="url(#soft)">
-          <ellipse cx="1150" cy="300" rx="360" ry="60" fill="#fff" opacity=".6" />
-          <ellipse cx="350" cy="420" rx="420" ry="70" fill="#f8c9b3" opacity=".7" />
-          <circle cx="980" cy="560" r="70" fill="#fff1d6" />
-        </g>
-        <rect x="-60" y="600" width="1720" height="460" fill="url(#sea)" />
-        <g fill="#cfe3f0" opacity=".35"><rect x="-60" y="640" width="1720" height="8" /><rect x="200" y="720" width="900" height="6" /><rect x="600" y="820" width="1100" height="8" /></g>
-      </g>
-    </symbol>
-    <symbol id="scene-dawn" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
-      <g filter="url(#brush)">
-        <rect x="-60" y="-60" width="1720" height="1120" fill="url(#sky-dawn)" />
-        <g filter="url(#soft)" fill="#fff">
-          <ellipse cx="420" cy="280" rx="340" ry="70" opacity=".7" />
-          <ellipse cx="1180" cy="460" rx="420" ry="80" opacity=".55" />
-        </g>
-        <path d="M-60 720 C 260 600 480 660 700 610 S 1100 560 1350 640 S 1600 680 1660 660 V 1060 H -60 Z" fill="#6b6aa3" />
-        <path d="M-60 830 C 340 760 700 810 1000 780 S 1440 760 1660 800 V 1060 H -60 Z" fill="#46447d" />
-      </g>
-    </symbol>
-  </defs>
-</svg>
 
 <nav class="nav" aria-label="Main">
   <a class="brand" href="#top"><img src="assets/app-icon.png" alt="" />Gofer</a>
@@ -87,25 +23,14 @@
   <a class="link" href="#private">Privacy</a>
   <a class="link" href="#faq">FAQ</a>
   <a class="link" href="https://github.com/ken-code-wq/voice-browser">GitHub</a>
-  <a class="btn dark" href="#get">Download</a>
+  <a class="btn primary" href="#get">Download</a>
 </nav>
 
 <main id="top">
   <header class="hero">
     <div class="wrap">
-      <div class="hero-head">
-        <h1>Tell your browser what to do.</h1>
-        <p class="lede">A chat panel for your Mac that drives the browser you already use. Ask about the page, hand it a task, and follow up like you would with a person.</p>
-        <div class="ctas">
-          <a class="btn dark" href="https://github.com/ken-code-wq/voice-browser/releases/download/v0.4.0/Voice-Browser-0.4.0-mac-arm64.dmg"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,124.69V32a8,8,0,0,0-16,0v92.69L93.66,98.34a8,8,0,0,0-11.32,11.32Z"/></svg> Download for Mac</a>
-          <a class="btn light" href="https://github.com/ken-code-wq/voice-browser">View on GitHub</a>
-          <small>Free and open source. Apple Silicon and Intel.</small>
-        </div>
-      </div>
-
       <!-- the live demo -->
-      <div class="desk scene" id="desk" role="img" aria-label="A demo: the user types “open youtube and play a prince of egypt song”. The panel opens YouTube in the browser, searches, clicks “When You Believe” and plays it. The user types “no, another one” and it plays “Deliver Us” instead.">
-        <svg class="paint" aria-hidden="true"><use href="#scene-dusk" /></svg>
+      <div class="desk grain" id="desk" role="img" aria-label="A demo: the user types “open youtube and play a prince of egypt song”. Gofer opens YouTube in the browser, searches, clicks “When You Believe” and plays it. The user types “no, another one” and it plays “Deliver Us” instead.">
         <div class="menubar" aria-hidden="true">
           <b class="keep">Dia</b><span>File</span><span>Edit</span><span>View</span><span>History</span><span>Window</span>
           <div class="right"><span class="tray" id="tray"><svg viewBox="0 0 64 64" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"><path d="M6 27 H17"/><path d="M4 36 H14"/><path d="M8 45 H15" stroke-opacity=".6"/></g><g transform="translate(58 22) rotate(99) scale(.118)"><path d="M0 0 L0 312 C0 330 20 338 32 325 L102 250 L152 360 C158 374 174 380 188 374 L222 358 C236 352 242 336 236 322 L186 214 L290 214 C308 214 316 192 302 180 L28 -10 C16 -20 0 -14 0 0 Z"/></g></svg></span><span class="keep">Tue 20 Oct 9:41</span></div>
@@ -118,22 +43,22 @@
               <div class="bw-url" id="bw-url">Search or type a URL</div>
             </div>
             <div class="bw-page" id="bw-page">
-              <span class="agent-cursor" id="agent-cursor"></span>
+              <span class="agent-cursor" id="agent-cursor" style="color:#4f4cd8"><svg viewBox="-24 -34 350 430" aria-hidden="true"><path d="M0 0 L0 312 C0 330 20 338 32 325 L102 250 L152 360 C158 374 174 380 188 374 L222 358 C236 352 242 336 236 322 L186 214 L290 214 C308 214 316 192 302 180 L28 -10 C16 -20 0 -14 0 0 Z" fill="currentColor" stroke="#fff" stroke-width="24" stroke-linejoin="round"/></svg></span>
               <div class="pg pg-new on" data-pg="new"><div class="q">Search or type a URL</div></div>
               <div class="pg" data-pg="home">
                 <div class="search">Search</div>
-                <div class="grid-yt"><i class="th"><svg aria-hidden="true"><use href="#scene-day" /></svg></i><i class="th"><svg aria-hidden="true"><use href="#scene-sea" /></svg></i><i class="th"><svg aria-hidden="true"><use href="#scene-dawn" /></svg></i><i class="th"><svg aria-hidden="true"><use href="#scene-dusk" /></svg></i><i class="th"><svg aria-hidden="true"><use href="#scene-day" /></svg></i><i class="th"><svg aria-hidden="true"><use href="#scene-sea" /></svg></i></div>
+                <div class="grid-yt"><i class="art-hill"></i><i class="art-sea"></i><i class="art-dawn"></i><i class="art-dusk"></i><i class="art-sea"></i><i class="art-hill"></i></div>
               </div>
               <div class="pg" data-pg="results">
                 <div class="search">prince of egypt song</div>
                 <div class="results">
-                  <div class="res" data-song="believe"><i class="th th-1"><svg aria-hidden="true"><use href="#scene-dusk" /></svg></i><div><b>When You Believe (From The Prince of Egypt)</b><small>Whitney Houston, Mariah Carey · 4:52</small></div></div>
-                  <div class="res" data-song="deliver"><i class="th th-2"><svg aria-hidden="true"><use href="#scene-dawn" /></svg></i><div><b>Deliver Us (From The Prince of Egypt)</b><small>Ofra Haza, Eden Riegel · 5:01</small></div></div>
-                  <div class="res"><i class="th th-3"><svg aria-hidden="true"><use href="#scene-sea" /></svg></i><div><b>Through Heaven's Eyes (From The Prince of Egypt)</b><small>Brian Stokes Mitchell · 3:47</small></div></div>
+                  <div class="res" data-song="believe"><i class="art-dusk"></i><div><b>When You Believe (From The Prince of Egypt)</b><small>Whitney Houston, Mariah Carey · 4:52</small></div></div>
+                  <div class="res" data-song="deliver"><i class="art-dawn"></i><div><b>Deliver Us (From The Prince of Egypt)</b><small>Ofra Haza, Eden Riegel · 5:01</small></div></div>
+                  <div class="res"><i class="art-sea"></i><div><b>Through Heaven's Eyes (From The Prince of Egypt)</b><small>Brian Stokes Mitchell · 3:47</small></div></div>
                 </div>
               </div>
               <div class="pg pg-video" data-pg="video">
-                <div class="player"><i class="art th"><svg aria-hidden="true"><use href="#scene-dusk" /></svg></i><div class="bar"><i></i></div></div>
+                <div class="player"><i class="art art-dusk"></i><div class="bar"><i></i></div></div>
                 <h3></h3><p></p>
               </div>
             </div>
@@ -147,8 +72,8 @@
               <span class="ic"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,58.34l-32-32a8,8,0,0,0-11.32,0l-96,96A8,8,0,0,0,88,128v32a8,8,0,0,0,8,8h32a8,8,0,0,0,5.66-2.34l96-96A8,8,0,0,0,229.66,58.34ZM124.69,152H104V131.31l64-64L188.69,88ZM200,76.69,179.31,56,192,43.31,212.69,64ZM224,128v80a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32h80a8,8,0,0,1,0,16H48V208H208V128a8,8,0,0,1,16,0Z"/></svg></span><span class="ic"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M140,128a12,12,0,1,1-12-12A12,12,0,0,1,140,128Zm56-12a12,12,0,1,0,12,12A12,12,0,0,0,196,116ZM60,116a12,12,0,1,0,12,12A12,12,0,0,0,60,116Z"/></svg></span>
             </div>
             <div class="p-chat" id="p-chat"></div>
-            <div class="p-box" id="p-box">
-                            <div class="p-in" id="p-in" data-ph="Ask anything, or tell it what to do"></div>
+            <div class="p-box">
+              <div class="p-in" id="p-in" data-ph="Ask anything, or tell it what to do"></div>
               <div class="p-tools">
                 <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24a104,104,0,0,0,0,208c21.51,0,44.1-6.48,60.43-17.33a8,8,0,0,0-8.86-13.33C166,210.38,146.21,216,128,216a88,88,0,1,1,88-88c0,26.45-10.88,32-20,32s-20-5.55-20-32V88a8,8,0,0,0-16,0v4.26a48,48,0,1,0,5.93,65.1c6,12,16.35,18.64,30.07,18.64,22.54,0,36-17.94,36-48A104.11,104.11,0,0,0,128,24Zm0,136a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg> <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V232a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"/></svg>
                 <span class="modes"><span class="on"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,0,0,36.18,176.88L24.83,210.93a16,16,0,0,0,20.24,20.24l34.05-11.35A104,104,0,1,0,128,24Zm0,192a87.87,87.87,0,0,1-44.06-11.81,8,8,0,0,0-6.54-.67L40,216,52.47,178.6a8,8,0,0,0-.66-6.54A88,88,0,1,1,128,216Z"/></svg>Chat</span><span><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z"/></svg>Direct</span></span>
@@ -158,186 +83,231 @@
             </div>
           </div>
         </div>
+        <div class="dock" aria-hidden="true">
+          <img class="on" src="assets/dia.png" alt="" /><img src="assets/arc.png" alt="" /><img src="assets/google-chrome.png" alt="" /><img class="on" src="assets/app-icon.png" alt="" />
+        </div>
         <button class="replay" id="replay" type="button"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M240,56v48a8,8,0,0,1-8,8H184a8,8,0,0,1,0-16H211.4L184.81,71.64l-.25-.24a80,80,0,1,0-1.67,114.78,8,8,0,0,1,11,11.63A95.44,95.44,0,0,1,128,224h-1.32A96,96,0,1,1,195.75,60L224,85.8V56a8,8,0,1,1,16,0Z"/></svg> Play again</button>
+      </div>
+
+      <div class="copy">
+        <h1 class="display">Tell your browser what to do.</h1>
+        <p class="lede">Gofer is a chat panel for your Mac that drives the browser you already use. Ask about the page, hand it a task, and follow up like you would with a person.</p>
+        <div class="ctas">
+          <a class="btn primary" href="https://github.com/ken-code-wq/voice-browser/releases/download/v0.4.0/Voice-Browser-0.4.0-mac-arm64.dmg"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,124.69V32a8,8,0,0,0-16,0v92.69L93.66,98.34a8,8,0,0,0-11.32,11.32Z"/></svg> Download for Mac</a>
+          <a class="btn quiet" href="https://github.com/ken-code-wq/voice-browser">View on GitHub</a>
+        </div>
+        <p class="meta small">Free and open source. Apple Silicon and Intel.</p>
+      </div>
+
+      <div class="facts">
+        <div class="fact">
+          <div class="ill fan" aria-hidden="true"><img src="assets/arc.png" alt="" /><img src="assets/dia.png" alt="" /><img src="assets/google-chrome.png" alt="" /></div>
+          <h3>In the browser you use</h3>
+          <p>Dia, Arc, Chrome, Brave or Edge, with your tabs and sign-ins.</p>
+        </div>
+        <div class="fact">
+          <div class="ill mini-bubbles" aria-hidden="true"><span>no, another one</span><span>Now playing “Deliver Us”.</span></div>
+          <h3>Follows the conversation</h3>
+          <p>Say “another one” or “the second” and it knows what you mean.</p>
+        </div>
+        <div class="fact">
+          <div class="ill mini-allow" aria-hidden="true"><span>Allow <kbd>↵</kbd></span><span>Stop <kbd>esc</kbd></span></div>
+          <h3>Asks before it acts</h3>
+          <p>Deleting, paying and sending wait for your OK.</p>
+        </div>
       </div>
     </div>
   </header>
 
-  <section class="with" aria-labelledby="with-h">
-    <div class="wrap">
-      <h2 class="sr" id="with-h">Works with</h2>
-      <div class="with-strip">
-        <div>
-          <h3>Your browser, with your tabs and sign-ins</h3>
-          <p>It quits and reopens the browser with remote control turned on. Your tabs come back.</p>
-          <div class="logos">
-            <figure><img src="assets/dia.png" alt="" /><figcaption>Dia</figcaption></figure>
-            <figure><img src="assets/arc.png" alt="" /><figcaption>Arc</figcaption></figure>
-            <figure><img src="assets/google-chrome.png" alt="" /><figcaption>Chrome</figcaption></figure>
-            <figure><figcaption>Brave, Edge, or a built-in Chromium</figcaption></figure>
+  <div class="wrap" id="features">
+    <section class="showcase red" aria-labelledby="s1">
+      <div class="badge"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg></div>
+      <div class="stage">
+        <div class="mini-bw" aria-hidden="true">
+          <div class="bw-top">
+            <div class="lights"><i></i><i></i><i></i></div>
+            <div class="bw-tab"><i class="fav gdoc"></i><span>Q4 plan - Google Docs</span></div>
           </div>
-        </div>
-        <div>
-          <h3>The AI you have a key for</h3>
-          <p>Free tiers are enough for everyday use. Add more than one and it switches when one is busy.</p>
-          <div class="logos">
-            <figure><svg aria-hidden="true" fill="currentColor" fill-rule="evenodd" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.036 2c-3.853-.035-7 3-7.036 6.781-.035 3.782 3.055 6.872 6.908 6.907h2.42v-2.566h-2.292c-2.407.028-4.38-1.866-4.408-4.23-.029-2.362 1.901-4.298 4.308-4.326h.1c2.407 0 4.358 1.915 4.365 4.278v6.305c0 2.342-1.944 4.25-4.323 4.279a4.375 4.375 0 01-3.033-1.252l-1.851 1.818A7 7 0 0012.029 22h.092c3.803-.056 6.858-3.083 6.879-6.816v-6.5C18.907 4.963 15.817 2 12.036 2z"></path></svg><figcaption>Groq</figcaption></figure>
-            <figure class="gem"><svg aria-hidden="true" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="#3186FF"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-0-_R_0_)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-1-_R_0_)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-2-_R_0_)"></path><defs><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-0-_R_0_" x1="7" x2="11" y1="15.5" y2="12"><stop stop-color="#08B962"></stop><stop offset="1" stop-color="#08B962" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-1-_R_0_" x1="8" x2="11.5" y1="5.5" y2="11"><stop stop-color="#F94543"></stop><stop offset="1" stop-color="#F94543" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-2-_R_0_" x1="3.5" x2="17.5" y1="13.5" y2="12"><stop stop-color="#FABC12"></stop><stop offset=".46" stop-color="#FABC12" stop-opacity="0"></stop></linearGradient></defs></svg><figcaption>Gemini</figcaption></figure>
-            <figure><svg aria-hidden="true" fill="currentColor" fill-rule="evenodd" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.105 2L9.927 4.953H.653L2.83 2h9.276zM23.254 19.048L21.078 22h-9.242l2.174-2.952h9.244zM24 2L9.264 22H0L14.736 2H24z"></path></svg><figcaption>Z.ai</figcaption></figure>
-            <figure><svg aria-hidden="true" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M23.748 4.482c-.254-.124-.364.113-.512.234-.051.039-.094.09-.137.136-.372.397-.806.657-1.373.626-.829-.046-1.537.214-2.163.848-.133-.782-.575-1.248-1.247-1.548-.352-.156-.708-.311-.955-.65-.172-.241-.219-.51-.305-.774-.055-.16-.11-.323-.293-.35-.2-.031-.278.136-.356.276-.313.572-.434 1.202-.422 1.84.027 1.436.633 2.58 1.838 3.393.137.093.172.187.129.323-.082.28-.18.552-.266.833-.055.179-.137.217-.329.14a5.526 5.526 0 01-1.736-1.18c-.857-.828-1.631-1.742-2.597-2.458a11.365 11.365 0 00-.689-.471c-.985-.957.13-1.743.388-1.836.27-.098.093-.432-.779-.428-.872.004-1.67.295-2.687.684a3.055 3.055 0 01-.465.137 9.597 9.597 0 00-2.883-.102c-1.885.21-3.39 1.102-4.497 2.623C.082 8.606-.231 10.684.152 12.85c.403 2.284 1.569 4.175 3.36 5.653 1.858 1.533 3.997 2.284 6.438 2.14 1.482-.085 3.133-.284 4.994-1.86.47.234.962.327 1.78.397.63.059 1.236-.03 1.705-.128.735-.156.684-.837.419-.961-2.155-1.004-1.682-.595-2.113-.926 1.096-1.296 2.746-2.642 3.392-7.003.05-.347.007-.565 0-.845-.004-.17.035-.237.23-.256a4.173 4.173 0 001.545-.475c1.396-.763 1.96-2.015 2.093-3.517.02-.23-.004-.467-.247-.588zM11.581 18c-2.089-1.642-3.102-2.183-3.52-2.16-.392.024-.321.471-.235.763.09.288.207.486.371.739.114.167.192.416-.113.603-.673.416-1.842-.14-1.897-.167-1.361-.802-2.5-1.86-3.301-3.307-.774-1.393-1.224-2.887-1.298-4.482-.02-.386.093-.522.477-.592a4.696 4.696 0 011.529-.039c2.132.312 3.946 1.265 5.468 2.774.868.86 1.525 1.887 2.202 2.891.72 1.066 1.494 2.082 2.48 2.914.348.292.625.514.891.677-.802.09-2.14.11-3.054-.614zm1-6.44a.306.306 0 01.415-.287.302.302 0 01.2.288.306.306 0 01-.31.307.303.303 0 01-.304-.308zm3.11 1.596c-.2.081-.399.151-.59.16a1.245 1.245 0 01-.798-.254c-.274-.23-.47-.358-.552-.758a1.73 1.73 0 01.016-.588c.07-.327-.008-.537-.239-.727-.187-.156-.426-.199-.688-.199a.559.559 0 01-.254-.078c-.11-.054-.2-.19-.114-.358.028-.054.16-.186.192-.21.356-.202.767-.136 1.146.016.352.144.618.408 1.001.782.391.451.462.576.685.914.176.265.336.537.445.848.067.195-.019.354-.25.452z" fill="#4D6BFE"></path></svg><figcaption>DeepSeek</figcaption></figure>
-            <figure><svg aria-hidden="true" fill="currentColor" fill-rule="evenodd" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.654 3.87a5.087 5.087 0 110 10.174L23.7 19.09c.64.641.187 1.737-.72 1.737H8.48a8.479 8.479 0 010-16.958h10.175zM8.479 7.26a5.087 5.087 0 100 10.176 5.087 5.087 0 000-10.175z"></path></svg><figcaption>OpenRouter</figcaption></figure>
+          <div class="doc">
+            <h4>Q4 plan</h4>
+            <p>Hiring: two designers by November, one engineer for the mobile app. Budget review moves to the</p>
+            <p>Launch: the beta opens to the first 500 people on the waitlist, then everyone two weeks later.</p>
+            <span class="ghost-cursor" style="color:#ef4b4b"><svg viewBox="-24 -34 350 430" aria-hidden="true"><path d="M0 0 L0 312 C0 330 20 338 32 325 L102 250 L152 360 C158 374 174 380 188 374 L222 358 C236 352 242 336 236 322 L186 214 L290 214 C308 214 316 192 302 180 L28 -10 C16 -20 0 -14 0 0 Z" fill="currentColor" stroke="#fff" stroke-width="24" stroke-linejoin="round"/></svg></span>
+            <div class="taken"><span><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm-8-80V80a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,172Z"/></svg> An agent is using this tab</span></div>
           </div>
         </div>
       </div>
-    </div>
-  </section>
+      <h2 class="h2" id="s1">When an agent drives the tab you're in, all you can do is watch.</h2>
+      <p class="lede">You stop typing, it clicks around your page, and when it's done your place is gone.</p>
+    </section>
 
-  <section id="features" aria-labelledby="f-h">
-    <div class="wrap">
-      <div class="sec-head">
-        <h2 id="f-h">It keeps up with the conversation.</h2>
-        <p>Every message is done step by step in your real browser, by an agent that remembers what you've said and what it did.</p>
+    <section class="showcase peach" aria-labelledby="s2">
+      <div class="badge"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></div>
+      <div class="stage">
+        <div class="stack" aria-hidden="true">
+          <div class="mini-bw">
+            <div class="bw-top">
+              <div class="lights"><i></i><i></i><i></i></div>
+              <div class="bw-tab"><i class="fav gdoc"></i><span>Q4 plan - Google Docs</span></div>
+              <div class="bw-tab bg"><i class="busy"></i><span>Flights to Lisbon · KAYAK</span></div>
+            </div>
+            <div class="doc">
+              <h4>Q4 plan</h4>
+              <p>Hiring: two designers by November, one engineer for the mobile app. Budget review moves to the <span class="typing">first week of</span></p>
+              <p>Launch: the beta opens to the first 500 people on the waitlist, then everyone two weeks later.</p>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="p-top"><span class="pill tab"><i class="fav kayak"></i><span>Flights to Lisbon</span></span><span class="pill show" style="margin-left:auto">Show</span></div>
+            <ol class="steps">
+              <li class="step"><span class="mk"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span>Search flights for the 14th <small>£48</small></span></li>
+              <li class="step"><span class="mk"><span class="spin"></span></span><span>Compare with the 21st</span></li>
+            </ol>
+          </div>
+        </div>
       </div>
-      <div class="tiles">
-        <article class="tile">
-          <header><h3>Follow up like you would with a person</h3><p>“Another one”, “no, the second”, “now delete them”. It knows what you mean, and avoids what it already tried.</p></header>
-          <div class="scene"><svg class="paint" aria-hidden="true"><use href="#scene-day" /></svg>
-            <div class="panel">
-              <div class="me">now delete the first two</div>
-              <div class="steps">
-                <div class="step"><span class="mk"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span>Click Delete on Northwind <small>bill 1042</small></span></div>
-                <div class="step"><span class="mk"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span>Click Delete on Acme Corp <small>bill 1043</small></span></div>
-              </div>
-              <div class="it">Deleted Northwind and Acme Corp. Globex is the only one left.</div>
-            </div>
-          </div>
-        </article>
-        <article class="tile">
-          <header><h3>Answers that say where they came from</h3><p>From the page, your other tabs, a video's transcript, a PDF or the web. Each answer names its source.</p></header>
-          <div class="scene"><svg class="paint" aria-hidden="true"><use href="#scene-sea" /></svg>
-            <div class="panel">
-              <div class="me">what is this song about?</div>
-              <div class="it">The Hebrew slaves sing about their labour and pray to be delivered, while Moses's mother sets him adrift on the Nile.
-                <div class="src">From the video's transcript, 0:40 to 2:15</div>
-                <div class="meta"><span>GPT-OSS 120B</span><span class="lnk">Play from 0:40</span></div>
-              </div>
-            </div>
-          </div>
-        </article>
-        <article class="tile">
-          <header><h3>It asks before anything you can't take back</h3><p>Deleting, paying, sending and submitting wait for Allow. Passwords stay in your Keychain and never reach a model.</p></header>
-          <div class="scene"><svg class="paint" aria-hidden="true"><use href="#scene-dawn" /></svg>
-            <div class="panel">
-              <div class="steps">
-                <div class="step"><span class="mk"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span>Search for “older_than:30d category:promotions” <small>212 emails</small></span></div>
-                <div class="step"><span class="mk"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span>Select all 212</span></div>
-                <div class="step hand"><span class="mk"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M188,88a27.75,27.75,0,0,0-12,2.71V60a28,28,0,0,0-41.36-24.6A28,28,0,0,0,80,44v6.71A27.75,27.75,0,0,0,68,48,28,28,0,0,0,40,76v76a88,88,0,0,0,176,0V116A28,28,0,0,0,188,88Zm12,64a72,72,0,0,1-144,0V76a12,12,0,0,1,24,0v44a8,8,0,0,0,16,0V44a12,12,0,0,1,24,0v68a8,8,0,0,0,16,0V60a12,12,0,0,1,24,0v68.67A48.08,48.08,0,0,0,120,176a8,8,0,0,0,16,0,32,32,0,0,1,32-32,8,8,0,0,0,8-8V116a12,12,0,0,1,24,0Z"/></svg></span><span>Delete them</span></div>
-              </div>
-              <div class="ask"><p>Allow this step? Delete 212 promotional emails older than 30 days.</p>
-                <div class="row"><span class="b primary">Allow <kbd>↵</kbd></span><span class="b">Stop <kbd>esc</kbd></span><span class="b link">Allow the rest</span></div>
-              </div>
-            </div>
-          </div>
-        </article>
-        <article class="tile">
-          <header><h3>Your tab stays where you left it</h3><p>When a task needs another site, it works in a background tab and leaves yours alone. Take over any time to log in or choose for it.</p></header>
-          <div class="scene"><svg class="paint" aria-hidden="true"><use href="#scene-dusk" /></svg>
-            <div class="panel">
-              <div class="p-top" style="padding:0 0 10px">
-                <span class="pill tab"><i class="fav" style="background:#ff690f"></i><span>Flights to Lisbon</span></span>
-                <span class="pill show">Show</span>
-              </div>
-              <div class="steps"><div class="step"><span class="mk"><span class="spin"></span></span><span>Compare the 14th and the 21st</span></div></div>
-              <div class="ask" style="display:flex;align-items:center;gap:10px"><p style="flex:1">Working in a background tab</p><span class="b"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M188,88a27.75,27.75,0,0,0-12,2.71V60a28,28,0,0,0-41.36-24.6A28,28,0,0,0,80,44v6.71A27.75,27.75,0,0,0,68,48,28,28,0,0,0,40,76v76a88,88,0,0,0,176,0V116A28,28,0,0,0,188,88Zm12,64a72,72,0,0,1-144,0V76a12,12,0,0,1,24,0v44a8,8,0,0,0,16,0V44a12,12,0,0,1,24,0v68a8,8,0,0,0,16,0V60a12,12,0,0,1,24,0v68.67A48.08,48.08,0,0,0,120,176a8,8,0,0,0,16,0,32,32,0,0,1,32-32,8,8,0,0,0,8-8V116a12,12,0,0,1,24,0Z"/></svg> Take over</span></div>
-            </div>
-          </div>
-        </article>
-        <article class="tile wide">
-          <header>
-            <h3>Fast when the AI is free, and when it isn't</h3>
-            <p>Auto sends each request to the quickest model that can handle it, screenshots to one that reads them. When a free tier runs out, the next provider takes over and the reply says which model answered.</p>
-          </header>
-          <div class="scene"><svg class="paint" aria-hidden="true"><use href="#scene-day" /></svg>
-            <div class="picker" aria-hidden="true">
-              <div class="opt on"><span class="lg"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z"/></svg></span><div>Auto<small>Fastest model for each request; switches when one is busy</small></div></div>
-              <hr />
-              <div class="opt"><span class="lg"><svg aria-hidden="true" fill="currentColor" fill-rule="evenodd" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.036 2c-3.853-.035-7 3-7.036 6.781-.035 3.782 3.055 6.872 6.908 6.907h2.42v-2.566h-2.292c-2.407.028-4.38-1.866-4.408-4.23-.029-2.362 1.901-4.298 4.308-4.326h.1c2.407 0 4.358 1.915 4.365 4.278v6.305c0 2.342-1.944 4.25-4.323 4.279a4.375 4.375 0 01-3.033-1.252l-1.851 1.818A7 7 0 0012.029 22h.092c3.803-.056 6.858-3.083 6.879-6.816v-6.5C18.907 4.963 15.817 2 12.036 2z"></path></svg></span><div>GPT-OSS 120B<small>Groq · Text only · Fast</small></div></div>
-              <div class="opt"><span class="lg"><svg aria-hidden="true" fill="currentColor" fill-rule="evenodd" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.036 2c-3.853-.035-7 3-7.036 6.781-.035 3.782 3.055 6.872 6.908 6.907h2.42v-2.566h-2.292c-2.407.028-4.38-1.866-4.408-4.23-.029-2.362 1.901-4.298 4.308-4.326h.1c2.407 0 4.358 1.915 4.365 4.278v6.305c0 2.342-1.944 4.25-4.323 4.279a4.375 4.375 0 01-3.033-1.252l-1.851 1.818A7 7 0 0012.029 22h.092c3.803-.056 6.858-3.083 6.879-6.816v-6.5C18.907 4.963 15.817 2 12.036 2z"></path></svg></span><div>Qwen 3.8 27B<small>Groq · Reads screenshots · Fast</small></div><i class="rest" title="Resting"></i></div>
-              <div class="opt"><span class="lg"><svg aria-hidden="true" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="#3186FF"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-0-_R_0_)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-1-_R_0_)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-2-_R_0_)"></path><defs><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-0-_R_0_" x1="7" x2="11" y1="15.5" y2="12"><stop stop-color="#08B962"></stop><stop offset="1" stop-color="#08B962" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-1-_R_0_" x1="8" x2="11.5" y1="5.5" y2="11"><stop stop-color="#F94543"></stop><stop offset="1" stop-color="#F94543" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-2-_R_0_" x1="3.5" x2="17.5" y1="13.5" y2="12"><stop stop-color="#FABC12"></stop><stop offset=".46" stop-color="#FABC12" stop-opacity="0"></stop></linearGradient></defs></svg></span><div>Gemini 3.1 Flash-Lite<small>Google Gemini · Reads screenshots</small></div></div>
-              <div class="opt"><span class="lg"><svg aria-hidden="true" fill="currentColor" fill-rule="evenodd" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.105 2L9.927 4.953H.653L2.83 2h9.276zM23.254 19.048L21.078 22h-9.242l2.174-2.952h9.244zM24 2L9.264 22H0L14.736 2H24z"></path></svg></span><div>GLM 5.3 Flash<small>Z.ai · Reads screenshots</small></div></div>
-            </div>
-          </div>
-        </article>
-      </div>
-    </div>
-  </section>
+      <h2 class="h2" id="s2">Gofer works in a background tab. Yours stays put.</h2>
+      <p class="lede">Keep writing while it searches, compares and fills things in. Show brings its tab forward whenever you want to look.</p>
+      <div class="chips"><span><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V88H40V56Zm0,144H40V104H216v96Z"/></svg> Show</span><span><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M188,88a27.75,27.75,0,0,0-12,2.71V60a28,28,0,0,0-41.36-24.6A28,28,0,0,0,80,44v6.71A27.75,27.75,0,0,0,68,48,28,28,0,0,0,40,76v76a88,88,0,0,0,176,0V116A28,28,0,0,0,188,88Zm12,64a72,72,0,0,1-144,0V76a12,12,0,0,1,24,0v44a8,8,0,0,0,16,0V44a12,12,0,0,1,24,0v68a8,8,0,0,0,16,0V60a12,12,0,0,1,24,0v68.67A48.08,48.08,0,0,0,120,176a8,8,0,0,0,16,0,32,32,0,0,1,32-32,8,8,0,0,0,8-8V116a12,12,0,0,1,24,0Z"/></svg> Take over</span><span><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L44.59,96H72a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V56a8,8,0,0,1,16,0V85.8L60.25,60A96,96,0,0,1,224,128Z"/></svg> Go back to where I was</span></div>
+    </section>
 
-  <section aria-labelledby="m-h">
-    <div class="wrap">
-      <div class="sec-head"><h2 id="m-h">And the small things.</h2></div>
-      <div class="more">
-        <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z"/></svg><h3>Direct mode</h3><p>One-step commands like “scroll down” or “next tab”, decided in about a second.</p></div>
-        <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24a104,104,0,0,0,0,208c21.51,0,44.1-6.48,60.43-17.33a8,8,0,0,0-8.86-13.33C166,210.38,146.21,216,128,216a88,88,0,1,1,88-88c0,26.45-10.88,32-20,32s-20-5.55-20-32V88a8,8,0,0,0-16,0v4.26a48,48,0,1,0,5.93,65.1c6,12,16.35,18.64,30.07,18.64,22.54,0,36-17.94,36-48A104.11,104.11,0,0,0,128,24Zm0,136a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg><h3>Mention a tab</h3><p>Type @ to pick any open tab, or several, and ask about them together.</p></div>
-        <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M232.4,114.49,88.32,26.35a16,16,0,0,0-16.2-.3A15.86,15.86,0,0,0,64,39.87V216.13A15.94,15.94,0,0,0,80,232a16.07,16.07,0,0,0,8.36-2.35L232.4,141.51a15.81,15.81,0,0,0,0-27ZM80,215.94V40l143.83,88Z"/></svg><h3>Video controls</h3><p>“Back 10 seconds and play”, “speed 1.5x”. Exact, instant, no AI involved.</p></div>
-        <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24h0A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm87.62,96H175.79C174,83.49,159.94,57.67,148.41,42.4A88.19,88.19,0,0,1,215.63,120ZM96.23,136h63.54c-2.31,41.61-22.23,67.11-31.77,77C118.45,203.1,98.54,177.6,96.23,136Zm0-16C98.54,78.39,118.46,52.89,128,43c9.55,9.93,29.46,35.43,31.77,77Zm11.36-77.6C96.06,57.67,82,83.49,80.21,120H40.37A88.19,88.19,0,0,1,107.59,42.4ZM40.37,136H80.21c1.82,36.51,15.85,62.33,27.38,77.6A88.19,88.19,0,0,1,40.37,136Zm108,77.6c11.53-15.27,25.56-41.09,27.38-77.6h39.84A88.19,88.19,0,0,1,148.41,213.6Z"/></svg><h3>Web search</h3><p>Looks things up and reads pages and PDFs without opening tabs.</p></div>
-        <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M176,232a8,8,0,0,1-8,8H88a8,8,0,0,1,0-16h80A8,8,0,0,1,176,232Zm40-128a87.55,87.55,0,0,1-33.64,69.21A16.24,16.24,0,0,0,176,186v6a16,16,0,0,1-16,16H96a16,16,0,0,1-16-16v-6a16,16,0,0,0-6.23-12.66A87.59,87.59,0,0,1,40,104.49C39.74,56.83,78.26,17.14,125.88,16A88,88,0,0,1,216,104Zm-16,0a72,72,0,0,0-73.74-72c-39,.92-70.47,33.39-70.26,72.39a71.65,71.65,0,0,0,27.64,56.3A32,32,0,0,1,96,186v6h64v-6a32.15,32.15,0,0,1,12.47-25.35A71.65,71.65,0,0,0,200,104Zm-16.11-9.34a57.6,57.6,0,0,0-46.56-46.55,8,8,0,0,0-2.66,15.78c16.57,2.79,30.63,16.85,33.44,33.45A8,8,0,0,0,176,104a9,9,0,0,0,1.35-.11A8,8,0,0,0,183.89,94.66Z"/></svg><h3>Site notes</h3><p>Learns how each site works, or teach it: “on Workbook, bills are under Sales”.</p></div>
-        <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M184,32H72A16,16,0,0,0,56,48V224a8,8,0,0,0,12.24,6.78L128,193.43l59.77,37.35A8,8,0,0,0,200,224V48A16,16,0,0,0,184,32Zm0,177.57-51.77-32.35a8,8,0,0,0-8.48,0L72,209.57V48H184Z"/></svg><h3>Saved requests</h3><p>Save a finished request and run it again with new values, with no AI and no cost.</p></div>
-        <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,58.34l-32-32a8,8,0,0,0-11.32,0l-96,96A8,8,0,0,0,88,128v32a8,8,0,0,0,8,8h32a8,8,0,0,0,5.66-2.34l96-96A8,8,0,0,0,229.66,58.34ZM124.69,152H104V131.31l64-64L188.69,88ZM200,76.69,179.31,56,192,43.31,212.69,64ZM224,128v80a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32h80a8,8,0,0,1,0,16H48V208H208V128a8,8,0,0,1,16,0Z"/></svg><h3>Forms</h3><p>“Fill the form with …” fills every field it can, then waits for you to submit.</p></div>
-        <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z"/></svg><h3>Tables out of pages</h3><p>“Copy the table”, or “copy all invoice numbers as a table”, ready to paste.</p></div>
-        <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V158.75l-26.07-26.06a16,16,0,0,0-22.63,0l-20,20-44-44a16,16,0,0,0-22.62,0L40,149.37V56ZM40,172l52-52,80,80H40Zm176,28H194.63l-36-36,20-20L216,181.38V200ZM144,100a12,12,0,1,1,12,12A12,12,0,0,1,144,100Z"/></svg><h3>Screenshots</h3><p>“Send me a screenshot” puts it in the chat and saves a PNG to Downloads.</p></div>
-        <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L44.59,96H72a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V56a8,8,0,0,1,16,0V85.8L60.25,60A96,96,0,0,1,224,128Z"/></svg><h3>Go back to where I was</h3><p>Puts back the tabs a request opened, closed or moved.</p></div>
-        <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V232a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"/></svg><h3>Voice, if you want it</h3><p>Hold ⌥ and speak instead of typing. Replies to spoken requests are read aloud.</p></div>
-        <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216.57,39.43A80,80,0,0,0,83.91,120.78L28.69,176A15.86,15.86,0,0,0,24,187.31V216a16,16,0,0,0,16,16H72a8,8,0,0,0,8-8V208H96a8,8,0,0,0,8-8V184h16a8,8,0,0,0,5.66-2.34l9.56-9.57A79.73,79.73,0,0,0,160,176h.1A80,80,0,0,0,216.57,39.43ZM224,98.1c-1.09,34.09-29.75,61.86-63.89,61.9H160a63.7,63.7,0,0,1-23.65-4.51,8,8,0,0,0-8.84,1.68L116.69,168H96a8,8,0,0,0-8,8v16H72a8,8,0,0,0-8,8v16H40V187.31l58.83-58.82a8,8,0,0,0,1.68-8.84A63.72,63.72,0,0,1,96,95.92c0-34.14,27.81-62.8,61.9-63.89A64,64,0,0,1,224,98.1ZM192,76a12,12,0,1,1-12-12A12,12,0,0,1,192,76Z"/></svg><h3>Passwords</h3><p>Write <code>{{work-login}}</code>. The real value comes from your Keychain at the last moment.</p></div>
+    <section class="split" aria-labelledby="s3">
+      <div class="canvas" aria-hidden="true">
+        <div class="panel">
+          <div class="me">find a flight to lisbon on the 14th</div>
+          <div class="it">The cheapest is £48 on easyJet from Gatwick at 06:10, nonstop.<div class="meta"><span class="tog"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>5 steps</span><span>Worked for 9 s · gpt-oss-120b</span></div></div>
+          <div class="me">and the 21st?</div>
+          <div class="it">£61 on TAP from Heathrow at 07:25. The 14th is £13 cheaper.<div class="meta"><span class="tog"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>3 steps</span><span>Worked for 6 s · gpt-oss-120b</span></div></div>
+          <div class="me">book the 14th</div>
+        </div>
       </div>
-    </div>
-  </section>
-
-  <section id="private" aria-labelledby="p-h">
-    <div class="wrap local">
       <div>
-        <h2 id="p-h">It runs on your Mac.</h2>
-        <p>There's no Gofer account and no server of ours in the middle. You bring the keys; the app talks to your browser and to the AI providers you chose.</p>
-      </div>
-      <ul>
-        <li><b>Local service</b><span>The app's service listens on 127.0.0.1 only, so nothing else on your network can reach it.</span></li>
-        <li><b>Your keys</b><span>API keys live in a file on your Mac and are read only by that service. The panel never sees them.</span></li>
-        <li><b>Passwords</b><span>Stored in the macOS Keychain. Models, history and logs only ever see the placeholder.</span></li>
-        <li><b>What models see</b><span>The page's text, its buttons and links, and a screenshot when it helps. Password fields are never read.</span></li>
-        <li><b>Activity logs</b><span>Kept on your Mac for 7 days so you can see what the agent did. Turn them off with one setting.</span></li>
-      </ul>
-    </div>
-  </section>
-
-  <section id="get" class="get" aria-labelledby="g-h">
-    <div class="wrap">
-      <div class="get-card scene">
-        <svg class="paint" aria-hidden="true"><use href="#scene-dusk" /></svg>
-        <img class="icon" src="assets/app-icon.png" alt="" />
-        <h2 id="g-h">Free, and open source.</h2>
-        <p>MIT licensed. Download it, add a free Groq or Gemini key, and press ⌘⇧Space.</p>
-        <p class="was">Gofer was called Voice Browser until version 0.4.</p>
-        <div class="ctas">
-          <a class="btn dark" href="https://github.com/ken-code-wq/voice-browser/releases/download/v0.4.0/Voice-Browser-0.4.0-mac-arm64.dmg"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,124.69V32a8,8,0,0,0-16,0v92.69L93.66,98.34a8,8,0,0,0-11.32,11.32Z"/></svg> Mac with Apple Silicon</a>
-          <a class="btn ghost" href="https://github.com/ken-code-wq/voice-browser/releases/download/v0.4.0/Voice-Browser-0.4.0-mac-x64.dmg">Mac with Intel</a>
+        <h2 class="h2" id="s3">It remembers what you were talking about.</h2>
+        <p class="lede">Every message is a step-by-step task in your real browser, done by an agent that knows the whole conversation.</p>
+        <div class="cards">
+          <div class="card"><span class="ico"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M232,200a8,8,0,0,1-16,0,88.1,88.1,0,0,0-88-88H51.31l34.35,34.34a8,8,0,0,1-11.32,11.32l-48-48a8,8,0,0,1,0-11.32l48-48A8,8,0,0,1,85.66,61.66L51.31,96H128A104.11,104.11,0,0,1,232,200Z"/></svg></span><div><h3>Follow-ups</h3><p>“Another one”, “no, the second”, “now book it”. It avoids what it already tried.</p></div></div>
+          <div class="card"><span class="ico"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M176,232a8,8,0,0,1-8,8H88a8,8,0,0,1,0-16h80A8,8,0,0,1,176,232Zm40-128a87.55,87.55,0,0,1-33.64,69.21A16.24,16.24,0,0,0,176,186v6a16,16,0,0,1-16,16H96a16,16,0,0,1-16-16v-6a16,16,0,0,0-6.23-12.66A87.59,87.59,0,0,1,40,104.49C39.74,56.83,78.26,17.14,125.88,16A88,88,0,0,1,216,104Zm-16,0a72,72,0,0,0-73.74-72c-39,.92-70.47,33.39-70.26,72.39a71.65,71.65,0,0,0,27.64,56.3A32,32,0,0,1,96,186v6h64v-6a32.15,32.15,0,0,1,12.47-25.35A71.65,71.65,0,0,0,200,104Zm-16.11-9.34a57.6,57.6,0,0,0-46.56-46.55,8,8,0,0,0-2.66,15.78c16.57,2.79,30.63,16.85,33.44,33.45A8,8,0,0,0,176,104a9,9,0,0,0,1.35-.11A8,8,0,0,0,183.89,94.66Z"/></svg></span><div><h3>Memory and site notes</h3><p>“Remember that I fly from Gatwick.” It also learns how each site works.</p></div></div>
         </div>
-        <p class="alt">Version 0.4.0 for macOS. <a href="https://github.com/ken-code-wq/voice-browser/releases/tag/v0.4.0">Windows and Linux builds</a> are on the release page too; they're untested so far.</p>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <section id="faq" aria-labelledby="q-h">
-    <div class="wrap">
-      <div class="sec-head"><h2 id="q-h">Questions</h2></div>
-      <div class="faq">
-        <details><summary>Which browsers does it work with? <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>Dia, Arc, Chrome, Brave and Edge, or a built-in Chromium with its own profile. Pick one in the panel; Gofer reopens it with remote control turned on and your tabs restored. Chrome and Edge don't allow that for your main profile, so they get a separate one.</p></div></details>
-        <details><summary>Do I need an API key? What does it cost? <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>Yes, at least one. Groq and Google Gemini both have free tiers that cover everyday use, and Z.ai, DeepSeek and OpenRouter work too. The footer of the panel shows today's estimated spend, and you can set a daily limit.</p><p>Direct mode uses SubQ Snap, which costs about $0.05 per million input tokens.</p></div></details>
-        <details><summary>Can it do things I didn't ask for? <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>Anything that saves, pays, sends or deletes waits for Allow, and you can stop a task with Esc at any time. Treat that as a safeguard rather than a guarantee: don't connect a browser profile with accounts you wouldn't want an automated click near.</p></div></details>
-        <details><summary>What happens to the tab I'm using? <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>The panel's header always shows which tab the agent is working in. When a task needs to go to another site, it opens a background tab instead of taking yours, and Go back to where I was puts your tabs back afterwards.</p></div></details>
-        <details><summary>It got stuck on a login or a captcha. <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>Press Take over. The task pauses after its current step, you do what's needed in the browser, then Hand back and it looks at the page again and carries on. It asks for this itself when a page needs you.</p></div></details>
-        <details><summary>Does it work on Windows or Linux? <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>There are builds on the release page, but it's built and tested on macOS. Keychain passwords, Liquid Glass and switching browsers are Mac-only for now.</p></div></details>
-        <details><summary>macOS says it can't check the app for malware. <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>The app isn't signed with an Apple developer certificate yet. Right-click it in Applications, choose Open, then Open again. You only need to do this once.</p></div></details>
+    <section class="split flip blue" aria-labelledby="s4">
+      <div class="canvas" aria-hidden="true">
+        <div class="panel">
+          <div class="me">what is this song about?</div>
+          <div class="it">The Hebrew slaves sing about their labour and pray to be delivered, while Moses's mother sets him adrift on the Nile.
+            <div class="src"><span class="chip"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M232.4,114.49,88.32,26.35a16,16,0,0,0-16.2-.3A15.86,15.86,0,0,0,64,39.87V216.13A15.94,15.94,0,0,0,80,232a16.07,16.07,0,0,0,8.36-2.35L232.4,141.51a15.81,15.81,0,0,0,0-27ZM80,215.94V40l143.83,88Z"/></svg> Transcript 0:40 to 2:15</span><span class="lnk" style="font-size:12px;align-self:center">Play from 0:40</span></div>
+          </div>
+          <div class="me">who wrote it?</div>
+          <div class="it">Stephen Schwartz wrote the music and lyrics for the film.
+            <div class="src"><span class="chip"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24h0A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm87.62,96H175.79C174,83.49,159.94,57.67,148.41,42.4A88.19,88.19,0,0,1,215.63,120ZM96.23,136h63.54c-2.31,41.61-22.23,67.11-31.77,77C118.45,203.1,98.54,177.6,96.23,136Zm0-16C98.54,78.39,118.46,52.89,128,43c9.55,9.93,29.46,35.43,31.77,77Zm11.36-77.6C96.06,57.67,82,83.49,80.21,120H40.37A88.19,88.19,0,0,1,107.59,42.4ZM40.37,136H80.21c1.82,36.51,15.85,62.33,27.38,77.6A88.19,88.19,0,0,1,40.37,136Zm108,77.6c11.53-15.27,25.56-41.09,27.38-77.6h39.84A88.19,88.19,0,0,1,148.41,213.6Z"/></svg> en.wikipedia.org</span><span class="chip"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24h0A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm87.62,96H175.79C174,83.49,159.94,57.67,148.41,42.4A88.19,88.19,0,0,1,215.63,120ZM96.23,136h63.54c-2.31,41.61-22.23,67.11-31.77,77C118.45,203.1,98.54,177.6,96.23,136Zm0-16C98.54,78.39,118.46,52.89,128,43c9.55,9.93,29.46,35.43,31.77,77Zm11.36-77.6C96.06,57.67,82,83.49,80.21,120H40.37A88.19,88.19,0,0,1,107.59,42.4ZM40.37,136H80.21c1.82,36.51,15.85,62.33,27.38,77.6A88.19,88.19,0,0,1,40.37,136Zm108,77.6c11.53-15.27,25.56-41.09,27.38-77.6h39.84A88.19,88.19,0,0,1,148.41,213.6Z"/></svg> imdb.com</span></div>
+          </div>
+        </div>
       </div>
-    </div>
+      <div>
+        <h2 class="h2" id="s4">Answers that show where they came from.</h2>
+        <p class="lede">Ask about the page, your other tabs, or anything else. It reads what it needs and says what it read.</p>
+        <div class="cards">
+          <div class="card"><span class="ico"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M232.4,114.49,88.32,26.35a16,16,0,0,0-16.2-.3A15.86,15.86,0,0,0,64,39.87V216.13A15.94,15.94,0,0,0,80,232a16.07,16.07,0,0,0,8.36-2.35L232.4,141.51a15.81,15.81,0,0,0,0-27ZM80,215.94V40l143.83,88Z"/></svg></span><div><h3>Videos and PDFs</h3><p>Answers cite the moment in the video or the page in the PDF.</p></div></div>
+          <div class="card"><span class="ico"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24h0A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm87.62,96H175.79C174,83.49,159.94,57.67,148.41,42.4A88.19,88.19,0,0,1,215.63,120ZM96.23,136h63.54c-2.31,41.61-22.23,67.11-31.77,77C118.45,203.1,98.54,177.6,96.23,136Zm0-16C98.54,78.39,118.46,52.89,128,43c9.55,9.93,29.46,35.43,31.77,77Zm11.36-77.6C96.06,57.67,82,83.49,80.21,120H40.37A88.19,88.19,0,0,1,107.59,42.4ZM40.37,136H80.21c1.82,36.51,15.85,62.33,27.38,77.6A88.19,88.19,0,0,1,40.37,136Zm108,77.6c11.53-15.27,25.56-41.09,27.38-77.6h39.84A88.19,88.19,0,0,1,148.41,213.6Z"/></svg></span><div><h3>The web, without new tabs</h3><p>When the page can't answer, it searches and names the sites it read.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="showcase amber" aria-labelledby="s5">
+      <div class="badge"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M188,88a27.75,27.75,0,0,0-12,2.71V60a28,28,0,0,0-41.36-24.6A28,28,0,0,0,80,44v6.71A27.75,27.75,0,0,0,68,48,28,28,0,0,0,40,76v76a88,88,0,0,0,176,0V116A28,28,0,0,0,188,88Zm12,64a72,72,0,0,1-144,0V76a12,12,0,0,1,24,0v44a8,8,0,0,0,16,0V44a12,12,0,0,1,24,0v68a8,8,0,0,0,16,0V60a12,12,0,0,1,24,0v68.67A48.08,48.08,0,0,0,120,176a8,8,0,0,0,16,0,32,32,0,0,1,32-32,8,8,0,0,0,8-8V116a12,12,0,0,1,24,0Z"/></svg></div>
+      <div class="stage">
+        <div class="panel" style="width:min(420px,100%);padding:16px" aria-hidden="true">
+          <ol class="steps" style="margin-bottom:12px">
+            <li class="step"><span class="mk"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span>Search for “category:promotions older_than:30d” <small>212 emails</small></span></li>
+            <li class="step"><span class="mk"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span><span>Select all 212</span></li>
+            <li class="step hand"><span class="mk"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M188,88a27.75,27.75,0,0,0-12,2.71V60a28,28,0,0,0-41.36-24.6A28,28,0,0,0,80,44v6.71A27.75,27.75,0,0,0,68,48,28,28,0,0,0,40,76v76a88,88,0,0,0,176,0V116A28,28,0,0,0,188,88Zm12,64a72,72,0,0,1-144,0V76a12,12,0,0,1,24,0v44a8,8,0,0,0,16,0V44a12,12,0,0,1,24,0v68a8,8,0,0,0,16,0V60a12,12,0,0,1,24,0v68.67A48.08,48.08,0,0,0,120,176a8,8,0,0,0,16,0,32,32,0,0,1,32-32,8,8,0,0,0,8-8V116a12,12,0,0,1,24,0Z"/></svg></span><span>Delete them</span></li>
+          </ol>
+          <div class="ask"><p>Allow this step? Delete 212 promotional emails older than 30 days.</p>
+            <div class="row"><span class="b primary">Allow <kbd>↵</kbd></span><span class="b">Stop <kbd>esc</kbd></span><span class="b link">Allow the rest</span></div>
+          </div>
+        </div>
+      </div>
+      <h2 class="h2" id="s5">It asks before anything you can't take back.</h2>
+      <p class="lede">Deleting, paying, sending and submitting wait for Allow. Passwords stay in your Keychain and never reach a model.</p>
+    </section>
+
+    <section class="split green" aria-labelledby="s6">
+      <div class="canvas" aria-hidden="true">
+        <div class="picker">
+          <div class="opt on"><span class="lg"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z"/></svg></span><div>Auto<small>Fastest model for each request; switches when one is busy</small></div></div>
+          <hr />
+          <div class="opt"><span class="lg"><svg aria-hidden="true" fill="currentColor" fill-rule="evenodd" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.036 2c-3.853-.035-7 3-7.036 6.781-.035 3.782 3.055 6.872 6.908 6.907h2.42v-2.566h-2.292c-2.407.028-4.38-1.866-4.408-4.23-.029-2.362 1.901-4.298 4.308-4.326h.1c2.407 0 4.358 1.915 4.365 4.278v6.305c0 2.342-1.944 4.25-4.323 4.279a4.375 4.375 0 01-3.033-1.252l-1.851 1.818A7 7 0 0012.029 22h.092c3.803-.056 6.858-3.083 6.879-6.816v-6.5C18.907 4.963 15.817 2 12.036 2z"></path></svg></span><div>GPT-OSS 120B<small>Groq · Text only · Fast</small></div></div>
+          <div class="opt"><span class="lg"><svg aria-hidden="true" fill="currentColor" fill-rule="evenodd" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.036 2c-3.853-.035-7 3-7.036 6.781-.035 3.782 3.055 6.872 6.908 6.907h2.42v-2.566h-2.292c-2.407.028-4.38-1.866-4.408-4.23-.029-2.362 1.901-4.298 4.308-4.326h.1c2.407 0 4.358 1.915 4.365 4.278v6.305c0 2.342-1.944 4.25-4.323 4.279a4.375 4.375 0 01-3.033-1.252l-1.851 1.818A7 7 0 0012.029 22h.092c3.803-.056 6.858-3.083 6.879-6.816v-6.5C18.907 4.963 15.817 2 12.036 2z"></path></svg></span><div>Qwen 3.8 27B<small>Groq · Reads screenshots · Fast</small></div><span class="rest">Resting 40 s</span></div>
+          <div class="opt"><span class="lg"><svg aria-hidden="true" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="#3186FF"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-0-_R_0_)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-1-_R_0_)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-2-_R_0_)"></path><defs><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-0-_R_0_" x1="7" x2="11" y1="15.5" y2="12"><stop stop-color="#08B962"></stop><stop offset="1" stop-color="#08B962" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-1-_R_0_" x1="8" x2="11.5" y1="5.5" y2="11"><stop stop-color="#F94543"></stop><stop offset="1" stop-color="#F94543" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-2-_R_0_" x1="3.5" x2="17.5" y1="13.5" y2="12"><stop stop-color="#FABC12"></stop><stop offset=".46" stop-color="#FABC12" stop-opacity="0"></stop></linearGradient></defs></svg></span><div>Gemini 3.1 Flash-Lite<small>Google Gemini · Reads screenshots</small></div></div>
+          <div class="opt"><span class="lg"><svg aria-hidden="true" fill="currentColor" fill-rule="evenodd" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.105 2L9.927 4.953H.653L2.83 2h9.276zM23.254 19.048L21.078 22h-9.242l2.174-2.952h9.244zM24 2L9.264 22H0L14.736 2H24z"></path></svg></span><div>GLM 5.3 Flash<small>Z.ai · Reads screenshots</small></div></div>
+          <div class="opt"><span class="lg"><svg aria-hidden="true" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M23.748 4.482c-.254-.124-.364.113-.512.234-.051.039-.094.09-.137.136-.372.397-.806.657-1.373.626-.829-.046-1.537.214-2.163.848-.133-.782-.575-1.248-1.247-1.548-.352-.156-.708-.311-.955-.65-.172-.241-.219-.51-.305-.774-.055-.16-.11-.323-.293-.35-.2-.031-.278.136-.356.276-.313.572-.434 1.202-.422 1.84.027 1.436.633 2.58 1.838 3.393.137.093.172.187.129.323-.082.28-.18.552-.266.833-.055.179-.137.217-.329.14a5.526 5.526 0 01-1.736-1.18c-.857-.828-1.631-1.742-2.597-2.458a11.365 11.365 0 00-.689-.471c-.985-.957.13-1.743.388-1.836.27-.098.093-.432-.779-.428-.872.004-1.67.295-2.687.684a3.055 3.055 0 01-.465.137 9.597 9.597 0 00-2.883-.102c-1.885.21-3.39 1.102-4.497 2.623C.082 8.606-.231 10.684.152 12.85c.403 2.284 1.569 4.175 3.36 5.653 1.858 1.533 3.997 2.284 6.438 2.14 1.482-.085 3.133-.284 4.994-1.86.47.234.962.327 1.78.397.63.059 1.236-.03 1.705-.128.735-.156.684-.837.419-.961-2.155-1.004-1.682-.595-2.113-.926 1.096-1.296 2.746-2.642 3.392-7.003.05-.347.007-.565 0-.845-.004-.17.035-.237.23-.256a4.173 4.173 0 001.545-.475c1.396-.763 1.96-2.015 2.093-3.517.02-.23-.004-.467-.247-.588zM11.581 18c-2.089-1.642-3.102-2.183-3.52-2.16-.392.024-.321.471-.235.763.09.288.207.486.371.739.114.167.192.416-.113.603-.673.416-1.842-.14-1.897-.167-1.361-.802-2.5-1.86-3.301-3.307-.774-1.393-1.224-2.887-1.298-4.482-.02-.386.093-.522.477-.592a4.696 4.696 0 011.529-.039c2.132.312 3.946 1.265 5.468 2.774.868.86 1.525 1.887 2.202 2.891.72 1.066 1.494 2.082 2.48 2.914.348.292.625.514.891.677-.802.09-2.14.11-3.054-.614zm1-6.44a.306.306 0 01.415-.287.302.302 0 01.2.288.306.306 0 01-.31.307.303.303 0 01-.304-.308zm3.11 1.596c-.2.081-.399.151-.59.16a1.245 1.245 0 01-.798-.254c-.274-.23-.47-.358-.552-.758a1.73 1.73 0 01.016-.588c.07-.327-.008-.537-.239-.727-.187-.156-.426-.199-.688-.199a.559.559 0 01-.254-.078c-.11-.054-.2-.19-.114-.358.028-.054.16-.186.192-.21.356-.202.767-.136 1.146.016.352.144.618.408 1.001.782.391.451.462.576.685.914.176.265.336.537.445.848.067.195-.019.354-.25.452z" fill="#4D6BFE"></path></svg></span><div>DeepSeek<small>DeepSeek · Text only</small></div></div>
+        </div>
+      </div>
+      <div>
+        <div class="tiles" aria-hidden="true" style="justify-content:flex-start;margin-left:6px"><span><svg aria-hidden="true" fill="currentColor" fill-rule="evenodd" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.036 2c-3.853-.035-7 3-7.036 6.781-.035 3.782 3.055 6.872 6.908 6.907h2.42v-2.566h-2.292c-2.407.028-4.38-1.866-4.408-4.23-.029-2.362 1.901-4.298 4.308-4.326h.1c2.407 0 4.358 1.915 4.365 4.278v6.305c0 2.342-1.944 4.25-4.323 4.279a4.375 4.375 0 01-3.033-1.252l-1.851 1.818A7 7 0 0012.029 22h.092c3.803-.056 6.858-3.083 6.879-6.816v-6.5C18.907 4.963 15.817 2 12.036 2z"></path></svg></span><span><svg aria-hidden="true" fill="currentColor" fill-rule="evenodd" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.105 2L9.927 4.953H.653L2.83 2h9.276zM23.254 19.048L21.078 22h-9.242l2.174-2.952h9.244zM24 2L9.264 22H0L14.736 2H24z"></path></svg></span><span><svg aria-hidden="true" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="#3186FF"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-0-_R_0_)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-1-_R_0_)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-2-_R_0_)"></path><defs><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-0-_R_0_" x1="7" x2="11" y1="15.5" y2="12"><stop stop-color="#08B962"></stop><stop offset="1" stop-color="#08B962" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-1-_R_0_" x1="8" x2="11.5" y1="5.5" y2="11"><stop stop-color="#F94543"></stop><stop offset="1" stop-color="#F94543" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-2-_R_0_" x1="3.5" x2="17.5" y1="13.5" y2="12"><stop stop-color="#FABC12"></stop><stop offset=".46" stop-color="#FABC12" stop-opacity="0"></stop></linearGradient></defs></svg></span><span><svg aria-hidden="true" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M23.748 4.482c-.254-.124-.364.113-.512.234-.051.039-.094.09-.137.136-.372.397-.806.657-1.373.626-.829-.046-1.537.214-2.163.848-.133-.782-.575-1.248-1.247-1.548-.352-.156-.708-.311-.955-.65-.172-.241-.219-.51-.305-.774-.055-.16-.11-.323-.293-.35-.2-.031-.278.136-.356.276-.313.572-.434 1.202-.422 1.84.027 1.436.633 2.58 1.838 3.393.137.093.172.187.129.323-.082.28-.18.552-.266.833-.055.179-.137.217-.329.14a5.526 5.526 0 01-1.736-1.18c-.857-.828-1.631-1.742-2.597-2.458a11.365 11.365 0 00-.689-.471c-.985-.957.13-1.743.388-1.836.27-.098.093-.432-.779-.428-.872.004-1.67.295-2.687.684a3.055 3.055 0 01-.465.137 9.597 9.597 0 00-2.883-.102c-1.885.21-3.39 1.102-4.497 2.623C.082 8.606-.231 10.684.152 12.85c.403 2.284 1.569 4.175 3.36 5.653 1.858 1.533 3.997 2.284 6.438 2.14 1.482-.085 3.133-.284 4.994-1.86.47.234.962.327 1.78.397.63.059 1.236-.03 1.705-.128.735-.156.684-.837.419-.961-2.155-1.004-1.682-.595-2.113-.926 1.096-1.296 2.746-2.642 3.392-7.003.05-.347.007-.565 0-.845-.004-.17.035-.237.23-.256a4.173 4.173 0 001.545-.475c1.396-.763 1.96-2.015 2.093-3.517.02-.23-.004-.467-.247-.588zM11.581 18c-2.089-1.642-3.102-2.183-3.52-2.16-.392.024-.321.471-.235.763.09.288.207.486.371.739.114.167.192.416-.113.603-.673.416-1.842-.14-1.897-.167-1.361-.802-2.5-1.86-3.301-3.307-.774-1.393-1.224-2.887-1.298-4.482-.02-.386.093-.522.477-.592a4.696 4.696 0 011.529-.039c2.132.312 3.946 1.265 5.468 2.774.868.86 1.525 1.887 2.202 2.891.72 1.066 1.494 2.082 2.48 2.914.348.292.625.514.891.677-.802.09-2.14.11-3.054-.614zm1-6.44a.306.306 0 01.415-.287.302.302 0 01.2.288.306.306 0 01-.31.307.303.303 0 01-.304-.308zm3.11 1.596c-.2.081-.399.151-.59.16a1.245 1.245 0 01-.798-.254c-.274-.23-.47-.358-.552-.758a1.73 1.73 0 01.016-.588c.07-.327-.008-.537-.239-.727-.187-.156-.426-.199-.688-.199a.559.559 0 01-.254-.078c-.11-.054-.2-.19-.114-.358.028-.054.16-.186.192-.21.356-.202.767-.136 1.146.016.352.144.618.408 1.001.782.391.451.462.576.685.914.176.265.336.537.445.848.067.195-.019.354-.25.452z" fill="#4D6BFE"></path></svg></span><span><svg aria-hidden="true" fill="currentColor" fill-rule="evenodd" style="flex:none;line-height:1" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.654 3.87a5.087 5.087 0 110 10.174L23.7 19.09c.64.641.187 1.737-.72 1.737H8.48a8.479 8.479 0 010-16.958h10.175zM8.479 7.26a5.087 5.087 0 100 10.176 5.087 5.087 0 000-10.175z"></path></svg></span></div>
+        <h2 class="h2" id="s6">Use the AI you already have a key for.</h2>
+        <p class="lede">Free tiers from Groq and Gemini cover everyday use. Add a few providers and it never waits on one.</p>
+        <div class="cards">
+          <div class="card"><span class="ico"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z"/></svg></span><div><h3>Auto</h3><p>Each request goes to the fastest model that can handle it. When one hits its limit, the next takes over.</p></div></div>
+          <div class="card"><span class="ico"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M136,80v43.47l36.12,21.67a8,8,0,0,1-8.24,13.72l-40-24A8,8,0,0,1,120,128V80a8,8,0,0,1,16,0Zm-8-48A95.44,95.44,0,0,0,60.08,60.15C52.81,67.51,46.35,74.59,40,82V64a8,8,0,0,0-16,0v40a8,8,0,0,0,8,8H72a8,8,0,0,0,0-16H49c7.15-8.42,14.27-16.35,22.39-24.57a80,80,0,1,1,1.66,114.75,8,8,0,1,0-11,11.64A96,96,0,1,0,128,32Z"/></svg></span><div><h3>A spend meter</h3><p>See today's estimated cost, and set a daily limit if you want one.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="extras" aria-labelledby="s7">
+      <header><h2 class="h2" id="s7">Plus a few extras.</h2><p class="lede">Small things that save a lot of clicks.</p></header>
+      <div class="grid">
+        <div style="--c:var(--amber)"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z"/></svg><h3>Direct mode</h3><p>One-step commands like “scroll down” or “next tab”, in about a second.</p></div>
+        <div style="--c:var(--blue)"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24a104,104,0,0,0,0,208c21.51,0,44.1-6.48,60.43-17.33a8,8,0,0,0-8.86-13.33C166,210.38,146.21,216,128,216a88,88,0,1,1,88-88c0,26.45-10.88,32-20,32s-20-5.55-20-32V88a8,8,0,0,0-16,0v4.26a48,48,0,1,0,5.93,65.1c6,12,16.35,18.64,30.07,18.64,22.54,0,36-17.94,36-48A104.11,104.11,0,0,0,128,24Zm0,136a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg><h3>Mention a tab</h3><p>Type @ to pick open tabs and ask about them together.</p></div>
+        <div style="--c:var(--red)"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M232.4,114.49,88.32,26.35a16,16,0,0,0-16.2-.3A15.86,15.86,0,0,0,64,39.87V216.13A15.94,15.94,0,0,0,80,232a16.07,16.07,0,0,0,8.36-2.35L232.4,141.51a15.81,15.81,0,0,0,0-27ZM80,215.94V40l143.83,88Z"/></svg><h3>Video controls</h3><p>“Back 10 seconds and play”, “speed 1.5x”. Instant, no AI.</p></div>
+        <div style="--c:var(--peach)"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V158.75l-26.07-26.06a16,16,0,0,0-22.63,0l-20,20-44-44a16,16,0,0,0-22.62,0L40,149.37V56ZM40,172l52-52,80,80H40Zm176,28H194.63l-36-36,20-20L216,181.38V200ZM144,100a12,12,0,1,1,12,12A12,12,0,0,1,144,100Z"/></svg><h3>Screenshots</h3><p>“Send me a screenshot” puts it in the chat and in Downloads.</p></div>
+        <div style="--c:var(--green)"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z"/></svg><h3>Tables out of pages</h3><p>“Copy all invoice numbers as a table”, ready to paste.</p></div>
+        <div style="--c:var(--indigo)"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M184,32H72A16,16,0,0,0,56,48V224a8,8,0,0,0,12.24,6.78L128,193.43l59.77,37.35A8,8,0,0,0,200,224V48A16,16,0,0,0,184,32Zm0,177.57-51.77-32.35a8,8,0,0,0-8.48,0L72,209.57V48H184Z"/></svg><h3>Saved requests</h3><p>Run a finished request again with new values, no AI and no cost.</p></div>
+        <div style="--c:var(--green)"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,58.34l-32-32a8,8,0,0,0-11.32,0l-96,96A8,8,0,0,0,88,128v32a8,8,0,0,0,8,8h32a8,8,0,0,0,5.66-2.34l96-96A8,8,0,0,0,229.66,58.34ZM124.69,152H104V131.31l64-64L188.69,88ZM200,76.69,179.31,56,192,43.31,212.69,64ZM224,128v80a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32h80a8,8,0,0,1,0,16H48V208H208V128a8,8,0,0,1,16,0Z"/></svg><h3>Forms</h3><p>“Fill the form with …” fills every field, then waits for you to submit.</p></div>
+        <div style="--c:var(--indigo)"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L44.59,96H72a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V56a8,8,0,0,1,16,0V85.8L60.25,60A96,96,0,0,1,224,128Z"/></svg><h3>Go back to where I was</h3><p>Puts back the tabs a request opened, closed or moved.</p></div>
+        <div style="--c:var(--amber)"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216.57,39.43A80,80,0,0,0,83.91,120.78L28.69,176A15.86,15.86,0,0,0,24,187.31V216a16,16,0,0,0,16,16H72a8,8,0,0,0,8-8V208H96a8,8,0,0,0,8-8V184h16a8,8,0,0,0,5.66-2.34l9.56-9.57A79.73,79.73,0,0,0,160,176h.1A80,80,0,0,0,216.57,39.43ZM224,98.1c-1.09,34.09-29.75,61.86-63.89,61.9H160a63.7,63.7,0,0,1-23.65-4.51,8,8,0,0,0-8.84,1.68L116.69,168H96a8,8,0,0,0-8,8v16H72a8,8,0,0,0-8,8v16H40V187.31l58.83-58.82a8,8,0,0,0,1.68-8.84A63.72,63.72,0,0,1,96,95.92c0-34.14,27.81-62.8,61.9-63.89A64,64,0,0,1,224,98.1ZM192,76a12,12,0,1,1-12-12A12,12,0,0,1,192,76Z"/></svg><h3>Passwords</h3><p>Write <code>{{work-login}}</code>. The value comes from your Keychain at the last moment.</p></div>
+        <div style="--c:var(--blue)"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M188,88a27.75,27.75,0,0,0-12,2.71V60a28,28,0,0,0-41.36-24.6A28,28,0,0,0,80,44v6.71A27.75,27.75,0,0,0,68,48,28,28,0,0,0,40,76v76a88,88,0,0,0,176,0V116A28,28,0,0,0,188,88Zm12,64a72,72,0,0,1-144,0V76a12,12,0,0,1,24,0v44a8,8,0,0,0,16,0V44a12,12,0,0,1,24,0v68a8,8,0,0,0,16,0V60a12,12,0,0,1,24,0v68.67A48.08,48.08,0,0,0,120,176a8,8,0,0,0,16,0,32,32,0,0,1,32-32,8,8,0,0,0,8-8V116a12,12,0,0,1,24,0Z"/></svg><h3>Take over</h3><p>Pause a task to log in or solve a captcha, then hand it back.</p></div>
+        <div style="--c:var(--peach)"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V88H40V56Zm0,144H40V104H216v96Z"/></svg><h3>Compare tabs</h3><p>“Which of my tabs is cheapest?” answers with a table.</p></div>
+        <div style="--c:var(--indigo)"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V232a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"/></svg><h3>Voice, if you want it</h3><p>Hold ⌥ and speak instead of typing. Spoken requests get spoken replies.</p></div>
+      </div>
+    </section>
+
+    <section class="private" id="private" aria-labelledby="s8">
+      <h2 class="h2" id="s8">It runs on your Mac.</h2>
+      <p class="lede">There's no Gofer account and no server of ours in the middle. You bring the keys, and it talks only to your browser and the AI providers you chose.</p>
+      <div class="chips">
+        <span><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg> No account</span>
+        <span><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg> Listens on 127.0.0.1 only</span>
+        <span><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg> Your keys stay on your Mac</span>
+        <span><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg> Passwords in the Keychain</span>
+        <span><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg> Password fields are never read</span>
+        <span><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg> Activity logs stay local for 7 days</span>
+        <span><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg> Open source, MIT</span>
+      </div>
+    </section>
+
+    <section class="get" id="get" aria-labelledby="s9">
+      <img class="icon" src="assets/app-icon.png" alt="" />
+      <h2 class="h2" id="s9">Free, and open source.</h2>
+      <p class="lede">Download it, add a free Groq or Gemini key, and press ⌘⇧Space.</p>
+      <div class="ctas">
+        <a class="btn primary" href="https://github.com/ken-code-wq/voice-browser/releases/download/v0.4.0/Voice-Browser-0.4.0-mac-arm64.dmg"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,124.69V32a8,8,0,0,0-16,0v92.69L93.66,98.34a8,8,0,0,0-11.32,11.32Z"/></svg> Mac with Apple Silicon</a>
+        <a class="btn quiet" href="https://github.com/ken-code-wq/voice-browser/releases/download/v0.4.0/Voice-Browser-0.4.0-mac-x64.dmg">Mac with Intel</a>
+      </div>
+      <p class="alt small">Version 0.4.0. <a href="https://github.com/ken-code-wq/voice-browser/releases/tag/v0.4.0">Windows and Linux builds</a> are on the release page, untested so far. Gofer was called Voice Browser until this version.</p>
+    </section>
+  </div>
+
+  <section class="faq narrow" id="faq" aria-labelledby="q-h">
+    <h2 class="h2" id="q-h">Questions</h2>
+    <details><summary>Which browsers does it work with? <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>Dia, Arc, Chrome, Brave and Edge, or a built-in Chromium with its own profile. Pick one in the panel; Gofer reopens it with remote control turned on and your tabs restored. Chrome and Edge don't allow that for your main profile, so they get a separate one.</p></div></details>
+    <details><summary>Do I need an API key? What does it cost? <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>Yes, at least one. Groq and Google Gemini both have free tiers that cover everyday use, and Z.ai, DeepSeek and OpenRouter work too. The panel shows today's estimated spend, and you can set a daily limit.</p><p>Direct mode uses SubQ Snap, which costs about $0.05 per million input tokens.</p></div></details>
+    <details><summary>Can it do things I didn't ask for? <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>Anything that saves, pays, sends or deletes waits for Allow, and Esc stops a task at any time. Treat that as a safeguard rather than a guarantee: don't connect a browser profile with accounts you wouldn't want an automated click near.</p></div></details>
+    <details><summary>What happens to the tab I'm using? <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>The panel's header always shows which tab Gofer is working in. When a task needs another site, it opens a background tab instead of taking yours, and Go back to where I was puts your tabs back afterwards.</p></div></details>
+    <details><summary>It got stuck on a login or a captcha. <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>Press Take over. The task pauses after its current step, you do what's needed in the browser, then Hand back and it looks at the page again and carries on. It asks for this itself when a page needs you.</p></div></details>
+    <details><summary>Does it work on Windows or Linux? <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>There are builds on the release page, but it's built and tested on macOS. Keychain passwords, Liquid Glass and switching browsers are Mac-only for now.</p></div></details>
+    <details><summary>macOS says it can't check the app for malware. <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>The app isn't signed with an Apple developer certificate yet. Right-click it in Applications, choose Open, then Open again. You only need to do this once.</p></div></details>
   </section>
 </main>
 
