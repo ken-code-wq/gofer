@@ -3,6 +3,12 @@
 ## Unreleased
 
 ### Added
+- **Activity logs on disk**, to see what the agent did and fix its mistakes: `~/.voice-browser/logs/agent-<date>.log`
+  (every activity line) and `~/.voice-browser/logs/tasks/<time>-<goal>.json` (per task: what the model was shown,
+  what it chose, what happened, whether the page changed, confirmations the page showed, the final check). Kept 7
+  days, only on this Mac; `VB_TRACE=0` turns it off.
+- **Checklists for multi-item tasks** ("add videos by A, B and C to the queue"): split into items up front and
+  ticked off as they're done, so the agent and the final check don't re-guess progress (or redo items) every step.
 - **Web search and background reading.** The agent can search the web and read pages or PDFs without
   opening a tab or touching your tabs ("who won …?", "find that ad whose jingle went …", "find the
   official site and open it"). Questions the page can't answer are looked up and cite their sources
@@ -28,6 +34,15 @@
   tabs" / "compare @A @B" answers with a table and a one-line verdict.
 
 ### Fixed
+- The agent couldn't see menus that sites add at the end of the page (YouTube's ⋮ menu: "Add to queue") because
+  the element scan stopped first; open menus, dialogs and popups are now read first and marked "[in open menu]".
+- Opening a menu or a step that only shows a toast was taken for "the page didn't change" (only the URL and title
+  were compared), so the agent abandoned the right control; it now compares what's on screen too, and passes on
+  confirmations the page flashes ("Added to Queue").
+- Single-page sites: the next look waits until the page holds still, so it doesn't see the old results and
+  search again. A step that hangs fails after 45 s instead of blocking the queue. The same click repeated over
+  and over is pointed out, then stopped. Web searches for the site it's already on use the site's own search.
+- Tasks may take up to 25 browser steps (searches and page reads don't count).
 - One model's odd error (e.g. Groq's "Tool choice is none, but model called a tool") no longer ends the task:
   the next model answers, and a failed step is retried up to 3 times.
 - The chat no longer scrolls sideways; long words wrap.

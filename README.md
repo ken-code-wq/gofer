@@ -208,6 +208,10 @@ step is one call to the "brain" model plus a final check; Gemini Flash-Lite's fr
 
 ## Privacy & safety
 
+- **Activity logs** stay on this Mac in `~/.voice-browser/logs/` for 7 days: a daily log of what the agent did and
+  one file per task with what the model was shown (page text and element names, never passwords) and what it
+  chose. Delete the folder any time, or set `VB_TRACE=0` to turn it off.
+
 * The server listens on **127.0.0.1 only**. Anyone who can reach that port can drive your browser.
 * Page content (element list, visible text, a screenshot for goals/questions) is sent to the model
   providers you configure. Free tiers may use prompts to improve their models.

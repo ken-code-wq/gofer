@@ -67,6 +67,7 @@ export function encodeElement(el, pageHost = "") {
     if (host && host !== pageHost) s += ` → ${host}`;
   }
   if (el.below_fold) s += " [below fold]";
+  if (el.in_menu) s += " [in open menu]";
   return s;
 }
 

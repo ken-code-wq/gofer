@@ -13,7 +13,7 @@ import { planChain } from "./chain.js";
 import { parseCheck } from "./checks.js";
 import { resolveSaved } from "./store.js";
 import { loadChats, saveChats, listFacts, rememberFact, forgetFacts, parseMemoryCommand } from "./memory.js";
-import { routeSmart, answerQuestion, fillForm, nextGoalStep, verifyGoal, resolveFollowUp, toAction, MAX_GOAL_STEPS } from "./smart.js";
+import { routeSmart, answerQuestion, fillForm, nextGoalStep, verifyGoal, resolveFollowUp, toAction, MAX_GOAL_STEPS, mayHaveItems, goalItems } from "./smart.js";
 import { hasBrain, ask as brainAsk } from "./brain.js";
 import { parseSiteCommand, resolveSite, siteKey, addNote, notesFor, learnFromGoal, markUsed } from "./sitenotes.js";
 import { parseUtility, runUtility, copyToClipboard, wantsScreenshot } from "./utility.js";
@@ -26,6 +26,45 @@ import { parseTabMention, parseCurrentTab, matchTab } from "./tabs.js";
 import { fillForm as fillFormFn } from "./smart.js";
 import { TaskRunner } from "./tasks.js";
 import { HANDBACK_NOTE } from "./takeover.js";
+import { logLine, TaskTrace } from "./tracelog.js";
+
+/**
+ * Runs in the page: a short fingerprint of what's on screen (visible buttons, links, menu items,
+ * dialogs, alerts and toasts), so a step that only opens a menu or shows a toast still counts as a change.
+ */
+function pageSignature() {
+  const sel = 'button, a[href], [role="menuitem"], [role="option"], [role="dialog"], [role="alert"], [role="status"], [aria-expanded="true"], dialog[open], input, select, textarea';
+  const out = [];
+  for (const el of document.querySelectorAll(sel)) {
+    if (out.length > 400) break;
+    if (el.closest('[class*="__vb"]')) continue;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height || r.bottom < 0 || r.top > innerHeight) continue;
+    out.push(`${el.getAttribute("role") || el.tagName}:${(el.getAttribute("aria-label") || el.textContent || el.value || "").trim().slice(0, 40)}:${el.getAttribute("aria-expanded") || ""}:${el.getAttribute("aria-pressed") || ""}`);
+  }
+  let h = 0;
+  const str = out.join("|");
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return `${out.length}:${h}`;
+}
+
+/** page.evaluate that gives up after `ms` (a busy or frozen page must never hang a task). */
+const evalIn = (page, fn, fallback, ms = 1500) =>
+  Promise.race([page.evaluate(fn).catch(() => fallback), new Promise((r) => setTimeout(() => r(fallback), ms))]);
+
+/** Runs in the page: the text of visible messages (toasts, alerts, status lines), e.g. "Added to queue". */
+function pageMessages() {
+  const sel = '[role="alert"], [role="status"], [aria-live="polite"], [aria-live="assertive"], tp-yt-paper-toast, yt-notification-action-renderer, .toast, [class*="snackbar" i], [class*="toast" i]';
+  const out = [];
+  for (const el of document.querySelectorAll(sel)) {
+    if (el.closest('[class*="__vb"]')) continue; // Voice Browser's own overlay
+    const r = el.getBoundingClientRect();
+    const t = (el.innerText || "").replace(/\s+/g, " ").trim();
+    if (r.width && r.height && t && t.length < 160 && !out.includes(t)) out.push(t);
+    if (out.length >= 4) break;
+  }
+  return out;
+}
 
 const avg = (xs) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
 
@@ -94,6 +133,7 @@ export class Controller extends EventEmitter {
     this.log.push(entry);
     if (this.log.length > 200) this.log.shift();
     this.emit("log", entry);
+    logLine(entry);
   }
 
   async refreshSnapshot() {
@@ -582,6 +622,7 @@ export class Controller extends EventEmitter {
     if (start) this.browser.page.title().then((t) => (start.title = t)).catch(() => {});
     const g = { goal, context, another, start, thread: this.thread, steps: [], done: [], recipe: [], awaiting: null, cancelled: false, autoApprove: false, invalid: 0, at: Date.now() };
     this.goal = g;
+    g.trace = new TaskTrace(goal, { context, startUrl: start?.url || "" });
     this._log("info", `goal: ${goal}`);
     this._emitGoal(g, "running");
     this._goalLoop(g);
@@ -606,6 +647,7 @@ export class Controller extends EventEmitter {
     if (this.goal === g) this.goal = null;
     for (const s of g.steps) if (s.status === "running" || s.status === "awaiting") s.status = status === "done" ? "ok" : "ignored";
     this._log(status === "done" ? "act" : "warn", `goal ${status}${summary ? `: ${summary}` : ""}`);
+    g.trace?.end(status, summary);
     // what was done, with the values used, so a follow-up can refer to "them" / "the first 2"
     const did = g.steps.filter((s) => s.status === "ok").map((s) => (s.detail && !/^localhost|^[\w.-]+\.\w+\//.test(s.detail) ? `${s.text} [${s.detail}]` : s.text));
     this._note(g.thread, `goal ${status}: ${summary}${did.length ? ` (steps: ${did.join("; ")})` : ""}`);
@@ -701,12 +743,25 @@ export class Controller extends EventEmitter {
   }
 
   async _goalLoop(g, note = "") {
+    // a goal with several items gets a checklist, so progress isn't re-guessed from the history every step
+    if (!g.items && !g.replay) {
+      g.items = [];
+      g.itemsDone = [];
+      if (mayHaveItems(g.goal)) {
+        g.items = await goalItems(g.goal, g.context).catch(() => []);
+        if (g.items.length) {
+          this._log("info", `checklist: ${g.items.join(" · ")}`);
+          g.trace?.add("checklist", { items: g.items });
+        }
+      }
+      if (g.cancelled) return;
+    }
     while (!g.cancelled) {
       // Take over / the goal asked for the user: wait for them to hand back
       const turn = await this.tasks.pauseIfWanted(g);
       if (turn?.cancelled || g.cancelled) return;
       if (turn) note = note ? `${note} ${HANDBACK_NOTE}` : HANDBACK_NOTE;
-      if (g.done.length >= MAX_GOAL_STEPS) return this._endGoal(g, "failed", `stopped after ${MAX_GOAL_STEPS} steps without finishing`);
+      if (g.done.filter((d) => !d.research).length >= MAX_GOAL_STEPS) return this._endGoal(g, "failed", `stopped after ${MAX_GOAL_STEPS} steps without finishing`);
       let r;
       try {
         if (g.hint) {
@@ -714,9 +769,12 @@ export class Controller extends EventEmitter {
           g.hint = null;
         }
         r = await nextGoalStep(this, g.goal, g.done, note, g.context, {
+          items: g.items,
+          itemsDone: g.itemsDone,
           // background searches and page reads show up as steps, like browser actions
           onResearch: (res) => {
             if (g.cancelled || res.detail === "already done") return; // a repeat the model was told off for: not news to the user
+            g.trace?.add("research", { description: res.description, ok: res.ok, outcome: res.outcome });
             g.steps.push({ text: res.description, status: res.ok ? "ok" : "fail", detail: res.detail?.slice(0, 80) });
             this._emitGoal(g, "running");
           },
@@ -724,6 +782,7 @@ export class Controller extends EventEmitter {
         g.brainErrors = 0;
       } catch (err) {
         if (g.cancelled) return;
+        g.trace?.add("error", { error: String(err.message || err) });
         // A model hiccup shouldn't end the task: wait a little and ask again (another model may take it).
         if (!(err instanceof LimitError) && !isAbortError(err) && (g.brainErrors = (g.brainErrors || 0) + 1) <= 3) {
           this._log("warn", `goal step: model error, retrying (${g.brainErrors}/3): ${err.message || err}`);
@@ -734,6 +793,7 @@ export class Controller extends EventEmitter {
         }
         return this._endGoal(g, "failed", String(err.message || err));
       }
+      g.trace?.add("model", { models: r.models || [r.model], ms: r.ms, url: r.snap?.url, note: note || undefined, chose: r.step, calls: r.calls, prompt: r.prompt });
       note = "";
       if (g.cancelled) return;
       g.models = [...new Set([...(g.models || []), ...(r.models || [r.model])])];
@@ -747,7 +807,8 @@ export class Controller extends EventEmitter {
       }
       if (step.status === "done") {
         // second opinion: does the page really show the goal is complete?
-        const v = await verifyGoal(this, g.goal, g.done, g.context, g.start).catch(() => ({ complete: true }));
+        const v = await verifyGoal(this, g.goal, g.done, g.context, g.start, { items: g.items, itemsDone: g.itemsDone }).catch(() => ({ complete: true }));
+        g.trace?.add("verify", v);
         if (g.cancelled) return;
         if (!v.complete) {
           this._log("info", `goal not finished yet: ${v.missing}`);
@@ -777,13 +838,37 @@ export class Controller extends EventEmitter {
         }
         return this._endGoal(g, "failed", step.summary);
       }
+      if (step.status === "item_done") {
+        const item = g.items.find((x) => x.toLowerCase() === String(step.item || "").toLowerCase()) || g.items.find((x) => !g.itemsDone.includes(x) && String(step.item || "").toLowerCase().includes(x.toLowerCase().split(" ")[0]));
+        if (item && !g.itemsDone.includes(item)) {
+          g.itemsDone.push(item);
+          g.steps.push({ text: `done: ${item}`, status: "ok" });
+          this._emitGoal(g, "running");
+        }
+        g.trace?.add("item_done", { item: step.item, matched: item || null, done: [...g.itemsDone] });
+        if ((g.ticks = (g.ticks || 0) + 1) > 3 * Math.max(1, g.items.length)) return this._endGoal(g, "failed", "kept ticking items off without doing them");
+        const left = g.items.filter((x) => !g.itemsDone.includes(x));
+        note = left.length ? `Ticked off "${item || step.item}". Next: ${left[0]}.` : "Every checklist item is done: finish now.";
+        continue;
+      }
       if (step.status === "need_user") {
         this.tasks.needUser(step.summary);
         continue;
       }
       let { action, fill, error } = toAction(step, r.snap, r.tabs);
+      // the same click or address again and again (a menu button clicked open and shut): say so, then stop
+      // (scrolling, waiting and key presses repeat legitimately)
+      const sig = action && !["scroll_down", "scroll_up", "wait_ms", "press_key"].includes(action.type) ? `${action.type}:${action.targetId || action.url || action.text || ""}` : "";
+      g.repeat = sig && g.repeat?.sig === sig ? { sig, n: g.repeat.n + 1 } : { sig, n: 1 };
+      if (g.repeat.n >= 3) {
+        g.trace?.add("repeat", { sig, n: g.repeat.n });
+        if (g.repeat.n >= 5) return this._endGoal(g, "failed", `kept repeating "${step.description || action?.label}"`);
+        note = `You've now chosen "${step.description || action?.label}" ${g.repeat.n} times in a row without moving on. If it opened a menu, the menu's items are in the element list: pick one. Otherwise do something else.`;
+        continue;
+      }
       action = this.tasks.place(action); // never navigate the tab you're looking at away
       if (error) {
+        g.trace?.add("invalid", { error });
         if (++g.invalid > 2) return this._endGoal(g, "failed", `the model kept choosing invalid steps (${error})`);
         note = `Your last choice was invalid: ${error}. Choose again from the element list.`;
         continue;
@@ -826,26 +911,61 @@ export class Controller extends EventEmitter {
     }
   }
 
+  /** One goal step, with a watchdog: a step that hangs (a frozen page) fails after 45 s instead of blocking everything. */
   async _runGoalStep(g, entry, action) {
+    let timer;
+    const hung = new Promise((r) => (timer = setTimeout(() => r("hung"), 45_000)));
+    const r = await Promise.race([this._runGoalStepInner(g, entry, action), hung]);
+    clearTimeout(timer);
+    if (r === "hung") {
+      this._log("warn", `step hung, moving on: ${entry.text}`);
+      g.trace?.add("hung", { step: entry.text });
+      entry.status = "fail";
+      entry.detail = "the page stopped responding";
+      g.done.push({ description: entry.text, outcome: "failed: the page didn't respond in time" });
+      this.busy = false;
+    }
+  }
+
+  async _runGoalStepInner(g, entry, action) {
     if (action.type === "click_element" || action.type === "press_enter") g.unsavedForm = false;
     const page = this.browser.page;
-    const before = page ? { url: page.url(), title: await page.title().catch(() => ""), tab: page } : null;
+    // what the page looks like, to tell whether a step did anything: URL, title and its elements
+    // (a menu opening or a "Added to queue" toast changes the elements but not the URL)
+    const look = async (p) => `${p.url()}\n${await p.title().catch(() => "")}\n${await evalIn(p, pageSignature, "")}`;
+    const before = page ? { url: page.url(), look: await look(page), tab: page, said: await evalIn(page, pageMessages, []) } : null;
     const { ok, res } = await this._runAction(action, { via: "goal", said: entry.text });
-    // did it change anything we can see? (same tab, URL and title = probably not)
+    // did it change anything we can see?
     const after = this.browser.page;
-    const same = async () => after.url() === before.url && (await after.title().catch(() => "")) === before.title;
+    const same = async () => (await look(after)) === before.look;
     let unchanged = ok && before && after === before.tab && ["click_element", "press_key", "press_enter", "go_back"].includes(action.type) && (await same());
     // sites like YouTube switch pages a moment later: give it up to 2.5 s before calling the step useless
     for (let i = 0; unchanged && i < 10; i++) {
       await new Promise((r) => setTimeout(r, 250));
       unchanged = await same();
     }
+    // a confirmation the page flashed ("Added to queue", "Saved"): the next look may come too late to see it
+    let said = [];
+    if (ok && after && !after.isClosed()) {
+      const fresh = async () => (await evalIn(after, pageMessages, [])).filter((t) => !before?.said?.includes(t));
+      said = await fresh();
+      // clicks that should confirm something get a little longer for the message to appear
+      const confirms = /\b(?:add|added|queue|save|send|submit|post|delete|remove|subscribe|like|follow|create|confirm|apply|update|archive|share|copy)\b/i.test(`${action.label || ""} ${entry.text}`);
+      const polls = confirms ? 10 : ["click_element", "press_enter", "press_key"].includes(action.type) ? 3 : 0;
+      for (let i = 0; !said.length && i < polls; i++) {
+        await new Promise((r) => setTimeout(r, 200));
+        said = await fresh();
+      }
+    }
     if (ok && res.image) (g.images ||= []).push({ image: res.image, path: res.path });
     const url = this.browser.currentUrl?.() || "";
     entry.status = ok ? "ok" : "fail";
     entry.detail = ok ? url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 80) : res.detail;
     const title = ok ? await this.browser.page?.title().catch(() => "") : "";
-    g.done.push({ description: entry.text, outcome: ok ? (unchanged ? `done, but the page unchanged (still ${url.slice(0, 120)})` : `done (now at ${url.slice(0, 120)}${title ? ` "${title.slice(0, 80)}"` : ""})`) : `failed: ${res.detail}` });
+    g.trace?.add("step", { action: { ...action, page: undefined }, ok, unchanged, url, title, said: said.length ? said : undefined, detail: ok ? undefined : res.detail });
+    const message = said.length ? `; the page said: ${said.map((t) => `"${t}"`).join(", ")}` : "";
+    g.done.push({ description: entry.text, outcome: ok ? (unchanged ? `done, but the page unchanged (still ${url.slice(0, 120)})${message}` : `done (now at ${url.slice(0, 120)}${title ? ` "${title.slice(0, 80)}"` : ""}${message})`) : `failed: ${res.detail}` });
+    if (said.length) entry.detail = said[0].slice(0, 80);
     if (unchanged) {
       const key = `${action.type}:${action.label || action.key || action.targetId || ""}`;
       g.noEffect = { key, n: g.noEffect?.key === key ? g.noEffect.n + 1 : 1 };
@@ -858,7 +978,18 @@ export class Controller extends EventEmitter {
     // let the page settle before the next look
     await this.browser.active?.waitForLoadState("load", { timeout: 4000 }).catch(() => {});
     await this.browser.active?.waitForLoadState("networkidle", { timeout: 2500 }).catch(() => {});
-    await new Promise((r) => setTimeout(r, 400));
+    // single-page sites (YouTube, Gmail) change the URL first and the content a moment later:
+    // wait until what's on screen holds still, so the next look doesn't see the old results
+    const p = this.browser.active;
+    if (p && !p.isClosed()) {
+      let prev = await evalIn(p, pageSignature, "");
+      for (let i = 0; i < 8; i++) {
+        await new Promise((r) => setTimeout(r, 300));
+        const now = await evalIn(p, pageSignature, "");
+        if (now === prev) break;
+        prev = now;
+      }
+    }
   }
 
   /** The user's answer to a risky goal step. */

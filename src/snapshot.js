@@ -39,12 +39,21 @@ export function collectElementsInPage() {
   const vw = win.innerWidth;
   const vh = win.innerHeight;
   const out = [];
-  const nodes = doc.querySelectorAll(SELECTOR);
+  // Open menus, dialogs and popups first (sites often add them at the very end of the page, past
+  // the cap), then everything else in page order.
+  const POPUP = '[role=menu], [role=listbox], [role=dialog], [role=alertdialog], dialog[open], [aria-modal=true], tp-yt-iron-dropdown, ytd-popup-container, [data-radix-popper-content-wrapper], .dropdown-menu.show';
+  const popupNodes = new Set();
+  for (const box of doc.querySelectorAll(POPUP)) for (const el of box.querySelectorAll(SELECTOR)) popupNodes.add(el);
+  const nodes = [...popupNodes, ...[...doc.querySelectorAll(SELECTOR)].filter((el) => !popupNodes.has(el))];
+  const inView = [];
+  const offView = [];
+  let looked = 0;
 
   const clean = (s) => (s || "").replace(/\s+/g, " ").trim();
 
   for (const el of nodes) {
-    if (out.length >= 400) break;
+    // keep looking for on-screen elements after the off-screen ones fill up (big pages)
+    if (inView.length >= 400 || ++looked > 4000) break;
     let rect;
     try {
       rect = el.getBoundingClientRect();
@@ -109,9 +118,11 @@ export function collectElementsInPage() {
     }
 
     const inViewport = rect.bottom > 0 && rect.top < vh && rect.right > 0 && rect.left < vw;
+    const popup = popupNodes.has(el);
+    if (!inViewport && !popup && offView.length >= 400) continue;
     const inputName = clean(el.getAttribute("name")) || clean(el.getAttribute("id"));
 
-    out.push({
+    (inViewport || popup ? inView : offView).push({
       id,
       tag,
       role,
@@ -121,11 +132,13 @@ export function collectElementsInPage() {
       type,
       inputName,
       inViewport,
+      popup,
       top: Math.round(rect.top + win.scrollY),
       left: Math.round(rect.left + win.scrollX),
     });
   }
 
+  out.push(...inView, ...offView.slice(0, Math.max(0, 400 - inView.length)));
   return {
     url: location.href,
     title: doc.title,
@@ -191,6 +204,7 @@ export function compactElements(rawElements, opts = {}) {
   const maxChars = opts.maxChars ?? MAX_STATE_CHARS;
 
   const sorted = [...rawElements].sort((a, b) => {
+    if (Boolean(a.popup) !== Boolean(b.popup)) return a.popup ? -1 : 1; // an open menu or dialog first
     if (a.inViewport !== b.inViewport) return a.inViewport ? -1 : 1;
     return a.top - b.top || a.left - b.left;
   });
@@ -208,6 +222,7 @@ export function compactElements(rawElements, opts = {}) {
     if (e.placeholder && e.placeholder !== text) rec.placeholder = truncate(e.placeholder, 40);
     if (e.href) rec.href = truncate(e.href, 50);
     if (!e.inViewport) rec.below_fold = true;
+    if (e.popup) rec.in_menu = true;
     out.push(rec);
     if (out.length >= maxElements) break;
   }

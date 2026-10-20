@@ -15,7 +15,7 @@ import { resolveSecrets } from "./secrets.js";
 import { notesForPrompt } from "./sitenotes.js";
 import { readPage, readingText, citeHint, citeNote, readTabs, tabsText, kindName } from "./pagetext.js";
 
-export const MAX_GOAL_STEPS = 15;
+export const MAX_GOAL_STEPS = 25; // browser steps (web searches and page reads don't count)
 const PAGE_TEXT_CHARS = 30000;
 
 /** Which smart feature a typed command asks for, if any. Runs before chain splitting (forms have commas). */
@@ -338,7 +338,8 @@ export async function replayFill(controller, recorded) {
 const STEP_SCHEMA = {
   type: "object",
   properties: {
-    status: { type: "string", enum: ["continue", "done", "impossible", "need_user"] },
+    status: { type: "string", enum: ["continue", "done", "impossible", "need_user", "item_done"] },
+    item: { type: "string", description: "With item_done: the checklist item that's now done." },
     summary: {
       type: "string",
       description: "When done/impossible: your reply to the user, in first person, one or two short friendly sentences saying what you did (naming the specific result, e.g. the song or item) or why it can't be done. When need_user: one short sentence telling the user what to do (e.g. 'Please sign in to GitHub, then hand back.'). Otherwise: what you see.",
@@ -395,6 +396,10 @@ const GOAL_SYSTEM =
   "If you hit something only the user can do (a login or password you don't have, a captcha, two-factor code, a payment " +
   "confirmation), return status 'need_user' with a one-sentence summary of what they need to do; they'll hand control back " +
   "when done and you continue. Never guess passwords. " +
+  "When the goal covers several items (three people, several videos, a list of bills), do them one after another and keep " +
+  "count: name the item in each step's description (e.g. 'Kevin Hart: add to queue'), check the steps taken to see which items " +
+  "are already done, never redo one, and finish once every item is done. On YouTube, a video's ⋮ action menu has " +
+  "'Add to queue'; clicking it shows a short confirmation and doesn't change the URL. " +
   "When a form is visible, prefer ONE fill_form action with all the values instead of typing field by field. " +
   "When asked for dummy, test or sample data, invent realistic, plausible values (names, amounts, dates in the near future, " +
   "valid-looking emails/phones) and pick sensible options from dropdowns. " +
@@ -406,7 +411,8 @@ const GOAL_SYSTEM =
   "Never invent ids. Mark risky=true for anything that submits, pays, sends, approves, deletes or can't be undone, " +
   "unless the user's goal explicitly asks for exactly that action. " +
   "You can also search the web (web_search) and read any web page (read_url) in the background, without opening a tab or " +
-  "disturbing the user's tabs; use web_search rather than opening a search engine in a tab. Use them to find facts, identify something the user half-remembers, or find the right page; " +
+  "disturbing the user's tabs; use web_search rather than opening a search engine in a tab, but when you're already on the " +
+  "site that has what you need (YouTube, a shop, the app you're working in), use that site's own search box instead. Use them to find facts, identify something the user half-remembers, or find the right page; " +
   "then navigate only if the user wants to go there or something must be done on that site. If the goal is just to find out " +
   "something, answer it from what you found and finish. Don't search for things the current page already shows. " +
   "If a search doesn't find it, don't keep searching with similar words: read the most promising result (read_url), or change the words (drop quotes, add the era, 'TV ad', 'commercial', 'song', " +
@@ -447,6 +453,12 @@ const RESEARCH_TOOLS = [
   tool("web_search", "Search the web in the background (no tab opens). Returns titles, links and snippets.", { query: { type: "string" } }, ["query"]),
   tool("read_url", "Read a web page or PDF in the background (no tab opens). Returns the parts relevant to the goal.", { url: { type: "string" } }, ["url"]),
 ];
+const ITEM_DONE_TOOL = tool(
+  "item_done",
+  "Tick an item off the checklist once a step really did it (e.g. its 'Add to queue' was clicked). No browser action.",
+  { item: { type: "string", description: "The checklist item, as written there." } },
+  ["item"],
+);
 const FINISH_TOOL = {
   name: "finish",
   description: "End the task: the goal is achieved (done), it can't be achieved (impossible), or only the user can do the next part, like signing in or a captcha (need_user).",
@@ -462,6 +474,7 @@ const FINISH_TOOL = {
 
 /** A tool call as a STEP_SCHEMA step, so the rest of the goal loop doesn't care which way the model answered. */
 export function stepFromCall({ name, args = {} }) {
+  if (name === "item_done") return { status: "item_done", summary: "", description: String(args.description || ""), item: String(args.item || ""), risky: false };
   if (name === "finish") return { status: ["impossible", "need_user"].includes(args.status) ? args.status : "done", summary: String(args.summary || ""), description: "", risky: false };
   const a = { ...args };
   const type = { type_text: "type", select_option: "select", scroll: args.direction === "up" ? "scroll_up" : "scroll_down" }[name] || name;
@@ -554,6 +567,39 @@ export function toAction(step, snap, tabs = []) {
   }
 }
 
+const ITEMS_SCHEMA = {
+  type: "object",
+  properties: {
+    items: {
+      type: "array",
+      items: { type: "string" },
+      description: "The separate things the goal asks to be done, each a few words naming the item (e.g. 'Trevor Noah video', 'Dave Chappelle video'). Empty if it's one thing.",
+    },
+  },
+  required: ["items"],
+};
+
+/** Goals that may cover several items: "… X, Y and Z …", "add 3 …", "each of …". */
+export const mayHaveItems = (goal) => /,|\b(?:and|each|every|all of)\b|\b(?:[2-9]|two|three|four|five|six|several|some)\s+\w+/i.test(String(goal || ""));
+
+/** Split a goal that covers several items into a checklist (["Trevor Noah video", …]); [] for a single thing. */
+export async function goalItems(goal, context = "") {
+  const r = await ask({
+    system:
+      "Split a browser task into the separate items it asks for, so progress can be tracked. 'Add videos by A, B and C to the queue' " +
+      "-> one item per person. 'Create 3 bills' -> 'bill 1', 'bill 2', 'bill 3'. 'Play the next video' or 'find the cheapest flight' " +
+      "-> [] (one thing). At most 10 items.",
+    text: `${withContext(context)}Task: ${goal}`,
+    schema: ITEMS_SCHEMA,
+  });
+  const items = (Array.isArray(r.data.items) ? r.data.items : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 10);
+  return items.length > 1 ? items : [];
+}
+
+/** The checklist as prompt text. */
+export const checklistText = (items = [], done = []) =>
+  items.length ? `Checklist (tick each item off with item_done once it's really done; work on the first unticked one):\n${items.map((x) => `  [${done.includes(x) ? "x" : " "}] ${x}`).join("\n")}\n` : "";
+
 const VERIFY_SCHEMA = {
   type: "object",
   properties: {
@@ -593,7 +639,7 @@ export async function resolveFollowUp(context, text) {
 }
 
 /** A second opinion before declaring a goal done: does the page actually show it's complete? */
-export async function verifyGoal(controller, goal, done, context = "", start = null) {
+export async function verifyGoal(controller, goal, done, context = "", start = null, { items = [], itemsDone = [] } = {}) {
   const ctx = await pageContext(controller, { question: goal, video: aboutContent(goal) });
   const history = historyText(done);
   const r = await ask({
@@ -605,8 +651,12 @@ export async function verifyGoal(controller, goal, done, context = "", start = n
       "be a different one than where it started; the same URL and title means it is NOT done. " +
       "A filled but unsaved form is not done. If the goal needs no browser action at all (a greeting, thanks, a question answered " +
       "from knowledge), it is complete. If the goal is to find out or identify something, it is complete when the web searches or " +
-      "page reads in the steps found the answer, even if the page doesn't show it. If the goal asks for a different result than before, the page must show a different one than those already given.",
-    text: `${withContext(context)}${withNotes(notesForPrompt({ url: ctx.snap.url, goal }))}Goal: ${goal}\n\nStarted on: ${start ? `${start.url} (${start.title})` : "unknown"}\n\nSteps taken:\n${history}\n\nCurrent page:\n${ctx.description}`,
+      "page reads in the steps found the answer, even if the page doesn't show it. " +
+      "Some results don't stay on screen (a video added to a queue, an item added to a list on another page, a message sent): " +
+      "count an item as done when a step did it and either the page confirmed it (the step says 'the page said: …') or the " +
+      "step plainly did it (e.g. clicked 'Add to queue' for that item). Don't ask for items to be redone just because the " +
+      "current page doesn't show them. If the goal asks for a different result than before, the page must show a different one than those already given.",
+    text: `${withContext(context)}${withNotes(notesForPrompt({ url: ctx.snap.url, goal }))}Goal: ${goal}\n\n${checklistText(items, itemsDone)}Started on: ${start ? `${start.url} (${start.title})` : "unknown"}\n\nSteps taken:\n${history}\n\nCurrent page:\n${ctx.description}`,
     images: ctx.images,
     schema: VERIFY_SCHEMA,
   });
@@ -630,7 +680,7 @@ const aboutContent = (goal) => /\b(?:say|says|said|talk|talks|talking|mention|me
  * searches and page reads happen right here, in the background, and are added to `done`
  * (reported through `onResearch`); this returns once the model picks a browser step or finishes.
  */
-export async function nextGoalStep(controller, goal, done, note = "", context = "", { onResearch } = {}) {
+export async function nextGoalStep(controller, goal, done, note = "", context = "", { onResearch, items = [], itemsDone = [] } = {}) {
   const ctx = await pageContext(controller, { question: goal, video: aboutContent(goal) });
   const tabs = await goalTabs(controller.browser).catch(() => []);
   const tabLines = tabs.map((t) => `  ${t.n}. ${(t.title || "(untitled)").slice(0, 80)} (${t.url.slice(0, 120)})${t.current ? " ← current" : ""}${t.shown ? " (user is looking at this)" : ""}`);
@@ -643,13 +693,15 @@ export async function nextGoalStep(controller, goal, done, note = "", context = 
     const wasted = done.filter((d) => d.research && d.outcome.startsWith("already done")).length;
     const canResearch = researched < MAX_RESEARCH && round < 4 && wasted < 2;
     const limitNote = canResearch ? "" : "\nNote: no more web searches or page reads for this goal; act on the page or finish.\n";
-    const text = `${withContext(context)}${withNotes(notes)}Goal: ${goal}\n\nSteps taken so far:\n${historyText(done)}\n${note ? `\nNote: ${note}\n` : ""}${limitNote}\nOpen tabs:\n${tabLines.join("\n") || "  (only this one)"}\n\nCurrent page:\n${ctx.description}`;
+    const text = `${withContext(context)}${withNotes(notes)}Goal: ${goal}\n\n${checklistText(items, itemsDone)}${items.length ? "\n" : ""}Steps taken so far:\n${historyText(done)}\n${note ? `\nNote: ${note}\n` : ""}${limitNote}\nOpen tabs:\n${tabLines.join("\n") || "  (only this one)"}\n\nCurrent page:\n${ctx.description}`;
     let steps;
+    let calls;
     try {
-      const r = await askTools({ system: `${GOAL_SYSTEM} ${today()}`, text, images: ctx.images, tools: [...BROWSER_TOOLS, ...(canResearch ? RESEARCH_TOOLS : []), FINISH_TOOL] });
+      const r = await askTools({ system: `${GOAL_SYSTEM} ${today()}`, text, images: ctx.images, tools: [...BROWSER_TOOLS, ...(canResearch ? RESEARCH_TOOLS : []), ...(items.length ? [ITEM_DONE_TOOL] : []), FINISH_TOOL] });
       models.push(r.modelLabel || r.model);
       ms += r.ms;
       steps = r.calls.map(stepFromCall);
+      calls = r.calls;
     } catch (err) {
       if (err instanceof LimitError || err?.name === "AbortError") throw err;
       // no model could do tool calls: the JSON step format
@@ -662,7 +714,7 @@ export async function nextGoalStep(controller, goal, done, note = "", context = 
     const research = canResearch ? steps.filter(isResearch) : [];
     if (!research.length) {
       const step = steps.find((x) => !isResearch(x)) || { status: "continue", summary: "", description: "", action: { type: "wait" }, risky: false };
-      return { step, snap: ctx.snap, tabs, sites: notes.sites, model: models.at(-1), models, ms };
+      return { step, snap: ctx.snap, tabs, sites: notes.sites, model: models.at(-1), models, ms, calls, prompt: text };
     }
     // searches and reads asked for together run together; one already done isn't run again
     const key = (x) => `${x.action.type}:${String(x.action.query || x.action.url || "").toLowerCase().replace(/["'\s]+/g, " ").trim()}`;
@@ -670,6 +722,12 @@ export async function nextGoalStep(controller, goal, done, note = "", context = 
     const results = await Promise.all(
       research.slice(0, 3).map(async (x) => {
         const k = key(x);
+        // "site:youtube.com …" while on YouTube: the site's own search is quicker and gives clickable results
+        const here = hostOf(ctx.snap.url);
+        const site = String(x.action.query || "").match(/\bsite:([^\s/]+)/i)?.[1]?.replace(/^www\./, "");
+        if (x.action.type === "web_search" && here && site && (here === site || here.endsWith(`.${site}`))) {
+          return { ok: false, key: k, description: `search the web: ${x.action.query}`, outcome: `not run: you're already on ${here}; use its own search box instead.`, detail: "already done" };
+        }
         if (doneKeys.has(k)) return { ok: false, key: k, description: x.action.type === "web_search" ? `search again: ${x.action.query}` : `read again: ${x.action.url}`, outcome: "already done above, with the results shown there. Use different words, read a result, or finish with what you found.", detail: "already done" };
         return { ...(await runResearch(x, goal)), key: k };
       }),
