@@ -58,7 +58,7 @@ export const shotsDir = () => process.env.VB_SHOTS_DIR || path.join(os.homedir()
 export async function captureScreenshot(page, { fullPage = false } = {}) {
   const dir = shotsDir();
   fs.mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, `Voice Browser ${stamp()}.png`);
+  const file = path.join(dir, `Gofer ${stamp()}.png`);
   await page.screenshot({ path: file, fullPage, timeout: 15000 });
   let image = null;
   try {

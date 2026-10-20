@@ -1,4 +1,4 @@
-# How Voice Browser works
+# How Gofer works
 
 ```
  bar / control page / mic           local Node server (owns the API keys)              controlled browser
@@ -69,7 +69,7 @@ A finished (typed) command that is still unclear after 3 requests is given up in
 merges "click on email and type …" into one targeted step, and turns verbless steps into
 "search for X" + "click X". Steps run one at a time; the next starts after the page's `load` and a short
 network-idle wait. `src/checks.js` recognises waits and checks, which run in code
-(`src/executor.js`); a failed check stops the chain and saves a screenshot to `~/.voice-browser/failures/`.
+(`src/executor.js`); a failed check stops the chain and saves a screenshot to `~/.gofer/failures/`.
 
 ## Goals, questions, forms and follow-ups (the "brain")
 
@@ -113,7 +113,7 @@ src/checks.js      wait / check parsing
 src/smart.js       questions, forms, goal steps, verification, follow-up rewriting
 src/brain.js       model clients: OpenAI-compatible presets + Gemini, fallback and cooldown
 src/tabs.js        @tab mentions
-src/store.js       saved commands (~/.voice-browser/commands.json)
+src/store.js       saved commands (~/.gofer/commands.json)
 src/secrets.js     {{secrets}} in the macOS Keychain
 src/server.js      Express + WebSocket, control page (src/public/index.html)
 desktop/           Electron command bar, browser switching (browsers.cjs), installer

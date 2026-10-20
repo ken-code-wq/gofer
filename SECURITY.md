@@ -1,6 +1,6 @@
 # Security policy
 
-Voice Browser can click, type and submit in a real browser that may be signed in to your accounts, so we
+Gofer can click, type and submit in a real browser that may be signed in to your accounts, so we
 take security reports seriously.
 
 ## Reporting a vulnerability
@@ -15,7 +15,7 @@ possible; please give us a reasonable time to fix it before disclosing publicly.
 * The local server binds to `127.0.0.1` only. Anything that can reach its port can drive the controlled
   browser and spend your API credits — don't expose it with `--host 0.0.0.0` on untrusted networks.
 * API keys are read from `.env` by the local server only; the UI never receives them. `.env` is git-ignored.
-* Passwords are stored in the macOS Keychain (service `voice-browser`) and referenced as `{{name}}`. Values
+* Passwords are stored in the macOS Keychain (service `voice-browser`, the app's name before it became Gofer) and referenced as `{{name}}`. Values
   are resolved only when typing into a page, are never sent to model providers, and never written to
   history or logs. Password field values are never read from pages.
 * Page content (element list, visible text, screenshots for goals and questions) **is** sent to the model

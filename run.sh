@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launch the voice-browser server with the API key exported server-side.
+# Launch the Gofer server with the API key exported server-side.
 # Usage: ./run.sh [--port 8787] [--host 127.0.0.1] [--headless] [--cdp ws://...] [--start-url https://...]
 #
 # The key is read from the TYPESAFE_API_KEY environment variable, or from a local .env file

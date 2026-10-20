@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="docs/images/icon.png" width="112" alt="Voice Browser icon" />
+  <img src="docs/images/icon.png" width="112" alt="Gofer icon: a pointer moving forward" />
 </p>
 
-<h1 align="center">Voice Browser</h1>
+<h1 align="center">Gofer</h1>
 
 <p align="center">
-  <b>Chat with your real browser — by typing or talking.</b><br/>
+  <b>Tell your browser what to do.</b><br/>
   A macOS chat panel that drives Dia, Arc, Chrome, Brave, Edge or a built-in Chromium: ask about the page,
   hand it multi-step tasks, and follow up like you would with a person.
 </p>
@@ -86,11 +86,11 @@ cp .env.example .env            # then add your keys — .env is git-ignored and
 
 # the desktop app
 cd desktop && npm install
-./install-mac.sh                # builds /Applications/Voice Browser.app
-open "/Applications/Voice Browser.app"
+./install-mac.sh                # builds /Applications/Gofer.app
+open "/Applications/Gofer.app"
 ```
 
-Voice Browser lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd> shows or hides the panel
+Gofer lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd> shows or hides the panel
 (*⋯ → Change shortcut…* to change it) and the menu-bar icon has **Start at login**.
 
 | Key | In the panel |
@@ -197,7 +197,7 @@ again and carry on. The agent asks for this itself when a page needs you.
 ### Your own browser
 
 Click the browser button in the bar (or the menu-bar icon → *Browser*) and pick Dia, Arc, Brave, Chrome
-or Edge. Voice Browser quits it like <kbd>⌘</kbd><kbd>Q</kbd> (tabs are restored), reopens it with remote
+or Edge. Gofer quits it like <kbd>⌘</kbd><kbd>Q</kbd> (tabs are restored), reopens it with remote
 debugging and reconnects. Chrome and Edge don't allow that for your main profile, so they get a separate
 profile instead. Your choice is remembered.
 
@@ -239,7 +239,7 @@ step is one call to the "brain" model plus a final check; Gemini Flash-Lite's fr
 * Page content (element list, visible text, a screenshot for goals/questions) is sent to the model
   providers you configure. Free tiers may use prompts to improve their models.
 * `{{secrets}}` are resolved from the Keychain only at the moment of typing.
-* **Activity logs** stay on this Mac in `~/.voice-browser/logs/` for 7 days: a daily log of what the agent did and
+* **Activity logs** stay on this Mac in `~/.gofer/logs/` for 7 days: a daily log of what the agent did and
   one file per task with what the model was shown (page text and element names, never passwords) and what it
   chose. Delete the folder any time, or set `VB_TRACE=0` to turn it off.
 * Risky steps (submit, approve, delete, pay) ask first — treat that as a convenience, not a guarantee,
@@ -277,7 +277,7 @@ test/unit/  fast tests with mocked models and browser — no network
 npm test                    # unit tests, no network or keys needed
 npm run test:integration    # real decision-model calls on captured pages (needs a key)
 cd desktop && npm start     # run the bar without installing it
-./desktop/install-mac.sh    # rebuild /Applications/Voice Browser.app after changing desktop/
+./desktop/install-mac.sh    # rebuild /Applications/Gofer.app after changing desktop/
 npm run shots               # redo the README screenshots (the real panel, scripted replies, no AI calls)
 ```
 
@@ -285,7 +285,7 @@ Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Credits
 
-Voice Browser started as a fork of **[jev-voice-browser](https://github.com/moritzkremb/jev-voice-browser)**
+Gofer (formerly Voice Browser) started as a fork of **[jev-voice-browser](https://github.com/moritzkremb/jev-voice-browser)**
 by [Moritz Kremb](https://github.com/moritzkremb) — the voice pipeline, decision questions and policy are
 his. This fork adds the desktop command bar, SubQ Snap support, chains, goals, questions, forms,
 follow-ups, tab mentions, Keychain secrets, waits/checks, connecting your own browser, the chat panel,

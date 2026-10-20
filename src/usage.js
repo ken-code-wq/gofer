@@ -1,6 +1,6 @@
 /**
  * Spend meter: every model call (SubQ Snap / Jev and the brain) is added to a daily total in
- * ~/.voice-browser/usage.json. An optional daily limit stops new model calls once reached.
+ * ~/.gofer/usage.json. An optional daily limit stops new model calls once reached.
  *
  * Brain prices are list prices per million tokens (input / output) and only an estimate: free
  * tiers (e.g. a free Gemini key) cost nothing. BRAIN_PRICE_IN / BRAIN_PRICE_OUT override them.

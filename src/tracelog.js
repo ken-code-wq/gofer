@@ -1,8 +1,8 @@
 /**
  * What the agent did, on disk, so its mistakes can be looked at afterwards:
  *
- *   ~/.voice-browser/logs/agent-YYYY-MM-DD.log     every log line (what you'd see in the activity log)
- *   ~/.voice-browser/logs/tasks/<time>-<goal>.json one file per task: each step with what the model was
+ *   ~/.gofer/logs/agent-YYYY-MM-DD.log     every log line (what you'd see in the activity log)
+ *   ~/.gofer/logs/tasks/<time>-<goal>.json one file per task: each step with what the model was
  *                                                  shown, what it chose, and what happened
  *
  * Kept for 7 days. Only on this Mac; passwords never appear (the models only see {{placeholders}}).

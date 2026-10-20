@@ -1,9 +1,9 @@
 {
-  "name": "voice-browser-desktop",
-  "productName": "Voice Browser",
+  "name": "gofer-desktop",
+  "productName": "Gofer",
   "version": "0.4.0",
   "private": true,
-  "description": "Voice Browser command bar",
+  "description": "Gofer chat panel",
   "main": "main.cjs",
   "scripts": {
     "start": "env -u ELECTRON_RUN_AS_NODE electron .",
@@ -25,9 +25,9 @@
   "author": "Kenneth Ben-Boulo",
   "homepage": "https://github.com/ken-code-wq/voice-browser",
   "build": {
-    "appId": "local.voice-browser",
-    "productName": "Voice Browser",
-    "artifactName": "Voice-Browser-${version}-${os}-${arch}.${ext}",
+    "appId": "local.gofer",
+    "productName": "Gofer",
+    "artifactName": "Gofer-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -76,8 +76,8 @@
       "identity": null,
       "extendInfo": {
         "LSUIElement": true,
-        "NSAppleEventsUsageDescription": "Voice Browser quits and reopens your browser so it can control it.",
-        "NSMicrophoneUsageDescription": "Voice Browser listens when you hold Option or click the mic, to turn your voice into a request."
+        "NSAppleEventsUsageDescription": "Gofer quits and reopens your browser so it can control it.",
+        "NSMicrophoneUsageDescription": "Gofer listens when you hold Option or click the mic, to turn your voice into a request."
       }
     },
     "win": {

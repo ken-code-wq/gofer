@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- **Voice Browser is now Gofer**, with a new icon: a pointer moving forward. The app installs as
+  `/Applications/Gofer.app` and the old Voice Browser.app is removed. On first launch your data moves from
+  `~/.voice-browser` to `~/.gofer`, and the panel's chats and window settings come along. Passwords stay in
+  the Keychain under the old service name, so nothing needs re-entering. Because the app's identity changed,
+  macOS asks again for microphone access and for permission to control your browser, and *Start at login*
+  needs turning on again from the menu-bar icon.
+- Screenshots are saved as `Gofer <date>.png`.
+
 ## 0.4.0 — 2026-10-20
 
 ### Added

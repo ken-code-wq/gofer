@@ -1,4 +1,4 @@
-# Contributing to Voice Browser
+# Contributing to Gofer
 
 Thanks for helping! Bug reports, ideas and pull requests are all welcome.
 
@@ -14,7 +14,7 @@ npm test                    # unit tests — no keys or network needed
 ```
 
 Run the desktop bar without installing it: `cd desktop && npm install && npm start`.
-After changing anything in `desktop/`, `./desktop/install-mac.sh` rebuilds `/Applications/Voice Browser.app`.
+After changing anything in `desktop/`, `./desktop/install-mac.sh` rebuilds `/Applications/Gofer.app`.
 Changes in `src/` only need the app (or `./run.sh`) restarted.
 
 ## Making a change

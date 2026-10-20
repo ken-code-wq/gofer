@@ -1,5 +1,5 @@
 /**
- * Saved commands ("login-dev" -> a whole chain). Stored as JSON in ~/.voice-browser/commands.json
+ * Saved commands ("login-dev" -> a whole chain). Stored as JSON in ~/.gofer/commands.json
  * (outside the project, so reinstalling or updating the code keeps them). VB_DATA_DIR overrides
  * the folder (tests).
  */
@@ -8,7 +8,12 @@ import os from "node:os";
 import path from "node:path";
 import { bindSlots } from "./recipe.js";
 
-export const DATA_DIR = process.env.VB_DATA_DIR || path.join(os.homedir(), ".voice-browser");
+// The app was called Voice Browser: its folder moves to ~/.gofer the first time (the desktop app does the same).
+const LEGACY_DIR = path.join(os.homedir(), ".voice-browser");
+export const DATA_DIR = process.env.VB_DATA_DIR || path.join(os.homedir(), ".gofer");
+if (!process.env.VB_DATA_DIR && fs.existsSync(LEGACY_DIR) && !fs.existsSync(DATA_DIR)) {
+  try { fs.renameSync(LEGACY_DIR, DATA_DIR); } catch (err) { console.warn(`Couldn't move ${LEGACY_DIR} to ${DATA_DIR}: ${err.message}`); }
+}
 const FILE = () => path.join(DATA_DIR, "commands.json");
 
 export const normalizeName = (name) =>

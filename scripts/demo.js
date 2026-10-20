@@ -88,7 +88,7 @@ async function main() {
   if (process.env.VB_DEBUG) controller.on("log", (e) => console.error(`    [${e.level}] ${e.msg}`));
   await controller.start();
 
-  console.log(`\nvoice-browser demo · model ${MODEL} · ${HEADLESS ? "headless" : "headed"} · ${WORD_MS}ms per spoken word\n`);
+  console.log(`\nGofer demo · model ${MODEL} · ${HEADLESS ? "headless" : "headed"} · ${WORD_MS}ms per spoken word\n`);
 
   const results = [];
   let stepNo = 0;

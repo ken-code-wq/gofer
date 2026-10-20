@@ -1,6 +1,6 @@
 /**
- * Desktop command bar for voice-browser: a small always-on-top window that sends typed
- * commands to the voice-browser server over the same WebSocket the control page uses.
+ * Desktop chat panel for Gofer: a small always-on-top window that sends typed
+ * commands to the Gofer server over the same WebSocket the control page uses.
  *
  * Starts the server itself (reading ../.env) unless one is already running on the port.
  * A global shortcut (default Cmd/Ctrl+Shift+Space, changeable in the bar) shows/focuses it; Esc hides it.
@@ -12,7 +12,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 // The project folder (server + .env). Installed apps carry a root.json pointing at it;
-// packaged builds carry the server in resources/server and keep .env in ~/.voice-browser.
+// packaged builds carry the server in resources/server and keep .env in ~/.gofer.
 function projectRoot() {
   if (app.isPackaged && fs.existsSync(path.join(process.resourcesPath, "server", "src", "server.js"))) {
     return path.join(process.resourcesPath, "server");
@@ -25,7 +25,18 @@ function projectRoot() {
 }
 const ROOT = projectRoot();
 const PACKAGED = ROOT === path.join(process.resourcesPath || "", "server");
-const DATA_DIR = path.join(require("node:os").homedir(), ".voice-browser");
+const DATA_DIR = path.join(require("node:os").homedir(), ".gofer");
+// The app was called Voice Browser: move its data folder and its window settings / chats (Electron's
+// userData) over once, before anything reads them.
+function moveLegacy(from, to) {
+  try {
+    if (fs.existsSync(from) && !fs.existsSync(to)) fs.renameSync(from, to);
+  } catch (err) {
+    console.warn(`Couldn't move ${from} to ${to}: ${err.message}`);
+  }
+}
+moveLegacy(path.join(require("node:os").homedir(), ".voice-browser"), DATA_DIR);
+moveLegacy(path.join(app.getPath("appData"), "Voice Browser"), app.getPath("userData"));
 const ENV_FILE = PACKAGED ? path.join(DATA_DIR, ".env") : path.join(ROOT, ".env");
 const PORT = Number(process.env.PORT) || 8787;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -161,11 +172,11 @@ function refreshTray() {
   ];
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: `Show Voice Browser${hotkey ? `   ${prettyKey(hotkey)}` : ""}`, click: showBar },
+      { label: `Show Gofer${hotkey ? `   ${prettyKey(hotkey)}` : ""}`, click: showBar },
       { type: "separator" },
       { label: `Browser: ${browserState.name}`, submenu: browserItems },
       { label: "Open control page (live details)", click: () => shell.openExternal(`http://localhost:${PORT}`) },
-      { label: "Open data folder", click: () => shell.openPath(path.join(require("node:os").homedir(), ".voice-browser")) },
+      { label: "Open data folder", click: () => shell.openPath(DATA_DIR) },
       { type: "separator" },
       {
         label: "Start at login",
@@ -177,10 +188,10 @@ function refreshTray() {
         },
       },
       { type: "separator" },
-      { label: "Quit Voice Browser", accelerator: "Command+Q", click: () => app.quit() },
+      { label: "Quit Gofer", accelerator: "Command+Q", click: () => app.quit() },
     ]),
   );
-  tray.setToolTip(`Voice Browser: ${browserState.name}`);
+  tray.setToolTip(`Gofer: ${browserState.name}`);
 }
 
 function createTray() {
@@ -235,7 +246,7 @@ async function stopServer() {
 let crashes = 0;
 let attachedApp = null; // the attached browser's .app, so the server can ask it which tab is showing
 let quitting = false;
-/** Server output goes to ~/.voice-browser/server.log (kept small) so crashes can be diagnosed. */
+/** Server output goes to ~/.gofer/server.log (kept small) so crashes can be diagnosed. */
 function serverLog() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   const file = path.join(DATA_DIR, "server.log");
@@ -253,14 +264,14 @@ async function startServer(cdpUrl = null) {
   env.CDP_URL = cdpUrl || ""; // overrides .env: the bar's browser menu is the source of truth
   env.VB_BROWSER_APP = cdpUrl && attachedApp ? attachedApp : "";
   if (PACKAGED) {
-    // The app bundle is read-only: the browser profile and Chromium download live in ~/.voice-browser.
+    // The app bundle is read-only: the browser profile and Chromium download live in ~/.gofer.
     env.BROWSER_PROFILE_DIR ||= path.join(DATA_DIR, "browser-profile");
     env.PLAYWRIGHT_BROWSERS_PATH ||= path.join(DATA_DIR, "chromium");
   }
   if (!env.SUBQ_API_KEY && !env.TYPESAFE_API_KEY && !env.JEV_API_KEY) {
     if (PACKAGED && !fs.existsSync(ENV_FILE)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
-      fs.writeFileSync(ENV_FILE, "# Voice Browser keys. Fill these in, then reopen the app.\nSUBQ_API_KEY=\nGEMINI_API_KEY=\n");
+      fs.writeFileSync(ENV_FILE, "# Gofer keys. Fill these in, then reopen the app.\nSUBQ_API_KEY=\nGEMINI_API_KEY=\n");
     }
     throw new Error(`No API key. Add SUBQ_API_KEY to ${ENV_FILE}`);
   }
@@ -478,7 +489,7 @@ ipcMain.on("app-menu", (_e, { model } = {}) => {
     { type: "separator" },
     ...(model ? [{ label: `Model: ${model}`, enabled: false }, { type: "separator" }] : []),
     { label: "Hide", accelerator: "Esc", click: () => win?.hide() },
-    { label: "Quit Voice Browser", accelerator: "Command+Q", click: () => app.quit() },
+    { label: "Quit Gofer", accelerator: "Command+Q", click: () => app.quit() },
   ]).popup({ window: win });
 });
 
@@ -508,12 +519,12 @@ function askBrowserSwitch(b) {
 }
 
 // Screenshots and exports open in Preview; only files the app itself wrote (failure shots in
-// ~/.voice-browser, "Voice Browser …" files in Downloads).
+// ~/.gofer, "Gofer …" files in Downloads).
 function ownFile(p) {
   const home = require("node:os").homedir();
   const resolved = path.resolve(String(p || ""));
-  const inData = resolved.startsWith(path.join(home, ".voice-browser") + path.sep);
-  const inDownloads = path.dirname(resolved) === path.join(home, "Downloads") && path.basename(resolved).startsWith("Voice Browser ");
+  const inData = resolved.startsWith(DATA_DIR + path.sep);
+  const inDownloads = path.dirname(resolved) === path.join(home, "Downloads") && /^(Gofer|Voice Browser) /.test(path.basename(resolved)); // older screenshots kept the old name
   return (inData || inDownloads) && fs.existsSync(resolved) ? resolved : null;
 }
 ipcMain.on("open-path", (_e, p) => {
@@ -552,7 +563,7 @@ ipcMain.on("choose-browser", (_e, id) => {
 let switching = false;
 async function switchBrowser(id) {
   if (switching) return { ok: false, error: "Already switching browsers" };
-  if (externalServer) return { ok: false, error: "Another Voice Browser server is already running on this port. Stop it (for example ./run.sh) and reopen the app." };
+  if (externalServer) return { ok: false, error: "Another Gofer server is already running on this port. Stop it (for example ./run.sh) and reopen the app." };
   switching = true;
   const progress = (msg) => sendBrowserState({ busy: msg });
   try {
@@ -608,7 +619,7 @@ ipcMain.on("quit", () => app.quit());
 // Finished work while the bar was in the background: a notification that reopens the bar.
 ipcMain.on("notify", (_e, { title, body } = {}) => {
   if (!Notification.isSupported() || (win?.isVisible() && win.isFocused())) return;
-  const n = new Notification({ title: String(title || "Voice Browser").slice(0, 120), body: String(body || "").slice(0, 240) });
+  const n = new Notification({ title: String(title || "Gofer").slice(0, 120), body: String(body || "").slice(0, 240) });
   n.on("click", () => { win?.show(); win?.focus(); });
   n.show();
 });

@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Voice Browser · Tell your browser what to do</title>
+<title>Gofer · Tell your browser what to do</title>
 <meta name="description" content="A chat panel for your Mac that drives the browser you already use. Ask about the page, hand it a task, and follow up like you would with a person. Free and open source." />
-<meta property="og:title" content="Voice Browser" />
-<meta property="og:description" content="Tell your browser what to do, by typing or talking. Free and open source, for macOS." />
+<meta property="og:title" content="Gofer" />
+<meta property="og:description" content="Tell your browser what to do. A chat panel for your Mac that drives the browser you already use. Free and open source." />
 <meta property="og:image" content="assets/og.png" />
 <link rel="icon" href="assets/app-icon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -82,7 +82,7 @@
 </svg>
 
 <nav class="nav" aria-label="Main">
-  <a class="brand" href="#top"><img src="assets/app-icon.png" alt="" />Voice Browser</a>
+  <a class="brand" href="#top"><img src="assets/app-icon.png" alt="" />Gofer</a>
   <a class="link" href="#features">Features</a>
   <a class="link" href="#private">Privacy</a>
   <a class="link" href="#faq">FAQ</a>
@@ -104,11 +104,11 @@
       </div>
 
       <!-- the live demo -->
-      <div class="desk scene" id="desk" role="img" aria-label="A demo: the user says “open youtube and play a prince of egypt song”. The panel opens YouTube in the browser, searches, clicks “When You Believe” and plays it. The user types “no, another one” and it plays “Deliver Us” instead.">
+      <div class="desk scene" id="desk" role="img" aria-label="A demo: the user types “open youtube and play a prince of egypt song”. The panel opens YouTube in the browser, searches, clicks “When You Believe” and plays it. The user types “no, another one” and it plays “Deliver Us” instead.">
         <svg class="paint" aria-hidden="true"><use href="#scene-dusk" /></svg>
         <div class="menubar" aria-hidden="true">
           <b class="keep">Dia</b><span>File</span><span>Edit</span><span>View</span><span>History</span><span>Window</span>
-          <div class="right"><span class="tray" id="tray">%icon:chat%</span><span class="keep">Tue 20 Oct 9:41</span></div>
+          <div class="right"><span class="tray" id="tray">%pointer%</span><span class="keep">Tue 20 Oct 9:41</span></div>
         </div>
         <div class="desk-body" aria-hidden="true">
           <div class="bw">
@@ -148,8 +148,7 @@
             </div>
             <div class="p-chat" id="p-chat"></div>
             <div class="p-box" id="p-box">
-              <div class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><span>Listening. Let go of ⌥ to send.</span></div>
-              <div class="p-in" id="p-in" data-ph="Ask anything, or tell it what to do"></div>
+                            <div class="p-in" id="p-in" data-ph="Ask anything, or tell it what to do"></div>
               <div class="p-tools">
                 %icon:at% %mic%
                 <span class="modes"><span class="on">%icon:chat%Chat</span><span>%icon:bolt%Direct</span></span>
@@ -277,7 +276,6 @@
     <div class="wrap">
       <div class="sec-head"><h2 id="m-h">And the small things.</h2></div>
       <div class="more">
-        <div>%mic%<h3>Voice</h3><p>Hold ⌥ and speak. Replies to spoken requests are read back to you.</p></div>
         <div>%icon:bolt%<h3>Direct mode</h3><p>One-step commands like “scroll down” or “next tab”, decided in about a second.</p></div>
         <div>%icon:at%<h3>Mention a tab</h3><p>Type @ to pick any open tab, or several, and ask about them together.</p></div>
         <div>%icon:play%<h3>Video controls</h3><p>“Back 10 seconds and play”, “speed 1.5x”. Exact, instant, no AI involved.</p></div>
@@ -288,6 +286,7 @@
         <div>%icon:copy%<h3>Tables out of pages</h3><p>“Copy the table”, or “copy all invoice numbers as a table”, ready to paste.</p></div>
         <div>%icon:image%<h3>Screenshots</h3><p>“Send me a screenshot” puts it in the chat and saves a PNG to Downloads.</p></div>
         <div>%icon:undo%<h3>Go back to where I was</h3><p>Puts back the tabs a request opened, closed or moved.</p></div>
+        <div>%mic%<h3>Voice, if you want it</h3><p>Hold ⌥ and speak instead of typing. Replies to spoken requests are read aloud.</p></div>
         <div>%icon:key%<h3>Passwords</h3><p>Write <code>{{work-login}}</code>. The real value comes from your Keychain at the last moment.</p></div>
       </div>
     </div>
@@ -297,7 +296,7 @@
     <div class="wrap local">
       <div>
         <h2 id="p-h">It runs on your Mac.</h2>
-        <p>There's no Voice Browser account and no server of ours in the middle. You bring the keys; the app talks to your browser and to the AI providers you chose.</p>
+        <p>There's no Gofer account and no server of ours in the middle. You bring the keys; the app talks to your browser and to the AI providers you chose.</p>
       </div>
       <ul>
         <li><b>Local service</b><span>The app's service listens on 127.0.0.1 only, so nothing else on your network can reach it.</span></li>
@@ -316,6 +315,7 @@
         <img class="icon" src="assets/app-icon.png" alt="" />
         <h2 id="g-h">Free, and open source.</h2>
         <p>MIT licensed. Download it, add a free Groq or Gemini key, and press ⌘⇧Space.</p>
+        <p class="was">Gofer was called Voice Browser until version 0.4.</p>
         <div class="ctas">
           <a class="btn dark" href="https://github.com/ken-code-wq/voice-browser/releases/download/v0.4.0/Voice-Browser-0.4.0-mac-arm64.dmg">%dl% Mac with Apple Silicon</a>
           <a class="btn ghost" href="https://github.com/ken-code-wq/voice-browser/releases/download/v0.4.0/Voice-Browser-0.4.0-mac-x64.dmg">Mac with Intel</a>
@@ -329,7 +329,7 @@
     <div class="wrap">
       <div class="sec-head"><h2 id="q-h">Questions</h2></div>
       <div class="faq">
-        <details><summary>Which browsers does it work with? %icon:caretDown%</summary><div><p>Dia, Arc, Chrome, Brave and Edge, or a built-in Chromium with its own profile. Pick one in the panel; Voice Browser reopens it with remote control turned on and your tabs restored. Chrome and Edge don't allow that for your main profile, so they get a separate one.</p></div></details>
+        <details><summary>Which browsers does it work with? %icon:caretDown%</summary><div><p>Dia, Arc, Chrome, Brave and Edge, or a built-in Chromium with its own profile. Pick one in the panel; Gofer reopens it with remote control turned on and your tabs restored. Chrome and Edge don't allow that for your main profile, so they get a separate one.</p></div></details>
         <details><summary>Do I need an API key? What does it cost? %icon:caretDown%</summary><div><p>Yes, at least one. Groq and Google Gemini both have free tiers that cover everyday use, and Z.ai, DeepSeek and OpenRouter work too. The footer of the panel shows today's estimated spend, and you can set a daily limit.</p><p>Direct mode uses SubQ Snap, which costs about $0.05 per million input tokens.</p></div></details>
         <details><summary>Can it do things I didn't ask for? %icon:caretDown%</summary><div><p>Anything that saves, pays, sends or deletes waits for Allow, and you can stop a task with Esc at any time. Treat that as a safeguard rather than a guarantee: don't connect a browser profile with accounts you wouldn't want an automated click near.</p></div></details>
         <details><summary>What happens to the tab I'm using? %icon:caretDown%</summary><div><p>The panel's header always shows which tab the agent is working in. When a task needs to go to another site, it opens a background tab instead of taking yours, and Go back to where I was puts your tabs back afterwards.</p></div></details>
@@ -343,7 +343,7 @@
 
 <footer>
   <div class="wrap">
-    <a class="brand" href="#top"><img src="assets/app-icon.png" alt="" />Voice Browser</a>
+    <a class="brand" href="#top"><img src="assets/app-icon.png" alt="" />Gofer</a>
     <nav aria-label="Footer">
       <a href="https://github.com/ken-code-wq/voice-browser">GitHub</a>
       <a href="https://github.com/ken-code-wq/voice-browser/releases">Releases</a>

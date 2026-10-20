@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Voice Browser · Tell your browser what to do</title>
+<title>Gofer · Tell your browser what to do</title>
 <meta name="description" content="A chat panel for your Mac that drives the browser you already use. Ask about the page, hand it a task, and follow up like you would with a person. Free and open source." />
-<meta property="og:title" content="Voice Browser" />
-<meta property="og:description" content="Tell your browser what to do, by typing or talking. Free and open source, for macOS." />
+<meta property="og:title" content="Gofer" />
+<meta property="og:description" content="Tell your browser what to do. A chat panel for your Mac that drives the browser you already use. Free and open source." />
 <meta property="og:image" content="assets/og.png" />
 <link rel="icon" href="assets/app-icon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -82,7 +82,7 @@
 </svg>
 
 <nav class="nav" aria-label="Main">
-  <a class="brand" href="#top"><img src="assets/app-icon.png" alt="" />Voice Browser</a>
+  <a class="brand" href="#top"><img src="assets/app-icon.png" alt="" />Gofer</a>
   <a class="link" href="#features">Features</a>
   <a class="link" href="#private">Privacy</a>
   <a class="link" href="#faq">FAQ</a>
@@ -104,11 +104,11 @@
       </div>
 
       <!-- the live demo -->
-      <div class="desk scene" id="desk" role="img" aria-label="A demo: the user says “open youtube and play a prince of egypt song”. The panel opens YouTube in the browser, searches, clicks “When You Believe” and plays it. The user types “no, another one” and it plays “Deliver Us” instead.">
+      <div class="desk scene" id="desk" role="img" aria-label="A demo: the user types “open youtube and play a prince of egypt song”. The panel opens YouTube in the browser, searches, clicks “When You Believe” and plays it. The user types “no, another one” and it plays “Deliver Us” instead.">
         <svg class="paint" aria-hidden="true"><use href="#scene-dusk" /></svg>
         <div class="menubar" aria-hidden="true">
           <b class="keep">Dia</b><span>File</span><span>Edit</span><span>View</span><span>History</span><span>Window</span>
-          <div class="right"><span class="tray" id="tray"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,0,0,36.18,176.88L24.83,210.93a16,16,0,0,0,20.24,20.24l34.05-11.35A104,104,0,1,0,128,24Zm0,192a87.87,87.87,0,0,1-44.06-11.81,8,8,0,0,0-6.54-.67L40,216,52.47,178.6a8,8,0,0,0-.66-6.54A88,88,0,1,1,128,216Z"/></svg></span><span class="keep">Tue 20 Oct 9:41</span></div>
+          <div class="right"><span class="tray" id="tray"><svg viewBox="0 0 64 64" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"><path d="M6 27 H17"/><path d="M4 36 H14"/><path d="M8 45 H15" stroke-opacity=".6"/></g><g transform="translate(58 22) rotate(99) scale(.118)"><path d="M0 0 L0 312 C0 330 20 338 32 325 L102 250 L152 360 C158 374 174 380 188 374 L222 358 C236 352 242 336 236 322 L186 214 L290 214 C308 214 316 192 302 180 L28 -10 C16 -20 0 -14 0 0 Z"/></g></svg></span><span class="keep">Tue 20 Oct 9:41</span></div>
         </div>
         <div class="desk-body" aria-hidden="true">
           <div class="bw">
@@ -148,8 +148,7 @@
             </div>
             <div class="p-chat" id="p-chat"></div>
             <div class="p-box" id="p-box">
-              <div class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><span>Listening. Let go of ⌥ to send.</span></div>
-              <div class="p-in" id="p-in" data-ph="Ask anything, or tell it what to do"></div>
+                            <div class="p-in" id="p-in" data-ph="Ask anything, or tell it what to do"></div>
               <div class="p-tools">
                 <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24a104,104,0,0,0,0,208c21.51,0,44.1-6.48,60.43-17.33a8,8,0,0,0-8.86-13.33C166,210.38,146.21,216,128,216a88,88,0,1,1,88-88c0,26.45-10.88,32-20,32s-20-5.55-20-32V88a8,8,0,0,0-16,0v4.26a48,48,0,1,0,5.93,65.1c6,12,16.35,18.64,30.07,18.64,22.54,0,36-17.94,36-48A104.11,104.11,0,0,0,128,24Zm0,136a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg> <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V232a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"/></svg>
                 <span class="modes"><span class="on"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,0,0,36.18,176.88L24.83,210.93a16,16,0,0,0,20.24,20.24l34.05-11.35A104,104,0,1,0,128,24Zm0,192a87.87,87.87,0,0,1-44.06-11.81,8,8,0,0,0-6.54-.67L40,216,52.47,178.6a8,8,0,0,0-.66-6.54A88,88,0,1,1,128,216Z"/></svg>Chat</span><span><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z"/></svg>Direct</span></span>
@@ -277,7 +276,6 @@
     <div class="wrap">
       <div class="sec-head"><h2 id="m-h">And the small things.</h2></div>
       <div class="more">
-        <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V232a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"/></svg><h3>Voice</h3><p>Hold ⌥ and speak. Replies to spoken requests are read back to you.</p></div>
         <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z"/></svg><h3>Direct mode</h3><p>One-step commands like “scroll down” or “next tab”, decided in about a second.</p></div>
         <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24a104,104,0,0,0,0,208c21.51,0,44.1-6.48,60.43-17.33a8,8,0,0,0-8.86-13.33C166,210.38,146.21,216,128,216a88,88,0,1,1,88-88c0,26.45-10.88,32-20,32s-20-5.55-20-32V88a8,8,0,0,0-16,0v4.26a48,48,0,1,0,5.93,65.1c6,12,16.35,18.64,30.07,18.64,22.54,0,36-17.94,36-48A104.11,104.11,0,0,0,128,24Zm0,136a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg><h3>Mention a tab</h3><p>Type @ to pick any open tab, or several, and ask about them together.</p></div>
         <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M232.4,114.49,88.32,26.35a16,16,0,0,0-16.2-.3A15.86,15.86,0,0,0,64,39.87V216.13A15.94,15.94,0,0,0,80,232a16.07,16.07,0,0,0,8.36-2.35L232.4,141.51a15.81,15.81,0,0,0,0-27ZM80,215.94V40l143.83,88Z"/></svg><h3>Video controls</h3><p>“Back 10 seconds and play”, “speed 1.5x”. Exact, instant, no AI involved.</p></div>
@@ -288,6 +286,7 @@
         <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z"/></svg><h3>Tables out of pages</h3><p>“Copy the table”, or “copy all invoice numbers as a table”, ready to paste.</p></div>
         <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V158.75l-26.07-26.06a16,16,0,0,0-22.63,0l-20,20-44-44a16,16,0,0,0-22.62,0L40,149.37V56ZM40,172l52-52,80,80H40Zm176,28H194.63l-36-36,20-20L216,181.38V200ZM144,100a12,12,0,1,1,12,12A12,12,0,0,1,144,100Z"/></svg><h3>Screenshots</h3><p>“Send me a screenshot” puts it in the chat and saves a PNG to Downloads.</p></div>
         <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L44.59,96H72a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V56a8,8,0,0,1,16,0V85.8L60.25,60A96,96,0,0,1,224,128Z"/></svg><h3>Go back to where I was</h3><p>Puts back the tabs a request opened, closed or moved.</p></div>
+        <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V232a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"/></svg><h3>Voice, if you want it</h3><p>Hold ⌥ and speak instead of typing. Replies to spoken requests are read aloud.</p></div>
         <div><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216.57,39.43A80,80,0,0,0,83.91,120.78L28.69,176A15.86,15.86,0,0,0,24,187.31V216a16,16,0,0,0,16,16H72a8,8,0,0,0,8-8V208H96a8,8,0,0,0,8-8V184h16a8,8,0,0,0,5.66-2.34l9.56-9.57A79.73,79.73,0,0,0,160,176h.1A80,80,0,0,0,216.57,39.43ZM224,98.1c-1.09,34.09-29.75,61.86-63.89,61.9H160a63.7,63.7,0,0,1-23.65-4.51,8,8,0,0,0-8.84,1.68L116.69,168H96a8,8,0,0,0-8,8v16H72a8,8,0,0,0-8,8v16H40V187.31l58.83-58.82a8,8,0,0,0,1.68-8.84A63.72,63.72,0,0,1,96,95.92c0-34.14,27.81-62.8,61.9-63.89A64,64,0,0,1,224,98.1ZM192,76a12,12,0,1,1-12-12A12,12,0,0,1,192,76Z"/></svg><h3>Passwords</h3><p>Write <code>{{work-login}}</code>. The real value comes from your Keychain at the last moment.</p></div>
       </div>
     </div>
@@ -297,7 +296,7 @@
     <div class="wrap local">
       <div>
         <h2 id="p-h">It runs on your Mac.</h2>
-        <p>There's no Voice Browser account and no server of ours in the middle. You bring the keys; the app talks to your browser and to the AI providers you chose.</p>
+        <p>There's no Gofer account and no server of ours in the middle. You bring the keys; the app talks to your browser and to the AI providers you chose.</p>
       </div>
       <ul>
         <li><b>Local service</b><span>The app's service listens on 127.0.0.1 only, so nothing else on your network can reach it.</span></li>
@@ -316,6 +315,7 @@
         <img class="icon" src="assets/app-icon.png" alt="" />
         <h2 id="g-h">Free, and open source.</h2>
         <p>MIT licensed. Download it, add a free Groq or Gemini key, and press ⌘⇧Space.</p>
+        <p class="was">Gofer was called Voice Browser until version 0.4.</p>
         <div class="ctas">
           <a class="btn dark" href="https://github.com/ken-code-wq/voice-browser/releases/download/v0.4.0/Voice-Browser-0.4.0-mac-arm64.dmg"><svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M224,144v64a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V144a8,8,0,0,1,16,0v56H208V144a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,124.69V32a8,8,0,0,0-16,0v92.69L93.66,98.34a8,8,0,0,0-11.32,11.32Z"/></svg> Mac with Apple Silicon</a>
           <a class="btn ghost" href="https://github.com/ken-code-wq/voice-browser/releases/download/v0.4.0/Voice-Browser-0.4.0-mac-x64.dmg">Mac with Intel</a>
@@ -329,7 +329,7 @@
     <div class="wrap">
       <div class="sec-head"><h2 id="q-h">Questions</h2></div>
       <div class="faq">
-        <details><summary>Which browsers does it work with? <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>Dia, Arc, Chrome, Brave and Edge, or a built-in Chromium with its own profile. Pick one in the panel; Voice Browser reopens it with remote control turned on and your tabs restored. Chrome and Edge don't allow that for your main profile, so they get a separate one.</p></div></details>
+        <details><summary>Which browsers does it work with? <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>Dia, Arc, Chrome, Brave and Edge, or a built-in Chromium with its own profile. Pick one in the panel; Gofer reopens it with remote control turned on and your tabs restored. Chrome and Edge don't allow that for your main profile, so they get a separate one.</p></div></details>
         <details><summary>Do I need an API key? What does it cost? <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>Yes, at least one. Groq and Google Gemini both have free tiers that cover everyday use, and Z.ai, DeepSeek and OpenRouter work too. The footer of the panel shows today's estimated spend, and you can set a daily limit.</p><p>Direct mode uses SubQ Snap, which costs about $0.05 per million input tokens.</p></div></details>
         <details><summary>Can it do things I didn't ask for? <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>Anything that saves, pays, sends or deletes waits for Allow, and you can stop a task with Esc at any time. Treat that as a safeguard rather than a guarantee: don't connect a browser profile with accounts you wouldn't want an automated click near.</p></div></details>
         <details><summary>What happens to the tab I'm using? <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg></summary><div><p>The panel's header always shows which tab the agent is working in. When a task needs to go to another site, it opens a background tab instead of taking yours, and Go back to where I was puts your tabs back afterwards.</p></div></details>
@@ -343,7 +343,7 @@
 
 <footer>
   <div class="wrap">
-    <a class="brand" href="#top"><img src="assets/app-icon.png" alt="" />Voice Browser</a>
+    <a class="brand" href="#top"><img src="assets/app-icon.png" alt="" />Gofer</a>
     <nav aria-label="Footer">
       <a href="https://github.com/ken-code-wq/voice-browser">GitHub</a>
       <a href="https://github.com/ken-code-wq/voice-browser/releases">Releases</a>

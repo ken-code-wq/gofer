@@ -264,7 +264,7 @@ export async function startServer(opts = {}) {
   if (host !== "127.0.0.1" && host !== "localhost") {
     console.warn(`WARNING: listening on ${host}. Anyone who can reach this port can control the browser and spend API credits.`);
   }
-  console.log(`\nvoice-browser ready → open ${url} in Chrome (mic needs Chrome/Edge)`);
+  console.log(`\nGofer ready → open ${url} in Chrome (mic needs Chrome/Edge)`);
   console.log(`${PROVIDER.name} · model ${MODEL} · controlled window: ${opts.cdp ? "attached via CDP" : opts.headless ? "headless" : "headed Chromium"}\n`);
 
   const shutdown = async () => {

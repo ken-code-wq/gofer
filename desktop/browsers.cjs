@@ -3,7 +3,7 @@
  * (it saves its session), reopen it with --remote-debugging-port and hand back a CDP URL.
  *
  * Chrome 136+ refuses remote debugging on its default profile. When a browser ignores the flag we
- * open a separate instance with its own profile under ~/.voice-browser/profiles/<id> instead, and
+ * open a separate instance with its own profile under ~/.gofer/profiles/<id> instead, and
  * remember that for next time (no restart of your main window needed then).
  */
 const { execFile, spawn } = require("node:child_process");
@@ -28,7 +28,7 @@ const KNOWN = [
   { id: "chromium", name: "Chromium", app: "Chromium.app" },
 ];
 
-const PROFILE_ROOT = path.join(os.homedir(), ".voice-browser", "profiles");
+const PROFILE_ROOT = path.join(os.homedir(), ".gofer", "profiles");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // `open` passes our environment on; never leak Electron's run-as-node switch into a browser.
 const cleanEnv = () => {
@@ -134,7 +134,7 @@ async function connect(b, { prev = null, allowRestart = false, onProgress = () =
   const profileDir = path.join(PROFILE_ROOT, b.id);
   const startSeparate = async () => {
     fs.mkdirSync(profileDir, { recursive: true });
-    onProgress(`Opening ${b.name} with a separate Voice Browser profile…`);
+    onProgress(`Opening ${b.name} with a separate Gofer profile…`);
     launch(b, [`--remote-debugging-port=${port}`, `--user-data-dir=${profileDir}`, "--no-first-run", "--no-default-browser-check"], { newInstance: true });
     if (!(await waitFor(() => debugReady(port), 15000, 400))) throw new Error(`${b.name} didn't accept remote control`);
     return { cdpUrl: `http://127.0.0.1:${port}`, port, separate: true };

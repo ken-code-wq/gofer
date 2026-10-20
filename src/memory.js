@@ -1,8 +1,8 @@
 /**
  * Chat memory that survives restarts:
- *  - conversations (~/.voice-browser/chats.json): what was asked and what happened, per chat, so
+ *  - conversations (~/.gofer/chats.json): what was asked and what happened, per chat, so
  *    "no, another one" still means something after the app restarts;
- *  - facts (~/.voice-browser/memory.json): things you asked it to remember ("remember that my
+ *  - facts (~/.gofer/memory.json): things you asked it to remember ("remember that my
  *    work email is …"), given to every chat.
  */
 import fs from "node:fs";

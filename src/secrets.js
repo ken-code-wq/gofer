@@ -1,5 +1,6 @@
 /**
- * Passwords and other secrets live in the macOS Keychain (service "voice-browser"). Commands refer
+ * Passwords and other secrets live in the macOS Keychain (service "voice-browser": the app's old
+ * name, kept so passwords saved before the rename still work). Commands refer
  * to them as {{name}}; the real value is filled in only at the moment of typing, so the model,
  * the logs, the history and the UI only ever see the placeholder.
  */
@@ -21,7 +22,7 @@ function security(args) {
 export async function setSecret(name, value) {
   if (!NAME_RE.test(name || "")) throw new Error("Name: letters, numbers, - _ . only (max 40)");
   if (!value) throw new Error("Value is empty");
-  await security(["add-generic-password", "-U", "-s", SERVICE, "-a", name, "-l", `Voice Browser: ${name}`, "-w", value]);
+  await security(["add-generic-password", "-U", "-s", SERVICE, "-a", name, "-l", `Gofer: ${name}`, "-w", value]);
 }
 
 export async function deleteSecret(name) {

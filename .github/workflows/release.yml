@@ -65,5 +65,5 @@ jobs:
           TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
-            || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "Voice Browser ${TAG#v}" --generate-notes
+            || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "Gofer ${TAG#v}" --generate-notes
           gh release upload "$TAG" dist/* -R "$GITHUB_REPOSITORY" --clobber

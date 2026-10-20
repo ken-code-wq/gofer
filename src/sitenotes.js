@@ -1,6 +1,6 @@
 /**
  * Site notes: short, reusable know-how per site ("On YouTube, Shift+N plays the next video"), so the
- * goal agent doesn't have to rediscover a site every time. Stored in ~/.voice-browser/site-notes.json
+ * goal agent doesn't have to rediscover a site every time. Stored in ~/.gofer/site-notes.json
  * (DATA_DIR, so VB_DATA_DIR works in tests):
  *
  *   { version, starters, sites: { "youtube.com": { label, aliases, notes: [{ id, text, source, created, used, hits }] } } }

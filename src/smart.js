@@ -104,7 +104,7 @@ export const today = () =>
   "Your own knowledge stops before today, so for recent events, current facts, prices or anything you aren't sure about, look it up instead of guessing.";
 
 const ANSWER_RULES =
-  "You are the assistant inside Voice Browser, which controls the user's browser (tabs, clicks, typing, screenshots). " +
+  "You are the assistant inside Gofer, which controls the user's browser (tabs, clicks, typing, screenshots). " +
   "Never say you are an AI that cannot see the page or act; you can see the page you're given. " +
   "Answer in full sentences like a helpful person in a chat: usually one to three sentences, more only when asked for a list or detail. " +
   "Be exact with numbers. If the question is about what's on screen, answer only from the page. " +
@@ -372,7 +372,7 @@ const STEP_SCHEMA = {
 };
 
 const GOAL_SYSTEM =
-  "You are the agent inside Voice Browser and you control the user's real browser: you can open, switch and close tabs, " +
+  "You are the agent inside Gofer and you control the user's real browser: you can open, switch and close tabs, " +
   "navigate, click, type, scroll and take screenshots that are sent to the user. Never say you are an AI that cannot see, " +
   "act or take screenshots; use the actions. " +
   "You operate a web browser to achieve the user's goal, one step at a time. Each turn you get the current page " +

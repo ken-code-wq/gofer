@@ -58,7 +58,7 @@ function pageMessages() {
   const sel = '[role="alert"], [role="status"], [aria-live="polite"], [aria-live="assertive"], tp-yt-paper-toast, yt-notification-action-renderer, .toast, [class*="snackbar" i], [class*="toast" i]';
   const out = [];
   for (const el of document.querySelectorAll(sel)) {
-    if (el.closest('[class*="__vb"]')) continue; // Voice Browser's own overlay
+    if (el.closest('[class*="__vb"]')) continue; // Gofer's own overlay
     const r = el.getBoundingClientRect();
     const t = (el.innerText || "").replace(/\s+/g, " ").trim();
     if (r.width && r.height && t && t.length < 160 && !out.includes(t)) out.push(t);

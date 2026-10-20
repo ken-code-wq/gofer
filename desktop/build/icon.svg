@@ -1,22 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#3a3a40"/>
-      <stop offset="1" stop-color="#18181b"/>
+    <linearGradient id="bg" x1=".15" y1="0" x2=".85" y2="1">
+      <stop offset="0" stop-color="#7a78f5"/>
+      <stop offset=".6" stop-color="#3f3dc4"/>
+      <stop offset="1" stop-color="#25238a"/>
     </linearGradient>
     <linearGradient id="hi" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fff" stop-opacity=".18"/>
-      <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="0" stop-color="#fff" stop-opacity=".24"/>
+      <stop offset=".45" stop-color="#fff" stop-opacity="0"/>
     </linearGradient>
+    <linearGradient id="ptr" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e3e2ff"/>
+    </linearGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0b0c3a" flood-opacity=".4"/></filter>
   </defs>
   <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
   <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#hi)"/>
-  <rect x="101.5" y="101.5" width="821" height="821" rx="183.5" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="3"/>
-  <path d="M300 380 L432 512 L300 644" fill="none" stroke="#3d9bff" stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/>
-  <g fill="#f5f5f7">
-    <rect x="512" y="452" width="44" height="120" rx="22"/>
-    <rect x="592" y="372" width="44" height="280" rx="22"/>
-    <rect x="672" y="422" width="44" height="180" rx="22"/>
-    <rect x="752" y="477" width="44" height="70" rx="22" fill-opacity=".55"/>
+  <rect x="101.5" y="101.5" width="821" height="821" rx="183.5" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="3"/>
+  <g stroke-linecap="round" stroke-width="44" fill="none" stroke="#ffbf9e">
+    <path d="M246 500 H380"/>
+    <path d="M214 590 H344" stroke-opacity=".72"/>
+    <path d="M250 680 H350" stroke-opacity=".44"/>
+  </g>
+  <!-- a pointer heading right: tip at the right -->
+  <g transform="translate(770 492) rotate(99)" filter="url(#sh)">
+    <path d="M0 0 L0 312 C0 330 20 338 32 325 L102 250 L152 360 C158 374 174 380 188 374 L222 358 C236 352 242 336 236 322 L186 214 L290 214 C308 214 316 192 302 180 L28 -10 C16 -20 0 -14 0 0 Z"
+          fill="url(#ptr)" stroke="#1f1e70" stroke-opacity=".12" stroke-width="6" stroke-linejoin="round"/>
   </g>
 </svg>

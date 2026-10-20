@@ -15,7 +15,7 @@ for seconds, sometimes minutes during a multi-step goal.
 
 ## Product Purpose
 
-Voice Browser turns plain-English commands into actions in a real browser: single clicks, chains,
+Gofer turns plain-English commands into actions in a real browser: single clicks, chains,
 multi-step goals, questions about the page, form filling and follow-ups, in the browser the user already
 uses (Dia, Arc, Chrome) or a built-in one. Success is the user trusting it enough to let it click in
 their accounts: they always know what it understood, what it is doing right now, what it did, and they

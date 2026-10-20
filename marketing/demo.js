@@ -4,7 +4,7 @@
   const $ = (s, r = document) => r.querySelector(s);
   const desk = $("#desk");
   if (!desk) return;
-  const chat = $("#p-chat"), input = $("#p-in"), box = $("#p-box"), send = $("#p-send");
+  const chat = $("#p-chat"), input = $("#p-in"), send = $("#p-send");
   const tabTitle = $("#bw-tab-title"), url = $("#bw-url"), pTab = $("#p-tab"), tray = $("#tray");
   const cursor = $("#agent-cursor"), replay = $("#replay"), page = $("#bw-page");
   const ICON = window.VB_ICONS;
@@ -52,10 +52,9 @@
     for (const ch of text) { input.textContent += ch; send.classList.add("ready"); await sleep(ms, id); }
     await sleep(350, id);
   }
-  function sendMine(text, spoken) {
+  function sendMine(text) {
     const me = el("div", "me", "");
     me.textContent = text;
-    if (spoken) me.append(el("span", "voice-note", "Spoken"));
     chat.append(me);
     input.textContent = ""; input.classList.remove("caret"); send.classList.remove("ready");
     $(".empty", chat)?.remove();
@@ -85,8 +84,8 @@
   }
 
   function reset() {
-    chat.innerHTML = '<p class="empty"><b>What should it do?</b>Type, or hold ⌥ and say it.</p>';
-    input.textContent = ""; input.classList.remove("caret"); box.classList.remove("listening"); send.classList.remove("ready");
+    chat.innerHTML = '<p class="empty"><b>What should it do?</b>Ask about the page, or hand it a task.</p>';
+    input.textContent = ""; input.classList.remove("caret"); send.classList.remove("ready");
     setTab("New Tab", "Search or type a URL", false);
     showPage("new");
     cursor.classList.remove("on");
@@ -100,13 +99,10 @@
     reset();
     try {
       await sleep(900, id);
-      // 1. said out loud
+      // 1. the request
+      await type("open youtube and play a prince of egypt song", id, 34);
+      sendMine("open youtube and play a prince of egypt song");
       tray.classList.add("on");
-      box.classList.add("listening");
-      await sleep(2100, id);
-      box.classList.remove("listening");
-      await type("open youtube and play a prince of egypt song", id, 16);
-      sendMine("open youtube and play a prince of egypt song", true);
       const a = reply();
       await sleep(500, id);
       a.step("Open youtube.com");
@@ -164,7 +160,7 @@
     reset();
     run++;
     $(".empty", chat)?.remove();
-    sendMine("open youtube and play a prince of egypt song", true);
+    sendMine("open youtube and play a prince of egypt song");
     reply().finish("I opened YouTube and played “When You Believe” by Whitney Houston and Mariah Carey.", 4, 6);
     sendMine("no, another one");
     reply().finish("Now playing “Deliver Us”, the opening song. I skipped “When You Believe” since you just heard it.", 3, 4);

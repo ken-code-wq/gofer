@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src ws://127.0.0.1:* http://127.0.0.1:*; media-src blob:; img-src 'self' data:" />
-<title>Voice Browser</title>
+<title>Gofer</title>
 <style>
   /*
-   * Voice Browser chat panel.
+   * Gofer chat panel.
    * Restrained: cool-tinted neutrals, one accent (the user's macOS accent colour) for focus, caret,
    * send and selection only. Status colours always come with an icon or a word.
    * Type: SF Pro, 11 / 12 / 13 / 14 / 15 / 20. Radii: 6 small, 8 controls, 10 popovers, 18 bubbles.
@@ -1979,7 +1979,7 @@
     if (b.ownProfile || b.separate) {
       setStatus(`${b.name} can only be controlled in a separate profile. Your main window stays as it is.`, "warn", [{ label: `Open ${short}`, primary: true, action: () => window.bar.switchBrowser(b.id) }, cancel]);
     } else {
-      setStatus(`Quit ${b.name} and reopen it so Voice Browser can control it? Your tabs come back.`, "warn", [{ label: `Restart ${short}`, primary: true, action: () => window.bar.switchBrowser(b.id) }, cancel]);
+      setStatus(`Quit ${b.name} and reopen it so Gofer can control it? Your tabs come back.`, "warn", [{ label: `Restart ${short}`, primary: true, action: () => window.bar.switchBrowser(b.id) }, cancel]);
     }
     clearTimeout(statusTimer);
   });
@@ -1998,7 +1998,7 @@
   });
   window.bar.onFocusInput(() => { caretToEnd(); refreshTabs(true); });
   window.addEventListener("focus", () => refreshTabs(true));
-  window.bar.onServerExit((info) => setStatus(`The browser service keeps stopping (code ${info.code}). Details are in ~/.voice-browser/server.log. Reopen the app to try again.`, "err"));
+  window.bar.onServerExit((info) => setStatus(`The browser service keeps stopping (code ${info.code}). Details are in ~/.gofer/server.log. Reopen the app to try again.`, "err"));
 
   // ── voice: speak a request, hear the reply ──────────────
   // Recording happens here (MediaRecorder); the service transcribes it with Groq Whisper and reads
@@ -2085,7 +2085,7 @@
     } catch (err) {
       if (voice === me) { voice = null; renderVoice(); }
       return setStatus(err?.name === "NotAllowedError" || err?.name === "SecurityError"
-        ? "Microphone access is off. Turn on Voice Browser in System Settings › Privacy & Security › Microphone."
+        ? "Microphone access is off. Turn on Gofer in System Settings › Privacy & Security › Microphone."
         : err?.name === "NotFoundError" ? "No microphone found." : `Couldn't open the microphone (${err?.message || err}).`, "err");
     }
     if (voice !== me || me.cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
