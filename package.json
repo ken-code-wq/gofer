@@ -3,7 +3,7 @@
   "version": "0.3.1",
   "private": true,
   "type": "module",
-  "description": "Tell a real browser what to do in plain English: a macOS command bar that drives Chromium, Dia, Arc or Chrome \u2014 clicks, chains, goals, page questions, forms and follow-ups.",
+  "description": "Chat with your real browser: a macOS chat panel that drives Dia, Arc, Chrome or Chromium \u2014 tasks, page and web questions, forms, voice and follow-ups.",
   "engines": {
     "node": ">=22"
   },
@@ -11,6 +11,7 @@
     "start": "node src/server.js",
     "demo": "node scripts/demo.js",
     "demo:ci": "node scripts/demo.js --headless",
+    "shots": "node scripts/readme-shots.mjs",
     "test": "node --test 'test/unit/**/*.test.js'",
     "test:integration": "node --test 'test/integration/**/*.test.js'",
     "test:all": "node --test 'test/unit/**/*.test.js' 'test/integration/**/*.test.js'"

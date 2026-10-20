@@ -101,6 +101,7 @@
   .pill .b-ic img { width: 16px; height: 16px; }
   .pill .b-ic svg { width: 15px; height: 15px; }
   .pill .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pill[hidden] { display: none; } /* .pill's display would otherwise win over [hidden] */
   .pill .caret { width: 11px; height: 11px; color: var(--text-3); flex: none; }
   .pill[data-state="off"] .name { color: var(--warn); }
   .tabpill { color: var(--text); flex: 0 1 auto; }

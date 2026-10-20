@@ -5,9 +5,9 @@
 <h1 align="center">Voice Browser</h1>
 
 <p align="center">
-  <b>Tell a real browser what to do — in plain English, by typing or talking.</b><br/>
-  A macOS command bar that drives Chromium, Dia, Arc or Chrome: single clicks in about a second,
-  multi-step goals, questions about the page, form filling, and follow-ups.
+  <b>Chat with your real browser — by typing or talking.</b><br/>
+  A macOS chat panel that drives Dia, Arc, Chrome, Brave, Edge or a built-in Chromium: ask about the page,
+  hand it multi-step tasks, and follow up like you would with a person.
 </p>
 
 <p align="center">
@@ -18,7 +18,10 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/bar-dark.png" width="680" alt="The command bar: a goal that created three bills, and a follow-up deleting two of them, waiting for Allow" />
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="docs/images/chat-light.png" />
+    <img src="docs/images/chat-dark.png" width="440" alt="The chat panel: it played a Prince of Egypt song on YouTube, played another one on 'no, another one', then answered a question about the video from its transcript" />
+  </picture>
 </p>
 
 ---
@@ -26,41 +29,47 @@
 ## What it does
 
 Press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd> anywhere and chat with your browser. Say what you want, it
-does it, and you follow up like you would with a person:
+does it in your browser, and you follow up:
 
 ```text
 you   open youtube and play a prince of egypt song
 it    I opened YouTube and played "When You Believe".
-you   no please, another one
-it    I played "Deliver Us" instead.
-you   another one
-it    Now playing "Through Heaven's Eyes".
+you   no, another one
+it    Now playing "Deliver Us".
+you   what is this song about?
+it    It's the film's opening number … (from the video's transcript, 0:40 to 2:15)
 ```
 
 The panel has two modes (<kbd>Tab</kbd> switches):
 
-* **Chat** (default): every message is done step by step by the AI, which sees the whole conversation.
+* **Chat** (default): the AI does each message step by step, seeing the page and the whole conversation.
   "Another one", "no, the second", "now delete them" all work. Chats are kept between launches
-  (*⋯ → Past chats*), and "remember that …" saves a fact for every chat ("what do you remember?", "forget …").
+  (⌘4, past chats), and "remember that …" saves a fact for every chat ("what do you remember?", "forget …").
 * **Direct:** instant one-step commands with no back-and-forth ("scroll down", "click sign in", "next tab"),
   decided in about a second by a model that picks options instead of writing text.
 
 | | |
 |---|---|
-| **Fast single actions** | "click new bill", "scroll down", "go back" — decided by [SubQ Snap](https://subq.ai) (or TypeSafe Jev), a model that *picks* options instead of writing text: typically 0.5–1 s to decide. |
-| **Chains** | Steps separated by commas, `then` or `and …` run one after another, each after the page has loaded. |
-| **Goals** | `goal: approve every pending request under $500` — a small multimodal model looks at the page + a screenshot, acts, and repeats until a second check agrees it's done. |
-| **Questions** | Anything ending in `?` is answered from the current page. |
-| **Forms** | `fill the form with …` fills text fields, dropdowns, dates and checkboxes in one go — and never submits by itself. |
-| **Follow-ups** | In Chat, the next message continues the conversation: "now delete the first 2" is rewritten to name the exact items first, and "another one" redoes the request while avoiding every earlier result. |
-| **@ tabs** | Type `@` to pick any open tab; it becomes a chip with the site's icon and colour. |
-| **Your browser** | Drive the built-in Chromium, or connect Dia, Arc, Brave, Chrome or Edge — it shows their real icon. |
-| **Safe by default** | Anything that saves, pays, sends or deletes asks **Allow / Allow all / Stop**. Passwords live in the macOS Keychain as `{{name}}` and never reach a model. |
-| **Waits & checks** | `wait until "Saved" appears`, `check that the page says "Approved"` — run in code; a failed check stops and saves a screenshot. |
+| **Tasks** | "add the first three results to my queue", "find the cheapest flight to Lisbon on the 14th": the agent looks at the page, acts, and repeats until a final check agrees it's done. Multi-item tasks get a checklist, so nothing is done twice or skipped. |
+| **Questions** | About the page, several tabs at once ("which of my tabs has the cheapest flight?"), or the web. YouTube answers cite the time in the video, PDFs cite the page, and web answers name their sources. |
+| **Your tabs stay yours** | The header shows the tab the agent is working in. When a task would take the tab you're looking at to another site, it opens a background tab instead (**Show** brings it forward). **Go back to where I was** undoes the tab changes a request made. |
+| **Queue & take over** | Messages sent while a task runs wait their turn; questions are answered alongside it. **Take over** pauses the task so you can log in or solve a captcha, then **Hand back**. |
+| **Web search** | The agent can search the web and read pages or PDFs without opening a tab. It uses Tavily or Brave keys if you add them, then Brave's public results, then Gemini's or Groq's search. |
+| **Video** | "go back 10 seconds and play", "pause", "speed 1.5x" act on the page's video directly, with no AI. |
+| **Site notes** | Short per-site know-how, learned after tasks or taught ("remember that on workbook bills are under sales"). |
+| **Voice** | Hold <kbd>⌥ Option</kbd> or click the mic and speak. Replies to spoken requests are read aloud. |
+| **Several AI providers** | Groq, Gemini, Z.ai, DeepSeek and OpenRouter. **Auto** routes each request to the fastest suitable model and moves on when one is rate-limited. |
+| **Forms** | `fill the form with …` fills text fields, dropdowns, dates and checkboxes in one go, and never submits by itself. |
+| **Safe by default** | Anything that saves, pays, sends or deletes asks **Allow / Stop / Allow the rest**. Passwords live in the macOS Keychain as `{{name}}` and never reach a model. |
+| **Saved requests** | Save a finished request and run it again with no AI, changing its values (`new-bill Globex, 99`). |
 
 <p align="center">
-  <img src="docs/images/tab-picker.png" width="49%" alt="Typing @ lists open tabs with their icons" />
-  <img src="docs/images/question.png" width="49%" alt="A question about the page, answered" />
+  <img src="docs/images/tab-picker.png" width="49%" alt="Typing @ lists the open tabs with their icons" />
+  <img src="docs/images/model-picker.png" width="49%" alt="The model picker: Auto, every model you have a key for with its provider's logo, and providers you could add" />
+</p>
+<p align="center">
+  <img src="docs/images/compare-tabs.png" width="49%" alt="Two tabs mentioned with @ and compared in a table" />
+  <img src="docs/images/allow.png" width="49%" alt="A task waiting for Allow before deleting emails, with Take over below" />
 </p>
 
 ## Quick start
@@ -93,7 +102,7 @@ Voice Browser lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd
 | <kbd>↑</kbd> / <kbd>↓</kbd> | recall earlier messages of this chat |
 | <kbd>1</kbd>–<kbd>9</kbd> | pick an option when it asks "Which one?" |
 | <kbd>⌘</kbd><kbd>N</kbd> | new chat |
-| <kbd>⌘</kbd><kbd>1</kbd>–<kbd>4</kbd> | chat, saved commands, passwords, past chats |
+| <kbd>⌘</kbd><kbd>1</kbd>–<kbd>5</kbd> | chat, saved commands, passwords, past chats, site notes |
 | `fn fn` | macOS Dictation, to speak instead of typing |
 
 > **Prefer the terminal?** `./run.sh` starts the server and opens a control page at
@@ -112,8 +121,8 @@ Voice Browser lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd
 | `scroll down a bit` · `go back` · `reload` · `open a new tab` · `next tab` | scroll, history, tabs |
 | `open youtube, theo t3.gg's channel` | a chain; a step with no verb means *find it* (search, then click) |
 | `wait until "Dashboard" appears` · `check that the url contains /bills` | code-only waits and checks |
-| `goal: …` · `create a new bill with dummy data` · `help me …` | a goal (multi-step, model-planned) |
-| `… ?` · `what's the total due?` · `summarize this` | a question about the current page (or general knowledge, marked as such) |
+| `goal: …` · `create a new bill with dummy data` · `help me …` | a task (multi-step, model-planned); in Chat every message is one |
+| `… ?` · `what's the total due?` · `summarize this` | a question about the current page, the web, or general knowledge (the reply says which) |
 | `which of my tabs has the cheapest flight?` · `@[Tab A] @[Tab B] compare the prices` | a question across all open tabs, or the tabs you mention |
 | `fill the form with …` | fill every matching field, without submitting |
 | `in @[Tab] …` · `go to @[Tab] and …` | switch to that tab first |
@@ -123,6 +132,8 @@ Voice Browser lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd
 | `copy url` · `copy title` | copy the current page's address or title to the clipboard |
 | `copy the table` · `export the table as csv` | the page's own table to the clipboard (and a CSV in Downloads), no model |
 | `copy all invoice numbers as a table` · `copy all vendors with open bills` | the AI pulls those items out of the page as a table |
+| `go back 10 seconds and play` · `pause` · `skip ahead 1 minute` · `speed 1.5x` · `mute` | control the page's video directly, no AI |
+| `who won the match last night?` · `find the official site and open it` | search the web and read results without opening tabs |
 
 ### Voice
 
@@ -146,6 +157,18 @@ With an attached browser (Dia, Arc, Chrome, Brave, Edge) it follows the tab you 
 another tab. The agent isn't limited to that tab: a request can open a new tab, switch to another one or
 close one. "In the current tab", "in the active tab", "on the tab I'm on" and similar phrases make
 sure a command runs in the tab you're looking at.
+
+When a task would send the tab you're looking at to another site, it opens a background tab and works
+there instead, so what you were reading stays put. While it runs, the header shows that tab with
+**Show** to bring it forward, and a finished background task says so, with **Show it**. After a request
+that changed your tabs, **Go back to where I was** puts them back.
+
+### Queue and take over
+
+Messages you send while a task runs wait their turn (the box says "Queue another request"); questions
+about the page are answered alongside the running task. **Take over** pauses the task after its current
+step so you can log in, solve a captcha or make a choice yourself; **Hand back** lets it look at the page
+again and carry on. The agent asks for this itself when a page needs you.
 
 ### Saved commands & passwords
 
@@ -178,6 +201,10 @@ or Edge. Voice Browser quits it like <kbd>⌘</kbd><kbd>Q</kbd> (tabs are restor
 debugging and reconnects. Chrome and Edge don't allow that for your main profile, so they get a separate
 profile instead. Your choice is remembered.
 
+<p align="center">
+  <img src="docs/images/browser-picker.png" width="360" alt="The browser picker, with each browser's app icon; Dia is connected" />
+</p>
+
 ## Configuration
 
 Everything lives in `.env` (copy `.env.example`). It is in `.gitignore` and is only read by the local
@@ -208,14 +235,13 @@ step is one call to the "brain" model plus a final check; Gemini Flash-Lite's fr
 
 ## Privacy & safety
 
-- **Activity logs** stay on this Mac in `~/.voice-browser/logs/` for 7 days: a daily log of what the agent did and
-  one file per task with what the model was shown (page text and element names, never passwords) and what it
-  chose. Delete the folder any time, or set `VB_TRACE=0` to turn it off.
-
 * The server listens on **127.0.0.1 only**. Anyone who can reach that port can drive your browser.
 * Page content (element list, visible text, a screenshot for goals/questions) is sent to the model
   providers you configure. Free tiers may use prompts to improve their models.
 * `{{secrets}}` are resolved from the Keychain only at the moment of typing.
+* **Activity logs** stay on this Mac in `~/.voice-browser/logs/` for 7 days: a daily log of what the agent did and
+  one file per task with what the model was shown (page text and element names, never passwords) and what it
+  chose. Delete the folder any time, or set `VB_TRACE=0` to turn it off.
 * Risky steps (submit, approve, delete, pay) ask first — treat that as a convenience, not a guarantee,
   and don't connect a browser profile holding accounts you wouldn't want an automated click near.
 
@@ -227,13 +253,17 @@ See [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
  ⌘⇧Space bar (Electron) ──ws──▶ local Node server ──▶ Playwright ──▶ Chromium / Dia / Arc / Chrome
                                  │
                                  ├─ SubQ Snap / Jev: typed questions → act · wait · ask · ignore  (~0.5–1 s)
-                                 └─ "brain" (Gemini / GLM / DeepSeek): goals, questions, forms, follow-ups
+                                 ├─ "brain" (Groq / Gemini / Z.ai / DeepSeek / OpenRouter, Auto-routed):
+                                 │    chat, tasks (native tool calls), questions, forms, follow-ups
+                                 └─ web search & page reading (Tavily / Brave / Gemini / Groq), no tab needed
 ```
 
 Single commands are decided by a *decision model* answering a dozen typed questions at once (intent,
 target element, "is it complete?", "is it destructive?") with probabilities; code turns those into an
-action or a "which one?" prompt. Goals, questions and forms go to a small generative model with the page's
-elements, text and a screenshot. Details: **[docs/how-it-works.md](docs/how-it-works.md)**.
+action or a "which one?" prompt. Tasks, questions and forms go to a fast generative model with the page's elements
+(open menus and dialogs first), text and, when it helps, a screenshot. The model picks its next step with
+native tool calls (click, type, press a key, open a tab, search the web, tick off a checklist item, finish),
+and code checks whether each step changed the page before the next one. Details: **[docs/how-it-works.md](docs/how-it-works.md)**.
 
 ```
 src/        server, controller, decision policy, goals/questions/forms (smart.js), model clients
@@ -248,6 +278,7 @@ npm test                    # unit tests, no network or keys needed
 npm run test:integration    # real decision-model calls on captured pages (needs a key)
 cd desktop && npm start     # run the bar without installing it
 ./desktop/install-mac.sh    # rebuild /Applications/Voice Browser.app after changing desktop/
+npm run shots               # redo the README screenshots (the real panel, scripted replies, no AI calls)
 ```
 
 Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -257,7 +288,8 @@ Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 Voice Browser started as a fork of **[jev-voice-browser](https://github.com/moritzkremb/jev-voice-browser)**
 by [Moritz Kremb](https://github.com/moritzkremb) — the voice pipeline, decision questions and policy are
 his. This fork adds the desktop command bar, SubQ Snap support, chains, goals, questions, forms,
-follow-ups, tab mentions, Keychain secrets, waits/checks and connecting your own browser.
+follow-ups, tab mentions, Keychain secrets, waits/checks, connecting your own browser, the chat panel,
+several AI providers, web search, voice, site notes, background tabs and the task queue.
 
 ## License
 
