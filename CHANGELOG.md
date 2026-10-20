@@ -2,7 +2,35 @@
 
 ## Unreleased
 
+### Added
+- **Web search and background reading.** The agent can search the web and read pages or PDFs without
+  opening a tab or touching your tabs ("who won …?", "find that ad whose jingle went …", "find the
+  official site and open it"). Questions the page can't answer are looked up and cite their sources
+  ("From the web: …", with a link). Search uses Tavily or the Brave Search API when you add a key (⋯ → AI
+  models → Better web search), otherwise Brave's public results, then Gemini's Google Search, then Groq's
+  search — so it doesn't depend on one provider. Models are told today's date, so recent events get looked
+  up instead of answered from stale knowledge.
+- **Tool calls.** The agent now picks its steps with the models' native tool calling (click, type_text,
+  press_key, new_tab, web_search, read_url, finish, …) on every provider, falling back to the JSON step
+  format when no model can. Searches asked for together run in parallel; a repeated search isn't run again.
+
+### Added (subagent work, merged)
+- **Voice**: click the mic in the composer or hold ⌥ Option and speak; Groq Whisper transcribes it, shows
+  it briefly and sends it. Replies to spoken requests are read aloud (Groq Orpheus once its terms are
+  accepted in the Groq console, the Mac's voice until then); every reply has Read aloud. Esc stops.
+- **Site notes**: the agent keeps short know-how per site. After a task it may learn a lesson ("Learned: …"
+  under the reply, with Undo); teach it with "remember that on workbook bills are under sales"; ask "what
+  do you know about this site?". Starter notes for YouTube, Gmail, Google Calendar, Google Docs, GitHub.
+  Never stores what you typed, emails, amounts or passwords. Site notes view: ⌘5 or ⋯ → Site notes.
+- **Reading pages properly**: YouTube questions use the video's captions (answers cite the time, with
+  "Play from m:ss"); PDFs are read page by page (answers cite the page); Google Docs / Sheets / Slides via
+  their export; long pages keep the main content and the parts relevant to the question. "Compare these
+  tabs" / "compare @A @B" answers with a table and a one-line verdict.
+
 ### Fixed
+- One model's odd error (e.g. Groq's "Tool choice is none, but model called a tool") no longer ends the task:
+  the next model answers, and a failed step is retried up to 3 times.
+- The chat no longer scrolls sideways; long words wrap.
 - Direct mode failed on pages with emoji in the title (text cut mid-emoji was rejected with a 422).
 - "Play the next video" (and other "move on" requests) no longer report success on the same page. Each
   step records whether the page changed (waiting up to 2.5 s for slow sites like YouTube); a control that

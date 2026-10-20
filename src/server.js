@@ -16,7 +16,16 @@ import { MODEL, PROVIDER, QUESTIONS, T } from "./constants.js";
 import { listCommands, saveCommand, deleteCommand } from "./store.js";
 import { listSecrets, setSecret, deleteSecret } from "./secrets.js";
 import { deleteChat } from "./memory.js";
-import { listModels, setPreferred, PROVIDERS } from "./brain.js";
+import { listSites, addNote, deleteNote, siteKey, siteNoteEvents } from "./sitenotes.js";
+import { listModels as brainModels, setPreferred, PROVIDERS } from "./brain.js";
+import { SEARCH_KEYS, missingSearchKeys } from "./websearch.js";
+
+// the model picker also offers keys for better web search
+const listModels = () => {
+  const l = brainModels();
+  return { ...l, missing: [...l.missing, ...missingSearchKeys()] };
+};
+import { mountVoice } from "./voice.js";
 import fs from "node:fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -68,6 +77,7 @@ export async function startServer(opts = {}) {
   app.use(express.static(path.join(__dirname, "public")));
   app.get("/api/state", (_req, res) => res.json(controller.uiState()));
   app.get("/api/questions", (_req, res) => res.json({ model: MODEL, thresholds: T, questions: QUESTIONS }));
+  mountVoice(app); // POST /api/transcribe, /api/speak (Groq Whisper / Orpheus)
 
   const server = http.createServer(app);
   const wss = new WebSocketServer({ server });
@@ -103,6 +113,14 @@ export async function startServer(opts = {}) {
   for (const ev of ["goal", "goal-confirm", "answer", "utility", "table", "fill", "smart-error", "tab-switched", "tab-error", "resolved", "stopped", "task-undo"]) controller.on(ev, (p) => broadcast(ev, p));
   // running task, queued messages, take over, background tab, undo (see src/tasks.js)
   controller.tasks.on("change", (s) => broadcast("queue", s));
+
+  // Site notes: every window sees the same list, with the controlled tab's site first.
+  const siteNotes = () => {
+    const current = siteKey(controller.browser.page?.url?.() || "");
+    return { current, sites: listSites(current) };
+  };
+  siteNoteEvents.on("change", () => broadcast("sitenotes", siteNotes()));
+  controller.on("sitenotes-learned", (p) => broadcast("sitenotes-learned", p));
 
   wss.on("connection", (ws) => {
     const reply = (type, payload) => ws.readyState === 1 && ws.send(JSON.stringify({ type, payload }));
@@ -149,7 +167,7 @@ export async function startServer(opts = {}) {
           broadcast("models", listModels());
           break;
         case "provider:key": {
-          const prov = PROVIDERS[String(msg.provider || "")];
+          const prov = PROVIDERS[String(msg.provider || "")] || SEARCH_KEYS[String(msg.provider || "")];
           const key = String(msg.key || "").trim();
           if (!prov || !/^[\x21-\x7e]{8,300}$/.test(key)) {
             reply("store-error", "That doesn't look like an API key.");
@@ -214,6 +232,19 @@ export async function startServer(opts = {}) {
         case "secrets:delete":
           await deleteSecret(msg.name);
           broadcast("secrets", await listSecrets());
+          break;
+        case "sitenotes:list":
+          reply("sitenotes", siteNotes());
+          break;
+        case "sitenotes:add":
+          try {
+            addNote(String(msg.site || "") || siteNotes().current, msg.text, "user");
+          } catch (err) {
+            reply("store-error", String(err.message || err));
+          }
+          break;
+        case "sitenotes:delete":
+          deleteNote(String(msg.site || ""), String(msg.id || ""));
           break;
         case "usage:limit":
           reply("usage", setLimit(msg.usd));

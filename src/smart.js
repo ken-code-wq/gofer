@@ -6,10 +6,14 @@
  *
  * The brain only ever sees {{secret}} placeholders; values are filled in when typing.
  */
-import { ask } from "./brain.js";
+import { ask, askTools } from "./brain.js";
+import { webSearch, searchText, readUrl } from "./websearch.js";
+import { LimitError } from "./usage.js";
 import { encodeElement } from "./jev.js";
 import { toHttpUrl } from "./spans.js";
 import { resolveSecrets } from "./secrets.js";
+import { notesForPrompt } from "./sitenotes.js";
+import { readPage, readingText, citeHint, citeNote, readTabs, tabsText, kindName } from "./pagetext.js";
 
 export const MAX_GOAL_STEPS = 15;
 const PAGE_TEXT_CHARS = 30000;
@@ -45,12 +49,17 @@ async function screenshot(page) {
   return page.screenshot({ type: "jpeg", quality: 60, timeout: 5000 }).catch(() => null);
 }
 
-/** What the brain sees: URL, title, numbered elements, visible text, and a screenshot. */
-async function pageContext(controller, { textChars = 6000, page: only = null } = {}) {
+/**
+ * What the brain sees: URL, title, numbered elements, the page's text, and a screenshot. The text
+ * comes from pagetext.js: a video's transcript, a PDF's pages, a Google Doc's export, or the main
+ * content, cut to the parts that matter for `question` when it's long. `video: false` skips
+ * fetching a video's captions (goals like "play the next one" don't need them).
+ */
+async function pageContext(controller, { textChars = 6000, question = "", video = true, page: only = null } = {}) {
   // `only`: read that tab without touching the agent's own snapshot (a question asked while a task runs)
   const snap = only ? await controller.browser.snapshot(only) : await controller.refreshSnapshot();
   const page = only || (await controller.browser.ensurePage());
-  const text = await page.evaluate(() => document.body?.innerText || "").catch(() => "");
+  const reading = await readPage(page, { question, budget: textChars, video }).catch(() => null);
   const shot = await screenshot(page);
   const host = hostOf(snap.url);
   const lines = [
@@ -58,10 +67,9 @@ async function pageContext(controller, { textChars = 6000, page: only = null } =
     `Title: ${snap.title || ""}`,
     `Elements (id role "text"):`,
     ...snap.elements.map((e) => `  ${encodeElement(e, host)}`),
-    `Visible text:`,
-    text.replace(/\n{3,}/g, "\n\n").slice(0, textChars),
+    reading ? readingText(reading) : "Visible text:\n(couldn't read the page)",
   ];
-  return { snap, page, description: lines.join("\n"), images: shot ? [shot] : [] };
+  return { snap, page, reading, description: lines.join("\n"), images: shot ? [shot] : [] };
 }
 
 // ── page questions ─────────────────────────────────────────────
@@ -71,11 +79,29 @@ const ANSWER_SCHEMA = {
   properties: {
     answer: { type: "string", description: "The reply, in full sentences. Plain text, no markdown; use line breaks and • for lists." },
     source: { type: "string", enum: ["page", "general", "none"], description: "page: from the page. general: the page doesn't cover it, answered from your own knowledge. none: can't answer." },
+    where: { type: "string", description: "Where in the content the answer is: a video time like '2:03' or a PDF page like 'page 3'. Empty if not marked." },
+    search: {
+      type: "string",
+      description: "Only when the page doesn't answer it and you'd be guessing (recent events, prices, specific facts, something half-remembered): a web search query to look it up. Empty otherwise.",
+    },
   },
   required: ["answer", "source"],
 };
 
 const withContext = (context) => (context ? `Conversation so far (earlier requests and what happened):\n${context}\n\n` : "");
+
+/** Site notes for the page and any site the request names, as a prompt block ("" if none). */
+function siteNotes(controller, url, goal) {
+  const n = notesForPrompt({ url, goal });
+  if (n.sites.length) controller._log?.("debug", `site notes in prompt: ${n.sites.join(", ")} (${n.text.split("\n- ").length - 1} notes)`);
+  return n;
+}
+const withNotes = (n) => (n.text ? `${n.text}\n\n` : "");
+
+/** Models don't know the date and their knowledge stops at some point: say so, so they search for recent things. */
+export const today = () =>
+  `Today is ${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}. ` +
+  "Your own knowledge stops before today, so for recent events, current facts, prices or anything you aren't sure about, look it up instead of guessing.";
 
 const ANSWER_RULES =
   "You are the assistant inside Voice Browser, which controls the user's browser (tabs, clicks, typing, screenshots). " +
@@ -87,20 +113,42 @@ const ANSWER_RULES =
 
 /** `page`: answer about that tab (the one you're looking at) instead of the agent's. */
 export async function answerQuestion(controller, question, context = "", { page = null } = {}) {
-  const ctx = await pageContext(controller, { textChars: PAGE_TEXT_CHARS, page });
-  const r = await ask({
-    system: `You answer the user's questions while they browse. You can see the web page they're on (text and screenshot). ${ANSWER_RULES}`,
-    text: `${withContext(context)}${ctx.description}\n\nQuestion: ${question}`,
-    images: ctx.images,
-    schema: ANSWER_SCHEMA,
-  });
-  return { answer: String(r.data.answer || "").trim(), source: r.data.source || "page", model: r.modelLabel || r.model, ms: r.ms };
+  const ctx = await pageContext(controller, { textChars: PAGE_TEXT_CHARS, question, page });
+  const system = `You answer the user's questions while they browse. You can see the web page they're on (text and screenshot). ${ANSWER_RULES} ${today()} ${citeHint(ctx.reading?.kind)}`.trim();
+  const text = `${withContext(context)}${withNotes(siteNotes(controller, ctx.snap.url, question))}${ctx.description}\n\nQuestion: ${question}`;
+  let r = await ask({ system, text, images: ctx.images, schema: ANSWER_SCHEMA });
+  let ms = r.ms;
+  const query = String(r.data.search || "").trim();
+  let web = null;
+  if (query && r.data.source !== "page") {
+    // look it up, read the best result, and answer again with what was found
+    web = await webLookup(query, question).catch((err) => (controller._log?.("info", `web search failed: ${err.message || err}`), null));
+    if (web) {
+      r = await ask({
+        system: `${system} Web search results are included: answer from them when the page doesn't cover it, set source to web, and name the site you got it from. Leave search empty.`,
+        text: `${text}\n\nWeb search for "${web.query}":\n${web.text}`,
+        images: ctx.images,
+        schema: { ...ANSWER_SCHEMA, properties: { ...ANSWER_SCHEMA.properties, source: { type: "string", enum: ["page", "web", "general", "none"] } } },
+      });
+      ms += r.ms;
+    }
+  }
+  const source = r.data.source || "page";
+  const out = { answer: String(r.data.answer || "").trim(), source, ...citeNote(ctx.reading, r.data.where, source === "web" ? "general" : source), model: r.modelLabel || r.model, ms };
+  if (web) out.sources = web.sources;
+  return out;
+}
+
+/** Search, then read the top result or two: { query, text, sources: [{ title, url }] } for a prompt. */
+async function webLookup(query, question) {
+  const r = await webSearch(query, { context: question });
+  const top = r.results.filter((x) => /^https?:/.test(x.url)).slice(0, 2);
+  const pages = await Promise.all(top.map((x) => readUrl(x.url, { question, budget: 2500 }).catch(() => null)));
+  const read = pages.filter(Boolean).map((p) => `From ${p.url} ("${p.title}"):\n${p.text}`).join("\n\n");
+  return { query: r.query, text: `${searchText(r)}${read ? `\n\n${read}` : ""}`, sources: r.results.slice(0, 4).map(({ title, url }) => ({ title, url })) };
 }
 
 // ── questions across tabs ──────────────────────────────────────
-
-const within = (promise, ms, fallback) =>
-  Promise.race([Promise.resolve(promise).catch(() => fallback), new Promise((r) => setTimeout(() => r(fallback), ms))]);
 
 const TABS_ANSWER_SCHEMA = {
   type: "object",
@@ -118,32 +166,25 @@ const TABS_ANSWER_SCHEMA = {
  * within 2 s are listed by title only.
  */
 export async function answerAcrossTabs(controller, question, titles = null, context = "") {
-  const norm = (x) => String(x || "").toLowerCase().replace(/\s+/g, " ").trim();
-  let pages = controller.browser.pages.filter((p) => !p.isClosed());
-  const all = await Promise.all(pages.map(async (p) => ({ p, title: await within(p.title(), 800, ""), url: p.url() })));
-  let tabs = all.filter((t) => /^https?:/.test(t.url));
-  if (titles?.length) {
-    const wanted = titles.map(norm);
-    tabs = all.filter((t) => wanted.some((w) => norm(t.title) === w || norm(t.title).includes(w) || w.includes(norm(t.title))));
-  }
-  tabs = tabs.slice(0, 15);
+  const tabs = await readTabs(controller.browser.pages, { titles, question, total: 45000 });
   if (!tabs.length) throw new Error(titles?.length ? "None of those tabs are open" : "No web pages are open");
-  const per = Math.max(1500, Math.floor(45000 / tabs.length));
-  const texts = await Promise.all(tabs.map((t) => within(t.p.evaluate(() => document.body?.innerText || ""), 2000, null)));
-  const body = tabs
-    .map((t, i) => `### Tab ${i + 1}: ${t.title || "(untitled)"} (${t.url})\n${texts[i] == null ? "(couldn't read this tab; it may be asleep)" : texts[i].replace(/\n{3,}/g, "\n\n").slice(0, per)}`)
-    .join("\n\n");
+  const body = tabsText(tabs);
   const r = await ask({
     system: `You answer the user's questions using the text of their open browser tabs. ${ANSWER_RULES} Here "page" means the tabs: set source to tabs when the answer comes from them, and list which tab numbers you used.`,
     text: `${withContext(context)}Open tabs:\n\n${body}\n\nQuestion: ${question}`,
     schema: TABS_ANSWER_SCHEMA,
   });
-  const used = (r.data.tabs || []).map((n) => tabs[n - 1]?.title).filter(Boolean);
-  return { answer: String(r.data.answer || "").trim(), source: r.data.source || "tabs", tabs: [...new Set(used)], read: tabs.length, model: r.modelLabel || r.model, ms: r.ms };
+  const usedTabs = [...new Set((r.data.tabs || []).map((n) => tabs[n - 1]).filter(Boolean))];
+  const used = usedTabs.map((t) => t.title).filter(Boolean);
+  // "From “Talk” (video transcript), “Spec” (PDF)" when a tab was read by a special reader
+  const cite = usedTabs.some((t) => kindName(t.reading?.kind))
+    ? `From ${usedTabs.map((t) => `“${t.title}”${kindName(t.reading?.kind) ? ` (${kindName(t.reading.kind)})` : ""}`).join(", ")}`
+    : "";
+  return { answer: String(r.data.answer || "").trim(), source: r.data.source || "tabs", tabs: used, cite, read: tabs.length, model: r.modelLabel || r.model, ms: r.ms };
 }
 
 /** "which of my tabs …", "across my tabs", "in all tabs": a question about every open tab. */
-export const isTabsQuestion = (t) => /\b(?:(?:my|open|all|these|other|the)\s+(?:open\s+)?tabs|across\s+(?:my\s+)?tabs|which\s+tab|every\s+tab|each\s+tab)\b/i.test(String(t || ""));
+export const isTabsQuestion = (t) => /\b(?:(?:my|open|all|these|those|both|other|the)\s+(?:(?:two|three|four|five|\d+)\s+)?(?:open\s+)?tabs|across\s+(?:my\s+)?tabs|which\s+tab|every\s+tab|each\s+tab)\b/i.test(String(t || ""));
 
 // ── form filling ───────────────────────────────────────────────
 
@@ -306,13 +347,14 @@ const STEP_SCHEMA = {
     action: {
       type: "object",
       properties: {
-        type: { type: "string", enum: ["click", "type", "select", "fill_form", "press_enter", "press_key", "navigate", "new_tab", "switch_tab", "close_tab", "screenshot", "scroll_down", "scroll_up", "go_back", "wait"] },
+        type: { type: "string", enum: ["click", "type", "select", "fill_form", "press_enter", "press_key", "navigate", "new_tab", "switch_tab", "close_tab", "screenshot", "scroll_down", "scroll_up", "go_back", "wait", "web_search", "read_url"] },
         element_id: { type: "string", description: "Id from the element list (click/type/select)." },
         text: {
           type: "string",
           description: "type: the text. select: the option label. fill_form: every value to enter, e.g. 'vendor Acme Ltd, amount 1250.00, due date 2026-11-15, category Utilities'. Copy {{placeholders}} unchanged.",
         },
-        url: { type: "string", description: "For navigate. For new_tab: the address to open in it (optional)." },
+        url: { type: "string", description: "For navigate and read_url. For new_tab: the address to open in it (optional)." },
+        query: { type: "string", description: "For web_search: what to search for." },
         tab: { type: "integer", description: "For switch_tab: the number of the tab in the open tabs list." },
         key: { type: "string", description: "For press_key: a key or shortcut, e.g. 'Shift+N', 'k', 'Space', 'Escape'." },
         full_page: { type: "boolean", description: "For screenshot: capture the whole scrolling page instead of what's visible." },
@@ -342,9 +384,9 @@ const GOAL_SYSTEM =
   "leaves the user's other tabs untouched, so prefer it when asked for a new tab. " +
   "When the user wants to see something ('send me a screenshot', 'show me', 'screenshot the results'), get the page into the " +
   "right state, then use the screenshot action (it is sent to them in the chat); after taking it you can finish. " +
-  "Keyboard shortcuts (press_key) are often the most reliable control on media sites. YouTube: Shift+N next video, Shift+P " +
-  "previous, K play/pause, M mute, L / J skip 10 s, F fullscreen; buttons named 'Next' under the video usually just scroll a " +
-  "list. If an action didn't change the page (the step says 'page unchanged'), don't repeat it: try a different control, " +
+  "Keyboard shortcuts (press_key) are often the most reliable control on media sites. If site notes are given, they are " +
+  "tips learned on earlier visits to that site: follow them when they fit, but trust the current page. " +
+  "If an action didn't change the page (the step says 'page unchanged'), don't repeat it: try a different control, " +
   "a shortcut or a direct link. " +
   "Stop as soon as the goal is achieved and return 'done': never take extra steps 'to make sure' (each extra 'next' skips " +
   "another item). Don't press play/pause unless asked; a video that just opened is already playing. If the goal is achieved, return status 'done' " +
@@ -362,9 +404,102 @@ const GOAL_SYSTEM =
   "not to whatever happens to be first on the page. Leave items the conversation never mentioned alone. " +
   "Never invent ids. Mark risky=true for anything that submits, pays, sends, approves, deletes or can't be undone, " +
   "unless the user's goal explicitly asks for exactly that action. " +
+  "You can also search the web (web_search) and read any web page (read_url) in the background, without opening a tab or " +
+  "disturbing the user's tabs; use web_search rather than opening a search engine in a tab. Use them to find facts, identify something the user half-remembers, or find the right page; " +
+  "then navigate only if the user wants to go there or something must be done on that site. If the goal is just to find out " +
+  "something, answer it from what you found and finish. Don't search for things the current page already shows. " +
+  "If a search doesn't find it, don't keep searching with similar words: read the most promising result (read_url), or change the words (drop quotes, add the era, 'TV ad', 'commercial', 'song', " +
+  "the place) or read a promising result. Once the searches point to an answer, finish with it (say how sure you are if " +
+  "it's a best guess) rather than giving up. Never name an answer that no search result or page you read supports: if " +
+  "nothing was found, say so and what you did find. " +
   "If the message needs no browser action (a greeting, thanks, or something you can simply answer), return 'done' right away " +
   "with your reply in summary. If the goal asks for a different result than before ('another one'), pick one that the conversation " +
   "hasn't already used. Never say you did something the steps taken don't show.";
+
+// ── the goal agent's tools (native tool calls; STEP_SCHEMA is the JSON fallback) ─────────
+
+const DESC = { description: { type: "string", description: "The step in a few words, e.g. 'click Approve on PR-105'." } };
+const RISKY = { risky: { type: "boolean", description: "True if it submits, pays, sends, deletes or otherwise can't be undone." } };
+const EL = { element_id: { type: "string", description: "Id from the element list." } };
+const tool = (name, description, properties = {}, required = []) => ({
+  name,
+  description,
+  parameters: { type: "object", properties: { ...properties, ...DESC }, required: [...required, "description"] },
+});
+
+const BROWSER_TOOLS = [
+  tool("click", "Click an element on the current page.", { ...EL, ...RISKY }, ["element_id"]),
+  tool("type_text", "Type into a field.", { ...EL, text: { type: "string", description: "The text. Copy {{placeholders}} unchanged." }, submit: { type: "boolean", description: "Press Enter afterwards." }, ...RISKY }, ["element_id", "text"]),
+  tool("select_option", "Choose an option in a dropdown.", { ...EL, option: { type: "string", description: "The option's label." } }, ["element_id", "option"]),
+  tool("fill_form", "Fill every visible form field in one go (doesn't submit).", { values: { type: "string", description: "Every value, e.g. 'vendor Acme Ltd, amount 1250.00, due date 2026-11-15'." } }, ["values"]),
+  tool("press_key", "Press a key or shortcut on the page, e.g. 'Shift+N', 'k', 'Space', 'Escape', 'Enter'.", { key: { type: "string" }, ...RISKY }, ["key"]),
+  tool("navigate", "Load an address in the current tab.", { url: { type: "string" } }, ["url"]),
+  tool("new_tab", "Open a new tab (leaves the user's other tabs alone), optionally loading an address.", { url: { type: "string" } }),
+  tool("switch_tab", "Switch to another open tab.", { tab: { type: "integer", description: "The tab's number in the open tabs list." } }, ["tab"]),
+  tool("close_tab", "Close the current tab."),
+  tool("screenshot", "Take a screenshot; it is sent to the user in the chat.", { full_page: { type: "boolean", description: "The whole scrolling page instead of what's visible." } }),
+  tool("scroll", "Scroll the page.", { direction: { type: "string", enum: ["down", "up"] } }, ["direction"]),
+  tool("go_back", "Go back to the previous page."),
+  tool("wait", "Wait a moment for the page to finish loading."),
+];
+const RESEARCH_TOOLS = [
+  tool("web_search", "Search the web in the background (no tab opens). Returns titles, links and snippets.", { query: { type: "string" } }, ["query"]),
+  tool("read_url", "Read a web page or PDF in the background (no tab opens). Returns the parts relevant to the goal.", { url: { type: "string" } }, ["url"]),
+];
+const FINISH_TOOL = {
+  name: "finish",
+  description: "End the task: the goal is achieved (done), it can't be achieved (impossible), or only the user can do the next part, like signing in or a captcha (need_user).",
+  parameters: {
+    type: "object",
+    properties: {
+      status: { type: "string", enum: ["done", "impossible", "need_user"] },
+      summary: { type: "string", description: "Your reply to the user, in first person: one or two short friendly sentences saying what you did or found (naming the specific result) or why it can't be done." },
+    },
+    required: ["status", "summary"],
+  },
+};
+
+/** A tool call as a STEP_SCHEMA step, so the rest of the goal loop doesn't care which way the model answered. */
+export function stepFromCall({ name, args = {} }) {
+  if (name === "finish") return { status: ["impossible", "need_user"].includes(args.status) ? args.status : "done", summary: String(args.summary || ""), description: "", risky: false };
+  const a = { ...args };
+  const type = { type_text: "type", select_option: "select", scroll: args.direction === "up" ? "scroll_up" : "scroll_down" }[name] || name;
+  const action = { type };
+  if (a.element_id != null) action.element_id = String(a.element_id);
+  if (name === "select_option") action.text = a.option;
+  else if (name === "fill_form") action.text = a.values;
+  else if (a.text != null) action.text = a.text;
+  for (const k of ["url", "tab", "key", "full_page", "submit", "query"]) if (a[k] != null) action[k] = a[k];
+  return { status: "continue", summary: "", description: String(a.description || ""), action, risky: Boolean(a.risky) };
+}
+
+const isResearch = (step) => ["web_search", "read_url"].includes(step?.action?.type);
+const MAX_RESEARCH = 8; // searches and page reads per goal
+
+/** Run one web_search / read_url step. Returns { description, outcome, ok }. */
+async function runResearch(step, goal) {
+  const a = step.action;
+  try {
+    if (a.type === "web_search") {
+      const r = await webSearch(a.query || step.description, { context: goal });
+      return { ok: true, description: `search the web: ${r.query}`, outcome: `results (${r.provider}):\n${searchText(r)}`, detail: `${r.results.length} results via ${r.provider}` };
+    }
+    const p = await readUrl(a.url, { question: goal, budget: 3500 });
+    return { ok: true, description: `read ${p.url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 80)}`, outcome: `page "${p.title}":\n${p.text}`, detail: p.title || p.url };
+  } catch (err) {
+    return { ok: false, description: a.type === "web_search" ? `search the web: ${a.query}` : `read ${a.url}`, outcome: `failed: ${err.message || err}`, detail: String(err.message || err) };
+  }
+}
+
+/** Steps taken, for the prompt. Older search results and page reads are cut short to keep the prompt small. */
+function historyText(done) {
+  if (!done.length) return "(none yet)";
+  const research = done.map((d, i) => (d.research ? i : -1)).filter((i) => i >= 0);
+  const keepFull = new Set(research.slice(-3));
+  return done
+    .map((d, i) => `${i + 1}. ${d.description} → ${d.research && !keepFull.has(i) ? `${d.outcome.slice(0, 300)}…` : d.outcome}`)
+    .join("\n");
+}
 
 /** Turn one brain step into an executor action. Returns { action } or { error }. `tabs` = goalTabs(). */
 export function toAction(step, snap, tabs = []) {
@@ -458,24 +593,25 @@ export async function resolveFollowUp(context, text) {
 
 /** A second opinion before declaring a goal done: does the page actually show it's complete? */
 export async function verifyGoal(controller, goal, done, context = "", start = null) {
-  const ctx = await pageContext(controller);
-  const history = done.map((d, i) => `${i + 1}. ${d.description} → ${d.outcome}`).join("\n") || "(none)";
+  const ctx = await pageContext(controller, { question: goal, video: aboutContent(goal) });
+  const history = historyText(done);
   const r = await ask({
     system:
+      `${today()} ` +
       "You check whether a browser task is really finished. Judge only by the current page (text, elements, screenshot) " +
       "and the steps actually taken. Counts matter: if the goal asks for N items, all N must be done and visible. " +
       "If the goal is to move on to another item (the next video, the next page, a different result), the current page must " +
       "be a different one than where it started; the same URL and title means it is NOT done. " +
       "A filled but unsaved form is not done. If the goal needs no browser action at all (a greeting, thanks, a question answered " +
-      "from knowledge), it is complete. If the goal asks for a different result than before, the page must show a different one than those already given.",
-    text: `${withContext(context)}Goal: ${goal}\n\nStarted on: ${start ? `${start.url} (${start.title})` : "unknown"}\n\nSteps taken:\n${history}\n\nCurrent page:\n${ctx.description}`,
+      "from knowledge), it is complete. If the goal is to find out or identify something, it is complete when the web searches or " +
+      "page reads in the steps found the answer, even if the page doesn't show it. If the goal asks for a different result than before, the page must show a different one than those already given.",
+    text: `${withContext(context)}${withNotes(notesForPrompt({ url: ctx.snap.url, goal }))}Goal: ${goal}\n\nStarted on: ${start ? `${start.url} (${start.title})` : "unknown"}\n\nSteps taken:\n${history}\n\nCurrent page:\n${ctx.description}`,
     images: ctx.images,
     schema: VERIFY_SCHEMA,
   });
   return r.data;
 }
 
-/** Ask the brain for the next step of a goal. `done` = [{ description, outcome }]. */
 /** The open tabs a goal can switch to, numbered from 1. Sleeping tabs can't hold it up. */
 export async function goalTabs(browser) {
   const live = (browser.pages || []).filter((p) => !p.isClosed() && /^(?:https?:|about:blank)/.test(p.url()));
@@ -484,16 +620,63 @@ export async function goalTabs(browser) {
   return live.map((page, i) => ({ n: i + 1, page, title: titles[i], url: page.url(), current: page === browser.active, shown: page === browser.shown }));
 }
 
-export async function nextGoalStep(controller, goal, done, note = "", context = "") {
-  const ctx = await pageContext(controller);
+/** Goals that need what a video says ("skip to where he talks about pricing"), not just its controls. */
+const aboutContent = (goal) => /\b(?:say|says|said|talk|talks|talking|mention|mentions|minute|moment|part where|transcript|captions?|summar\w*|quote|explain\w*|discuss\w*)\b/i.test(goal);
+
+/**
+ * Ask the brain for the next browser step of a goal. `done` = [{ description, outcome }].
+ * The model answers with tool calls (falling back to a JSON step for models that can't). Web
+ * searches and page reads happen right here, in the background, and are added to `done`
+ * (reported through `onResearch`); this returns once the model picks a browser step or finishes.
+ */
+export async function nextGoalStep(controller, goal, done, note = "", context = "", { onResearch } = {}) {
+  const ctx = await pageContext(controller, { question: goal, video: aboutContent(goal) });
   const tabs = await goalTabs(controller.browser).catch(() => []);
   const tabLines = tabs.map((t) => `  ${t.n}. ${(t.title || "(untitled)").slice(0, 80)} (${t.url.slice(0, 120)})${t.current ? " ← current" : ""}${t.shown ? " (user is looking at this)" : ""}`);
-  const history = done.length ? done.map((d, i) => `${i + 1}. ${d.description} → ${d.outcome}`).join("\n") : "(none yet)";
-  const r = await ask({
-    system: GOAL_SYSTEM,
-    text: `${withContext(context)}Goal: ${goal}\n\nSteps taken so far:\n${history}\n${note ? `\nNote: ${note}\n` : ""}\nOpen tabs:\n${tabLines.join("\n") || "  (only this one)"}\n\nCurrent page:\n${ctx.description}`,
-    images: ctx.images,
-    schema: STEP_SCHEMA,
-  });
-  return { step: r.data, snap: ctx.snap, tabs, model: r.modelLabel || r.model, ms: r.ms };
+  const notes = siteNotes(controller, ctx.snap.url, goal);
+  const models = [];
+  let ms = 0;
+  for (let round = 0; ; round++) {
+    const researched = done.filter((d) => d.research).length;
+    // repeats and failed lookups count against it too: a model stuck on one query gets moved on
+    const wasted = done.filter((d) => d.research && d.outcome.startsWith("already done")).length;
+    const canResearch = researched < MAX_RESEARCH && round < 4 && wasted < 2;
+    const limitNote = canResearch ? "" : "\nNote: no more web searches or page reads for this goal; act on the page or finish.\n";
+    const text = `${withContext(context)}${withNotes(notes)}Goal: ${goal}\n\nSteps taken so far:\n${historyText(done)}\n${note ? `\nNote: ${note}\n` : ""}${limitNote}\nOpen tabs:\n${tabLines.join("\n") || "  (only this one)"}\n\nCurrent page:\n${ctx.description}`;
+    let steps;
+    try {
+      const r = await askTools({ system: `${GOAL_SYSTEM} ${today()}`, text, images: ctx.images, tools: [...BROWSER_TOOLS, ...(canResearch ? RESEARCH_TOOLS : []), FINISH_TOOL] });
+      models.push(r.modelLabel || r.model);
+      ms += r.ms;
+      steps = r.calls.map(stepFromCall);
+    } catch (err) {
+      if (err instanceof LimitError || err?.name === "AbortError") throw err;
+      // no model could do tool calls: the JSON step format
+      controller._log?.("debug", `tool calls failed (${err.message || err}); asking for a JSON step`);
+      const r = await ask({ system: `${GOAL_SYSTEM} ${today()}`, text, images: ctx.images, schema: STEP_SCHEMA });
+      models.push(r.modelLabel || r.model);
+      ms += r.ms;
+      steps = [r.data];
+    }
+    const research = canResearch ? steps.filter(isResearch) : [];
+    if (!research.length) {
+      const step = steps.find((x) => !isResearch(x)) || { status: "continue", summary: "", description: "", action: { type: "wait" }, risky: false };
+      return { step, snap: ctx.snap, tabs, sites: notes.sites, model: models.at(-1), models, ms };
+    }
+    // searches and reads asked for together run together; one already done isn't run again
+    const key = (x) => `${x.action.type}:${String(x.action.query || x.action.url || "").toLowerCase().replace(/["'\s]+/g, " ").trim()}`;
+    const doneKeys = new Set(done.filter((d) => d.research).map((d) => d.key));
+    const results = await Promise.all(
+      research.slice(0, 3).map(async (x) => {
+        const k = key(x);
+        if (doneKeys.has(k)) return { ok: false, key: k, description: x.action.type === "web_search" ? `search again: ${x.action.query}` : `read again: ${x.action.url}`, outcome: "already done above, with the results shown there. Use different words, read a result, or finish with what you found.", detail: "already done" };
+        return { ...(await runResearch(x, goal)), key: k };
+      }),
+    );
+    for (const res of results) {
+      done.push({ description: res.description, outcome: res.outcome, research: true, key: res.key });
+      onResearch?.(res);
+    }
+    if (controller.goal?.cancelled) return { step: { status: "continue", action: { type: "wait" } }, snap: ctx.snap, tabs, sites: notes.sites, model: models.at(-1), models, ms };
+  }
 }

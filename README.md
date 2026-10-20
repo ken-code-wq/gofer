@@ -124,6 +124,21 @@ Voice Browser lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd
 | `copy the table` · `export the table as csv` | the page's own table to the clipboard (and a CSV in Downloads), no model |
 | `copy all invoice numbers as a table` · `copy all vendors with open bills` | the AI pulls those items out of the page as a table |
 
+### Voice
+
+Click the mic in the composer, or hold <kbd>⌥ Option</kbd> while the panel is focused, and speak. Release
+or press <kbd>↵</kbd> to send, <kbd>Esc</kbd> to cancel. It needs a Groq API key and microphone permission.
+Replies to spoken requests are read aloud; the speaker icon under any reply reads it. Groq's voice model
+needs its terms accepted once in the Groq console; until then the Mac's own voice is used.
+
+### Site notes and reading pages
+
+The agent keeps short notes per site (⌘5, or *⋯ → Site notes*), learned after tasks or taught with
+"remember that on workbook bills are under sales", and uses them whenever it works on that site.
+Questions read the page the smart way: a YouTube video's transcript (answers cite the time), a PDF's
+text (answers cite the page), a Google Doc, or an article's main text. "Compare these tabs" or
+"compare @[A] @[B]" answers with a table.
+
 ### The current tab
 
 The panel's header shows the tab the agent is working in, so a tab switch never takes you by surprise.
@@ -176,6 +191,7 @@ server — the UI never sees your keys.
 | `ZAI_API_KEY`, `DEEPSEEK_API_KEY`, `OPENROUTER_API_KEY` | the same (optional) | GLM 5.3 Flash, DeepSeek, any OpenRouter model (`OPENROUTER_MODEL`) |
 | `BRAIN_PROVIDER` + `BRAIN_API_KEY` | optional | the older single-provider setting (`zai`, `deepseek`, `openrouter`, `groq`, `custom`), tried first |
 | `BRAIN_MODEL`, `BRAIN_BASE_URL`, `BRAIN_VISION` | optional | override a preset / point `custom` at any OpenAI-compatible API |
+| `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY` | optional | better web search for the agent ([Tavily](https://app.tavily.com), [Brave Search API](https://api-dashboard.search.brave.com)); without them it uses Brave's public results, then Gemini / Groq search |
 | `CDP_URL` | optional | attach to a browser you started with `--remote-debugging-port` |
 | `PORT` | optional | local server port (default `8787`, bound to `127.0.0.1`) |
 

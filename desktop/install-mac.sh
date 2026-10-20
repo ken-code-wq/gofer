@@ -41,6 +41,10 @@ PL="$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :NSAppleEventsUsageDescription Voice Browser quits and reopens your browser so it can control it." "$PL" 2>/dev/null \
   || /usr/libexec/PlistBuddy -c "Add :NSAppleEventsUsageDescription string Voice Browser quits and reopens your browser so it can control it." "$PL"
 
+# The chat panel records voice requests.
+/usr/libexec/PlistBuddy -c "Set :NSMicrophoneUsageDescription Voice Browser listens when you hold Option or click the mic, to turn your voice into a request." "$PL" 2>/dev/null \
+  || /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string Voice Browser listens when you hold Option or click the mic, to turn your voice into a request." "$PL"
+
 codesign --force --deep --sign - "$APP" >/dev/null 2>&1
 touch "$APP" # refresh Finder / Dock icon cache
 rm -rf "$HOME/Applications/Voice Browser.app" # old launcher from make-app.sh

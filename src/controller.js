@@ -14,10 +14,12 @@ import { parseCheck } from "./checks.js";
 import { resolveSaved } from "./store.js";
 import { loadChats, saveChats, listFacts, rememberFact, forgetFacts, parseMemoryCommand } from "./memory.js";
 import { routeSmart, answerQuestion, fillForm, nextGoalStep, verifyGoal, resolveFollowUp, toAction, MAX_GOAL_STEPS } from "./smart.js";
-import { hasBrain } from "./brain.js";
+import { hasBrain, ask as brainAsk } from "./brain.js";
+import { parseSiteCommand, resolveSite, siteKey, addNote, notesFor, learnFromGoal, markUsed } from "./sitenotes.js";
 import { parseUtility, runUtility, copyToClipboard, wantsScreenshot } from "./utility.js";
 import { parseTableRequest, domTable, toTSV, saveCSV } from "./table.js";
 import { extractTable, replayFill, answerAcrossTabs, isTabsQuestion } from "./smart.js";
+import { compareTabs, isCompareRequest } from "./compare.js";
 import { LimitError } from "./usage.js";
 import { stepFromAction, stepFromFill, finalizeRecipe, findElement, describeStep } from "./recipe.js";
 import { parseTabMention, parseCurrentTab, matchTab } from "./tabs.js";
@@ -304,6 +306,8 @@ export class Controller extends EventEmitter {
     if (this.goal?.awaiting && /^(?:cancel|no|stop|don'?t)$/i.test(text.trim())) return this.goalAnswer(false);
     if (this.goal) this._endGoal(this.goal, "cancelled", "new message");
     if (this.chain) this._endChain("cancelled", "new message");
+    const siteCmd = parseSiteCommand(text);
+    if (siteCmd && (await this._siteNote(siteCmd, text))) return;
     const mem = parseMemoryCommand(text);
     if (mem) return this._memory(mem);
     // "try again": the previous request, as it was asked
@@ -384,6 +388,54 @@ export class Controller extends EventEmitter {
     this.emit("answer", { question: text, answer, source: "memory", ms: 0 });
   }
 
+  /**
+   * "remember that on workbook bills are under sales" / "what do you know about this site?".
+   * Returns false when the named site isn't one we know (then it's an ordinary "remember that …").
+   */
+  async _siteNote({ kind, site, text }, said) {
+    const thread = this.thread;
+    const here = siteKey(this.browser.page?.url?.() || "");
+    const tabs = site === "here" ? [] : await this.browser.tabList?.().catch(() => []);
+    const key = site === "here" ? here : resolveSite(site, { tabs: tabs || [] });
+    if (!key) {
+      if (kind === "site-remember" && site !== "here") return false;
+      const answer = "I can't tell which site you mean. Open it in the browser first, or name it like youtube.com or localhost:3000.";
+      this._note(thread, answer);
+      this.emit("answer", { question: said, answer, source: "memory", ms: 0 });
+      return true;
+    }
+    let answer;
+    try {
+      if (kind === "site-remember") {
+        const title = key === here ? await this.browser.page?.title?.().catch(() => "") : "";
+        const n = addNote(key, text.replace(/^./, (c) => c.toUpperCase()), "user", { label: site !== "here" && !/[.:]/.test(site) ? site.replace(/^./, (c) => c.toUpperCase()) : String(title || "").split(/\s[-–—|·]\s/).pop()?.trim() });
+        answer = n.existed ? `I already had that for ${key}.` : `Got it. Next time on ${key}: ${n.text}`;
+      } else {
+        const notes = notesFor(key);
+        answer = notes.length ? `Here's what I know about ${key}:\n${notes.map((n) => `• ${n.text}`).join("\n")}` : `Nothing yet about ${key}. Say “remember that here …”, or I'll pick things up as we go.`;
+      }
+    } catch (err) {
+      return this.emit("smart-error", { kind: "memory", text: said, error: String(err.message || err) }), true;
+    }
+    this._note(thread, answer);
+    this.emit("answer", { question: said, answer, source: "memory", ms: 0 });
+    return true;
+  }
+
+  /** After a goal, in the background: keep 0–2 lessons about the sites it used (never delays the reply). */
+  _learn(g, status) {
+    if (!this.persist || g.replay || !g.sites?.size || !hasBrain()) return;
+    const sites = [...g.sites].filter(Boolean);
+    markUsed(sites);
+    learnFromGoal({ goal: g.goal, status, done: g.done, sites, typed: g.typed || [], ask: brainAsk })
+      .then((notes) => {
+        if (!notes.length) return;
+        this._log("info", `learned: ${notes.map((n) => `[${n.site}] ${n.text}`).join(" | ")}`);
+        this.emit("sitenotes-learned", { goal: g.goal, notes });
+      })
+      .catch((err) => this._log("debug", `no lessons (${err.message || err})`));
+  }
+
   async _inCurrentTab({ rest }, opts = {}) {
     const page = await this.browser.syncActive().catch(() => this.browser.page);
     const title = page ? await page.title().catch(() => "") : "";
@@ -461,6 +513,7 @@ export class Controller extends EventEmitter {
 
   async _askTabs(question, titles) {
     if (!hasBrain()) return this.emit("smart-error", { kind: "ask", text: question, error: "Questions need an AI model in .env (BRAIN_PROVIDER + BRAIN_API_KEY, or a free GEMINI_API_KEY)" });
+    if (isCompareRequest(question)) return this._compareTabs(question, titles);
     const thread = this.thread;
     const clean = question.replace(/@\[([^\]]+)\]/g, "“$1”");
     this._log("info", `question across ${titles ? titles.length : "all"} tabs: ${clean}`);
@@ -469,6 +522,21 @@ export class Controller extends EventEmitter {
       this._note(thread, `answer (from ${r.tabs.join(", ") || "tabs"}): ${r.answer}`);
       this._log("act", `answer (${r.model}, ${r.ms}ms, ${r.read} tabs): ${r.answer}`);
       this.emit("answer", { question, ...r, scope: "tabs" });
+    } catch (err) {
+      this.emit("smart-error", { kind: "ask", text: question, error: String(err.message || err) });
+    }
+  }
+
+  /** "compare these tabs": a table with a row per tab, and a verdict (compare.js). */
+  async _compareTabs(question, titles) {
+    const thread = this.thread;
+    const clean = question.replace(/@\[([^\]]+)\]/g, "“$1”");
+    this._log("info", `compare ${titles ? titles.length : "all"} tabs: ${clean}`);
+    try {
+      const r = await compareTabs(this.browser.pages, clean, titles, this._threadContext(thread));
+      this._note(thread, `compared ${r.tabs.map((t) => `“${t}”`).join(", ")} on ${r.columns.slice(1).join(", ")}: ${r.verdict}`);
+      this._log("act", `comparison (${r.model}, ${r.ms}ms, ${r.read} tabs): ${r.verdict}`);
+      this.emit("table", { what: clean, columns: r.columns, rows: r.rows, total: r.rows.length, copied: false, via: r.model, model: r.model, detail: r.verdict, note: r.note, scope: "compare" });
     } catch (err) {
       this.emit("smart-error", { kind: "ask", text: question, error: String(err.message || err) });
     }
@@ -541,6 +609,7 @@ export class Controller extends EventEmitter {
     // what this chat has already been given, so the next "another one" avoids it
     if (status === "done" && g.thread?.avoid && summary) g.thread.avoid.push(String(summary).slice(0, 200));
     this._emitGoal(g, status, summary);
+    if (status === "done" || status === "failed") setImmediate(() => this._learn(g, status));
   }
 
   // ── saved goals: replay recorded steps, no model ──
@@ -641,14 +710,33 @@ export class Controller extends EventEmitter {
           note = note ? `${note} ${g.hint}` : g.hint;
           g.hint = null;
         }
-        r = await nextGoalStep(this, g.goal, g.done, note, g.context);
+        r = await nextGoalStep(this, g.goal, g.done, note, g.context, {
+          // background searches and page reads show up as steps, like browser actions
+          onResearch: (res) => {
+            if (g.cancelled || res.detail === "already done") return; // a repeat the model was told off for: not news to the user
+            g.steps.push({ text: res.description, status: res.ok ? "ok" : "fail", detail: res.detail?.slice(0, 80) });
+            this._emitGoal(g, "running");
+          },
+        });
+        g.brainErrors = 0;
       } catch (err) {
+        if (g.cancelled) return;
+        // A model hiccup shouldn't end the task: wait a little and ask again (another model may take it).
+        if (!(err instanceof LimitError) && !isAbortError(err) && (g.brainErrors = (g.brainErrors || 0) + 1) <= 3) {
+          this._log("warn", `goal step: model error, retrying (${g.brainErrors}/3): ${err.message || err}`);
+          this._emitGoal(g, "running", "Model hiccup, trying again…");
+          await new Promise((res) => setTimeout(res, 1500 * g.brainErrors));
+          if (g.cancelled) return;
+          continue;
+        }
         return this._endGoal(g, "failed", String(err.message || err));
       }
       note = "";
       if (g.cancelled) return;
-      g.models = [...new Set([...(g.models || []), r.model])];
+      g.models = [...new Set([...(g.models || []), ...(r.models || [r.model])])];
+      (g.sites ||= new Set()).add(siteKey(r.snap?.url || ""));
       const { step } = r;
+      if (step.action?.text) (g.typed ||= []).push(String(step.action.text));
       if (step.status === "done" && g.unsavedForm && (g.unsavedChecks = (g.unsavedChecks || 0) + 1) <= 2) {
         // it filled a form and never saved it: not done yet
         note = "You filled a form but have not clicked its save/submit button since. The goal is not complete until it is saved: save it, then check the page.";
