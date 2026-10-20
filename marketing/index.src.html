@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Voice Browser · Tell your browser what to do</title>
+<meta name="description" content="A chat panel for your Mac that drives the browser you already use. Ask about the page, hand it a task, and follow up like you would with a person. Free and open source." />
+<meta property="og:title" content="Voice Browser" />
+<meta property="og:description" content="Tell your browser what to do, by typing or talking. Free and open source, for macOS." />
+<meta property="og:image" content="assets/og.png" />
+<link rel="icon" href="assets/app-icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- painted scenes, displaced so the gradients read as brushwork -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="brush" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.006 0.022" numOctaves="3" seed="7" />
+      <feDisplacementMap in="SourceGraphic" scale="46" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+    <filter id="soft"><feGaussianBlur stdDeviation="18" /></filter>
+    <linearGradient id="sky-dusk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c2654" /><stop offset=".42" stop-color="#4a4b93" /><stop offset=".72" stop-color="#a786c6" /><stop offset="1" stop-color="#f3b49b" /></linearGradient>
+    <linearGradient id="sky-day" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f6bb5" /><stop offset=".55" stop-color="#7fb0e3" /><stop offset="1" stop-color="#dfeaf3" /></linearGradient>
+    <linearGradient id="sky-dawn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3d5a94" /><stop offset=".5" stop-color="#b0a6cf" /><stop offset="1" stop-color="#f6d3b8" /></linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a6f9e" /><stop offset="1" stop-color="#123c62" /></linearGradient>
+    <symbol id="scene-dusk" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+      <g filter="url(#brush)">
+        <rect x="-60" y="-60" width="1720" height="1120" fill="url(#sky-dusk)" />
+        <g filter="url(#soft)" opacity=".75">
+          <ellipse cx="300" cy="300" rx="380" ry="70" fill="#8f7ac0" />
+          <ellipse cx="1200" cy="220" rx="420" ry="60" fill="#6d63ad" />
+          <ellipse cx="950" cy="520" rx="520" ry="90" fill="#e5a9c3" opacity=".7" />
+          <ellipse cx="200" cy="610" rx="360" ry="70" fill="#f4bfa5" opacity=".7" />
+        </g>
+        <path d="M-60 760 C 220 690 420 720 640 700 S 1100 640 1300 690 S 1600 720 1660 700 V 1060 H -60 Z" fill="#3e3a7d" />
+        <path d="M-60 850 C 260 790 520 830 760 800 S 1240 770 1660 820 V 1060 H -60 Z" fill="#2a2862" />
+        <path d="M-60 940 C 300 900 700 930 1000 910 S 1500 900 1660 920 V 1060 H -60 Z" fill="#1c1b47" />
+      </g>
+    </symbol>
+    <symbol id="scene-day" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+      <g filter="url(#brush)">
+        <rect x="-60" y="-60" width="1720" height="1120" fill="url(#sky-day)" />
+        <g filter="url(#soft)" fill="#fff">
+          <ellipse cx="380" cy="260" rx="300" ry="80" opacity=".85" />
+          <ellipse cx="1250" cy="380" rx="380" ry="90" opacity=".8" />
+          <ellipse cx="800" cy="560" rx="560" ry="70" opacity=".6" />
+        </g>
+        <path d="M-60 700 C 300 620 600 660 900 640 S 1400 600 1660 650 V 1060 H -60 Z" fill="#7ea660" />
+        <path d="M-60 820 C 400 760 800 800 1100 770 S 1500 760 1660 790 V 1060 H -60 Z" fill="#4f7d3d" />
+        <path d="M-60 930 C 500 890 900 920 1660 900 V 1060 H -60 Z" fill="#2f5a2a" />
+      </g>
+    </symbol>
+    <symbol id="scene-sea" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+      <g filter="url(#brush)">
+        <rect x="-60" y="-60" width="1720" height="1120" fill="url(#sky-dawn)" />
+        <g filter="url(#soft)">
+          <ellipse cx="1150" cy="300" rx="360" ry="60" fill="#fff" opacity=".6" />
+          <ellipse cx="350" cy="420" rx="420" ry="70" fill="#f8c9b3" opacity=".7" />
+          <circle cx="980" cy="560" r="70" fill="#fff1d6" />
+        </g>
+        <rect x="-60" y="600" width="1720" height="460" fill="url(#sea)" />
+        <g fill="#cfe3f0" opacity=".35"><rect x="-60" y="640" width="1720" height="8" /><rect x="200" y="720" width="900" height="6" /><rect x="600" y="820" width="1100" height="8" /></g>
+      </g>
+    </symbol>
+    <symbol id="scene-dawn" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+      <g filter="url(#brush)">
+        <rect x="-60" y="-60" width="1720" height="1120" fill="url(#sky-dawn)" />
+        <g filter="url(#soft)" fill="#fff">
+          <ellipse cx="420" cy="280" rx="340" ry="70" opacity=".7" />
+          <ellipse cx="1180" cy="460" rx="420" ry="80" opacity=".55" />
+        </g>
+        <path d="M-60 720 C 260 600 480 660 700 610 S 1100 560 1350 640 S 1600 680 1660 660 V 1060 H -60 Z" fill="#6b6aa3" />
+        <path d="M-60 830 C 340 760 700 810 1000 780 S 1440 760 1660 800 V 1060 H -60 Z" fill="#46447d" />
+      </g>
+    </symbol>
+  </defs>
+</svg>
+
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="#top"><img src="assets/app-icon.png" alt="" />Voice Browser</a>
+  <a class="link" href="#features">Features</a>
+  <a class="link" href="#private">Privacy</a>
+  <a class="link" href="#faq">FAQ</a>
+  <a class="link" href="https://github.com/ken-code-wq/voice-browser">GitHub</a>
+  <a class="btn dark" href="#get">Download</a>
+</nav>
+
+<main id="top">
+  <header class="hero">
+    <div class="wrap">
+      <div class="hero-head">
+        <h1>Tell your browser what to do.</h1>
+        <p class="lede">A chat panel for your Mac that drives the browser you already use. Ask about the page, hand it a task, and follow up like you would with a person.</p>
+        <div class="ctas">
+          <a class="btn dark" href="https://github.com/ken-code-wq/voice-browser/releases/download/v0.4.0/Voice-Browser-0.4.0-mac-arm64.dmg">%dl% Download for Mac</a>
+          <a class="btn light" href="https://github.com/ken-code-wq/voice-browser">View on GitHub</a>
+          <small>Free and open source. Apple Silicon and Intel.</small>
+        </div>
+      </div>
+
+      <!-- the live demo -->
+      <div class="desk scene" id="desk" role="img" aria-label="A demo: the user says “open youtube and play a prince of egypt song”. The panel opens YouTube in the browser, searches, clicks “When You Believe” and plays it. The user types “no, another one” and it plays “Deliver Us” instead.">
+        <svg class="paint" aria-hidden="true"><use href="#scene-dusk" /></svg>
+        <div class="menubar" aria-hidden="true">
+          <b class="keep">Dia</b><span>File</span><span>Edit</span><span>View</span><span>History</span><span>Window</span>
+          <div class="right"><span class="tray" id="tray">%icon:chat%</span><span class="keep">Tue 20 Oct 9:41</span></div>
+        </div>
+        <div class="desk-body" aria-hidden="true">
+          <div class="bw">
+            <div class="bw-top">
+              <div class="lights"><i></i><i></i><i></i></div>
+              <div class="bw-tab"><i class="fav" id="bw-fav"></i><span id="bw-tab-title">New Tab</span></div>
+              <div class="bw-url" id="bw-url">Search or type a URL</div>
+            </div>
+            <div class="bw-page" id="bw-page">
+              <span class="agent-cursor" id="agent-cursor"></span>
+              <div class="pg pg-new on" data-pg="new"><div class="q">Search or type a URL</div></div>
+              <div class="pg" data-pg="home">
+                <div class="search">Search</div>
+                <div class="grid-yt"><i class="th"><svg aria-hidden="true"><use href="#scene-day" /></svg></i><i class="th"><svg aria-hidden="true"><use href="#scene-sea" /></svg></i><i class="th"><svg aria-hidden="true"><use href="#scene-dawn" /></svg></i><i class="th"><svg aria-hidden="true"><use href="#scene-dusk" /></svg></i><i class="th"><svg aria-hidden="true"><use href="#scene-day" /></svg></i><i class="th"><svg aria-hidden="true"><use href="#scene-sea" /></svg></i></div>
+              </div>
+              <div class="pg" data-pg="results">
+                <div class="search">prince of egypt song</div>
+                <div class="results">
+                  <div class="res" data-song="believe"><i class="th th-1"><svg aria-hidden="true"><use href="#scene-dusk" /></svg></i><div><b>When You Believe (From The Prince of Egypt)</b><small>Whitney Houston, Mariah Carey · 4:52</small></div></div>
+                  <div class="res" data-song="deliver"><i class="th th-2"><svg aria-hidden="true"><use href="#scene-dawn" /></svg></i><div><b>Deliver Us (From The Prince of Egypt)</b><small>Ofra Haza, Eden Riegel · 5:01</small></div></div>
+                  <div class="res"><i class="th th-3"><svg aria-hidden="true"><use href="#scene-sea" /></svg></i><div><b>Through Heaven's Eyes (From The Prince of Egypt)</b><small>Brian Stokes Mitchell · 3:47</small></div></div>
+                </div>
+              </div>
+              <div class="pg pg-video" data-pg="video">
+                <div class="player"><i class="art th"><svg aria-hidden="true"><use href="#scene-dusk" /></svg></i><div class="bar"><i></i></div></div>
+                <h3></h3><p></p>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="p-top">
+              <span class="x">%icon:x%</span>
+              <span class="pill tab" id="p-tab"><i class="fav"></i><span>New Tab</span></span>
+              <span class="pill br"><img src="assets/dia.png" alt="" /><span>Dia</span></span>
+              <span class="ic">%icon:pencil%</span><span class="ic">%icon:more%</span>
+            </div>
+            <div class="p-chat" id="p-chat"></div>
+            <div class="p-box" id="p-box">
+              <div class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><span>Listening. Let go of ⌥ to send.</span></div>
+              <div class="p-in" id="p-in" data-ph="Ask anything, or tell it what to do"></div>
+              <div class="p-tools">
+                %icon:at% %mic%
+                <span class="modes"><span class="on">%icon:chat%Chat</span><span>%icon:bolt%Direct</span></span>
+                <span class="auto">%icon:bolt%Auto %icon:caretDown%</span>
+                <span class="send" id="p-send">%icon:up%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button class="replay" id="replay" type="button">%icon:retry% Play again</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="with" aria-labelledby="with-h">
+    <div class="wrap">
+      <h2 class="sr" id="with-h">Works with</h2>
+      <div class="with-strip">
+        <div>
+          <h3>Your browser, with your tabs and sign-ins</h3>
+          <p>It quits and reopens the browser with remote control turned on. Your tabs come back.</p>
+          <div class="logos">
+            <figure><img src="assets/dia.png" alt="" /><figcaption>Dia</figcaption></figure>
+            <figure><img src="assets/arc.png" alt="" /><figcaption>Arc</figcaption></figure>
+            <figure><img src="assets/google-chrome.png" alt="" /><figcaption>Chrome</figcaption></figure>
+            <figure><figcaption>Brave, Edge, or a built-in Chromium</figcaption></figure>
+          </div>
+        </div>
+        <div>
+          <h3>The AI you have a key for</h3>
+          <p>Free tiers are enough for everyday use. Add more than one and it switches when one is busy.</p>
+          <div class="logos">
+            <figure>%logo:groq%<figcaption>Groq</figcaption></figure>
+            <figure class="gem">%logo:gemini%<figcaption>Gemini</figcaption></figure>
+            <figure>%logo:zai%<figcaption>Z.ai</figcaption></figure>
+            <figure>%logo:deepseek%<figcaption>DeepSeek</figcaption></figure>
+            <figure>%logo:openrouter%<figcaption>OpenRouter</figcaption></figure>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features" aria-labelledby="f-h">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2 id="f-h">It keeps up with the conversation.</h2>
+        <p>Every message is done step by step in your real browser, by an agent that remembers what you've said and what it did.</p>
+      </div>
+      <div class="tiles">
+        <article class="tile">
+          <header><h3>Follow up like you would with a person</h3><p>“Another one”, “no, the second”, “now delete them”. It knows what you mean, and avoids what it already tried.</p></header>
+          <div class="scene"><svg class="paint" aria-hidden="true"><use href="#scene-day" /></svg>
+            <div class="panel">
+              <div class="me">now delete the first two</div>
+              <div class="steps">
+                <div class="step"><span class="mk">%icon:check%</span><span>Click Delete on Northwind <small>bill 1042</small></span></div>
+                <div class="step"><span class="mk">%icon:check%</span><span>Click Delete on Acme Corp <small>bill 1043</small></span></div>
+              </div>
+              <div class="it">Deleted Northwind and Acme Corp. Globex is the only one left.</div>
+            </div>
+          </div>
+        </article>
+        <article class="tile">
+          <header><h3>Answers that say where they came from</h3><p>From the page, your other tabs, a video's transcript, a PDF or the web. Each answer names its source.</p></header>
+          <div class="scene"><svg class="paint" aria-hidden="true"><use href="#scene-sea" /></svg>
+            <div class="panel">
+              <div class="me">what is this song about?</div>
+              <div class="it">The Hebrew slaves sing about their labour and pray to be delivered, while Moses's mother sets him adrift on the Nile.
+                <div class="src">From the video's transcript, 0:40 to 2:15</div>
+                <div class="meta"><span>GPT-OSS 120B</span><span class="lnk">Play from 0:40</span></div>
+              </div>
+            </div>
+          </div>
+        </article>
+        <article class="tile">
+          <header><h3>It asks before anything you can't take back</h3><p>Deleting, paying, sending and submitting wait for Allow. Passwords stay in your Keychain and never reach a model.</p></header>
+          <div class="scene"><svg class="paint" aria-hidden="true"><use href="#scene-dawn" /></svg>
+            <div class="panel">
+              <div class="steps">
+                <div class="step"><span class="mk">%icon:check%</span><span>Search for “older_than:30d category:promotions” <small>212 emails</small></span></div>
+                <div class="step"><span class="mk">%icon:check%</span><span>Select all 212</span></div>
+                <div class="step hand"><span class="mk">%icon:hand%</span><span>Delete them</span></div>
+              </div>
+              <div class="ask"><p>Allow this step? Delete 212 promotional emails older than 30 days.</p>
+                <div class="row"><span class="b primary">Allow <kbd>↵</kbd></span><span class="b">Stop <kbd>esc</kbd></span><span class="b link">Allow the rest</span></div>
+              </div>
+            </div>
+          </div>
+        </article>
+        <article class="tile">
+          <header><h3>Your tab stays where you left it</h3><p>When a task needs another site, it works in a background tab and leaves yours alone. Take over any time to log in or choose for it.</p></header>
+          <div class="scene"><svg class="paint" aria-hidden="true"><use href="#scene-dusk" /></svg>
+            <div class="panel">
+              <div class="p-top" style="padding:0 0 10px">
+                <span class="pill tab"><i class="fav" style="background:#ff690f"></i><span>Flights to Lisbon</span></span>
+                <span class="pill show">Show</span>
+              </div>
+              <div class="steps"><div class="step"><span class="mk"><span class="spin"></span></span><span>Compare the 14th and the 21st</span></div></div>
+              <div class="ask" style="display:flex;align-items:center;gap:10px"><p style="flex:1">Working in a background tab</p><span class="b">%icon:hand% Take over</span></div>
+            </div>
+          </div>
+        </article>
+        <article class="tile wide">
+          <header>
+            <h3>Fast when the AI is free, and when it isn't</h3>
+            <p>Auto sends each request to the quickest model that can handle it, screenshots to one that reads them. When a free tier runs out, the next provider takes over and the reply says which model answered.</p>
+          </header>
+          <div class="scene"><svg class="paint" aria-hidden="true"><use href="#scene-day" /></svg>
+            <div class="picker" aria-hidden="true">
+              <div class="opt on"><span class="lg">%icon:bolt%</span><div>Auto<small>Fastest model for each request; switches when one is busy</small></div></div>
+              <hr />
+              <div class="opt"><span class="lg">%logo:groq%</span><div>GPT-OSS 120B<small>Groq · Text only · Fast</small></div></div>
+              <div class="opt"><span class="lg">%logo:groq%</span><div>Qwen 3.8 27B<small>Groq · Reads screenshots · Fast</small></div><i class="rest" title="Resting"></i></div>
+              <div class="opt"><span class="lg">%logo:gemini%</span><div>Gemini 3.1 Flash-Lite<small>Google Gemini · Reads screenshots</small></div></div>
+              <div class="opt"><span class="lg">%logo:zai%</span><div>GLM 5.3 Flash<small>Z.ai · Reads screenshots</small></div></div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="m-h">
+    <div class="wrap">
+      <div class="sec-head"><h2 id="m-h">And the small things.</h2></div>
+      <div class="more">
+        <div>%mic%<h3>Voice</h3><p>Hold ⌥ and speak. Replies to spoken requests are read back to you.</p></div>
+        <div>%icon:bolt%<h3>Direct mode</h3><p>One-step commands like “scroll down” or “next tab”, decided in about a second.</p></div>
+        <div>%icon:at%<h3>Mention a tab</h3><p>Type @ to pick any open tab, or several, and ask about them together.</p></div>
+        <div>%icon:play%<h3>Video controls</h3><p>“Back 10 seconds and play”, “speed 1.5x”. Exact, instant, no AI involved.</p></div>
+        <div>%icon:globe%<h3>Web search</h3><p>Looks things up and reads pages and PDFs without opening tabs.</p></div>
+        <div>%icon:bulb%<h3>Site notes</h3><p>Learns how each site works, or teach it: “on Workbook, bills are under Sales”.</p></div>
+        <div>%icon:bookmark%<h3>Saved requests</h3><p>Save a finished request and run it again with new values, with no AI and no cost.</p></div>
+        <div>%icon:pencil%<h3>Forms</h3><p>“Fill the form with …” fills every field it can, then waits for you to submit.</p></div>
+        <div>%icon:copy%<h3>Tables out of pages</h3><p>“Copy the table”, or “copy all invoice numbers as a table”, ready to paste.</p></div>
+        <div>%icon:image%<h3>Screenshots</h3><p>“Send me a screenshot” puts it in the chat and saves a PNG to Downloads.</p></div>
+        <div>%icon:undo%<h3>Go back to where I was</h3><p>Puts back the tabs a request opened, closed or moved.</p></div>
+        <div>%icon:key%<h3>Passwords</h3><p>Write <code>{{work-login}}</code>. The real value comes from your Keychain at the last moment.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="private" aria-labelledby="p-h">
+    <div class="wrap local">
+      <div>
+        <h2 id="p-h">It runs on your Mac.</h2>
+        <p>There's no Voice Browser account and no server of ours in the middle. You bring the keys; the app talks to your browser and to the AI providers you chose.</p>
+      </div>
+      <ul>
+        <li><b>Local service</b><span>The app's service listens on 127.0.0.1 only, so nothing else on your network can reach it.</span></li>
+        <li><b>Your keys</b><span>API keys live in a file on your Mac and are read only by that service. The panel never sees them.</span></li>
+        <li><b>Passwords</b><span>Stored in the macOS Keychain. Models, history and logs only ever see the placeholder.</span></li>
+        <li><b>What models see</b><span>The page's text, its buttons and links, and a screenshot when it helps. Password fields are never read.</span></li>
+        <li><b>Activity logs</b><span>Kept on your Mac for 7 days so you can see what the agent did. Turn them off with one setting.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="get" class="get" aria-labelledby="g-h">
+    <div class="wrap">
+      <div class="get-card scene">
+        <svg class="paint" aria-hidden="true"><use href="#scene-dusk" /></svg>
+        <img class="icon" src="assets/app-icon.png" alt="" />
+        <h2 id="g-h">Free, and open source.</h2>
+        <p>MIT licensed. Download it, add a free Groq or Gemini key, and press ⌘⇧Space.</p>
+        <div class="ctas">
+          <a class="btn dark" href="https://github.com/ken-code-wq/voice-browser/releases/download/v0.4.0/Voice-Browser-0.4.0-mac-arm64.dmg">%dl% Mac with Apple Silicon</a>
+          <a class="btn ghost" href="https://github.com/ken-code-wq/voice-browser/releases/download/v0.4.0/Voice-Browser-0.4.0-mac-x64.dmg">Mac with Intel</a>
+        </div>
+        <p class="alt">Version 0.4.0 for macOS. <a href="https://github.com/ken-code-wq/voice-browser/releases/tag/v0.4.0">Windows and Linux builds</a> are on the release page too; they're untested so far.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" aria-labelledby="q-h">
+    <div class="wrap">
+      <div class="sec-head"><h2 id="q-h">Questions</h2></div>
+      <div class="faq">
+        <details><summary>Which browsers does it work with? %icon:caretDown%</summary><div><p>Dia, Arc, Chrome, Brave and Edge, or a built-in Chromium with its own profile. Pick one in the panel; Voice Browser reopens it with remote control turned on and your tabs restored. Chrome and Edge don't allow that for your main profile, so they get a separate one.</p></div></details>
+        <details><summary>Do I need an API key? What does it cost? %icon:caretDown%</summary><div><p>Yes, at least one. Groq and Google Gemini both have free tiers that cover everyday use, and Z.ai, DeepSeek and OpenRouter work too. The footer of the panel shows today's estimated spend, and you can set a daily limit.</p><p>Direct mode uses SubQ Snap, which costs about $0.05 per million input tokens.</p></div></details>
+        <details><summary>Can it do things I didn't ask for? %icon:caretDown%</summary><div><p>Anything that saves, pays, sends or deletes waits for Allow, and you can stop a task with Esc at any time. Treat that as a safeguard rather than a guarantee: don't connect a browser profile with accounts you wouldn't want an automated click near.</p></div></details>
+        <details><summary>What happens to the tab I'm using? %icon:caretDown%</summary><div><p>The panel's header always shows which tab the agent is working in. When a task needs to go to another site, it opens a background tab instead of taking yours, and Go back to where I was puts your tabs back afterwards.</p></div></details>
+        <details><summary>It got stuck on a login or a captcha. %icon:caretDown%</summary><div><p>Press Take over. The task pauses after its current step, you do what's needed in the browser, then Hand back and it looks at the page again and carries on. It asks for this itself when a page needs you.</p></div></details>
+        <details><summary>Does it work on Windows or Linux? %icon:caretDown%</summary><div><p>There are builds on the release page, but it's built and tested on macOS. Keychain passwords, Liquid Glass and switching browsers are Mac-only for now.</p></div></details>
+        <details><summary>macOS says it can't check the app for malware. %icon:caretDown%</summary><div><p>The app isn't signed with an Apple developer certificate yet. Right-click it in Applications, choose Open, then Open again. You only need to do this once.</p></div></details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="assets/app-icon.png" alt="" />Voice Browser</a>
+    <nav aria-label="Footer">
+      <a href="https://github.com/ken-code-wq/voice-browser">GitHub</a>
+      <a href="https://github.com/ken-code-wq/voice-browser/releases">Releases</a>
+      <a href="https://github.com/ken-code-wq/voice-browser/blob/main/CHANGELOG.md">Changelog</a>
+      <a href="https://github.com/ken-code-wq/voice-browser/blob/main/SECURITY.md">Security</a>
+      <a href="https://github.com/ken-code-wq/voice-browser/blob/main/LICENSE">MIT license</a>
+    </nav>
+    <p class="credit">Started as a fork of <a href="https://github.com/moritzkremb/jev-voice-browser">jev-voice-browser</a> by Moritz Kremb.</p>
+  </div>
+</footer>
+
+<script>window.VB_ICONS = { check: `%icon:check%`, chevron: `%icon:chevron%` };</script>
+<script src="demo.js"></script>
+</body>
+</html>
