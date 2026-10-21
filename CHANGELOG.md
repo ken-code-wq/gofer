@@ -15,6 +15,8 @@
 ### Fixed
 - Site notes are no longer "learned" from a site that only showed a block page (they were guesses).
 - A web search limited to the site you're on is allowed when that site is blocking you.
+- Pages in your browser kept dark mode only until Gofer attached: Playwright forced every page to light mode.
+  Your own color scheme now stays.
 
 ## 0.5.0 — 2026-10-21
 

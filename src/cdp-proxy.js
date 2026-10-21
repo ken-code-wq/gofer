@@ -80,6 +80,15 @@ export async function startCdpProxy(cdpHttpUrl, { recheckMs = 4000, log = () => 
         const d = JSON.parse(m);
         if (d.method === "Emulation.setFocusEmulationEnabled") return client.send(JSON.stringify({ id: d.id, result: {}, sessionId: d.sessionId }));
       }
+      // Playwright also forces every page to light mode (prefers-color-scheme etc.): keep your own settings.
+      if (m.includes('"Emulation.setEmulatedMedia"')) {
+        const d = JSON.parse(m);
+        if (d.method === "Emulation.setEmulatedMedia" && d.params?.features?.length) {
+          d.params.features = d.params.features.map((f) => ({ name: f.name, value: "" }));
+          const out = JSON.stringify(d);
+          return upstream?.readyState === 1 ? upstream.send(out) : queue.push(out);
+        }
+      }
       upstream?.readyState === 1 ? upstream.send(m) : queue.push(m);
     });
     let upstream = null;
