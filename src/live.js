@@ -11,8 +11,10 @@
  */
 
 const FPS = 5;
-const MAX_PX = 1100; // frame size cap (device pixels); the panel shows it at ~400 px wide
-const QUALITY = 55;
+const QUALITY = 75;
+// frame width in pixels: what the panel asks for (its width on screen × the screen's pixel ratio)
+const DEFAULT_PX = 1600;
+const clampPx = (px) => Math.max(640, Math.min(2600, Math.round(Number(px) || DEFAULT_PX)));
 const STILL_AFTER_MS = 2500;
 
 const within = (p, ms, fallback = null) =>
@@ -35,13 +37,16 @@ export class LiveView {
     this.gen = 0;
     this.lastFrame = 0;
     this.on = false;
+    this.px = DEFAULT_PX;
   }
 
   /** Start watching: the agent's tab (`index` null) or open tab number `index` (as in the tab list). */
-  async start({ index = null } = {}) {
+  async start({ index = null, px = null } = {}) {
     const pages = this.browser.pages.filter((p) => !p.isClosed());
     this.fixed = index == null ? null : pages[index] || null;
     this.follow = !this.fixed;
+    // the panel got bigger or smaller: restart the stream at the new size
+    if (px && clampPx(px) !== this.px) (this.px = clampPx(px)), (this.page = this.on ? undefined : this.page);
     if (!this.on) {
       this.on = true;
       this.off = this.browser.onChange(() => this._sync());
@@ -108,7 +113,7 @@ export class LiveView {
     this.session = s;
     this.lastFrame = 0;
     s.on("Page.screencastFrame", (f) => this._frame(s, gen, f));
-    await within(s.send("Page.startScreencast", { format: "jpeg", quality: QUALITY, maxWidth: MAX_PX, maxHeight: MAX_PX, everyNthFrame: 1 }), 3000);
+    await within(s.send("Page.startScreencast", { format: "jpeg", quality: QUALITY, maxWidth: this.px, maxHeight: this.px, everyNthFrame: 1 }), 3000);
     // a page that isn't changing sends no frame: show a screenshot right away
     setTimeout(() => gen === this.gen && !this.lastFrame && this._still(gen), 400);
   }
@@ -147,7 +152,8 @@ export class LiveView {
         s.send("Page.captureScreenshot", {
           format: "jpeg",
           quality: QUALITY,
-          ...(w && h ? { clip: { x: vp.pageX || 0, y: vp.pageY || 0, width: w, height: h, scale: Math.min(1, MAX_PX / 2 / w) } } : {}),
+          // as many pixels as the panel shows (scale is relative to CSS pixels: 2 on a Retina panel)
+          ...(w && h ? { clip: { x: vp.pageX || 0, y: vp.pageY || 0, width: w, height: h, scale: Math.min(2, this.px / w) } } : {}),
         }),
         3000,
       );

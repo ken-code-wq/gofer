@@ -196,7 +196,7 @@ export async function startServer(opts = {}) {
           deleteChat(String(msg.thread || ""));
           break;
         case "live:start":
-          await live.start({ index: Number.isInteger(msg.index) ? msg.index : null }).catch((err) => console.error("live view:", err.message));
+          await live.start({ index: Number.isInteger(msg.index) ? msg.index : null, px: Number(msg.px) || null }).catch((err) => console.error("live view:", err.message));
           break;
         case "live:stop":
           await live.stop().catch(() => {});

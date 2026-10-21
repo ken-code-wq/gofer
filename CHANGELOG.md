@@ -12,6 +12,19 @@
   answers from its web search results or another site, instead of saying it can't help. The site is skipped
   for 6 hours unless a request names it (`~/.gofer/blocked.json`).
 
+### Changed
+- **Each task step uses far fewer tokens**, so Groq's free tier (8,000 tokens a minute per model, and a daily cap
+  over a rolling 24 hours) lasts much longer before Auto falls back to Gemini Flash-Lite:
+  - Screenshots for the model are taken at normal size instead of Retina double size: a quarter of the pixels.
+    They were so big that Qwen's requests were refused as "Request too large".
+  - The instructions sent each step include only what applies (video controls when there's a video, form rules
+    when there's a form, and so on), and the video and form tools are only offered when they apply.
+  - Older steps and older results in the conversation are sent in short.
+- A request too big for one model goes straight to the next one, without putting the model aside.
+- The model picker says which limit a model hit and when it's back ("Daily limit reached, back in 15 min").
+- **Live view keeps the tab's shape.** The whole page always shows, never cropped or stretched (it narrows instead
+  when the page is tall), and frames match the panel's pixels, so text is sharp on a Retina screen.
+
 ### Fixed
 - **Styled checkboxes were invisible to the agent.** Material UI and similar libraries make the real checkbox
   see-through (or shrink it beside its label), and the page scan dropped anything see-through. So on forms like

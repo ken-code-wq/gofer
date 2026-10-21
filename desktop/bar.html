@@ -133,9 +133,13 @@
   .live .showpill { flex: none; color: var(--text-2); }
   .live .icon { width: 24px; height: 24px; border-radius: 7px; }
   .live .icon svg { width: 13px; height: 13px; }
-  .live-screen { position: relative; display: grid; place-items: center; aspect-ratio: 16 / 10; max-height: 30vh; width: 100%; background: rgb(0 0 0 / .05); cursor: pointer; }
-  .live.big .live-screen { max-height: 62vh; }
-  .live-screen img { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
+  /* exactly the tab's shape (--ar = width / height of its frames): full width, or narrower when that would
+     be taller than the space it may take, so the whole page always shows, never cropped or stretched */
+  .live { --ar: 1.6; --maxh: 30vh; }
+  .live.big { --maxh: 62vh; }
+  .live-screen { position: relative; aspect-ratio: var(--ar); width: min(100%, calc(var(--maxh) * var(--ar))); margin: 0 auto; background: rgb(0 0 0 / .05); cursor: pointer; }
+  .live-screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
+  .live-screen .wait { inset: 0; display: grid; place-items: center; }
   .live-screen img:not([src]) { display: none; }
   .live-screen .wait { position: absolute; font-size: 12px; color: var(--text-3); }
   .live:not(.waiting) .live-screen .wait { display: none; }
@@ -1670,9 +1674,13 @@
   $("watch").innerHTML = ICON.eye;
   $("live-close").innerHTML = ICON.x;
   $("live-caret").innerHTML = ICON.caretDown;
+  // frames as sharp as the panel shows them: its width on screen × the screen's pixel ratio
+  const livePx = () => Math.round(($("live").clientWidth || innerWidth - 20) * (devicePixelRatio || 1));
   function liveStart() {
-    if (liveOn && document.visibilityState !== "hidden") send({ type: "live:start", ...(liveIndex == null ? {} : { index: liveIndex }) });
+    if (liveOn && document.visibilityState !== "hidden") send({ type: "live:start", px: livePx(), ...(liveIndex == null ? {} : { index: liveIndex }) });
   }
+  let liveResize = null;
+  addEventListener("resize", () => { clearTimeout(liveResize); liveResize = setTimeout(liveStart, 400); });
   function setLive(on, restart = false) {
     const was = liveOn;
     liveOn = on;
@@ -1684,7 +1692,7 @@
   function liveFrame(f) {
     if (!liveOn || !f?.data) return;
     $("live-img").src = `data:image/jpeg;base64,${f.data}`;
-    if (f.w && f.h) $("live-screen").style.aspectRatio = `${f.w} / ${f.h}`;
+    if (f.w && f.h) $("live").style.setProperty("--ar", String(f.w / f.h));
     $("live").classList.remove("waiting");
   }
   function renderLive() {

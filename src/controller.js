@@ -320,7 +320,10 @@ export class Controller extends EventEmitter {
     if (!thread) return "";
     // everything before the message being handled now
     const turns = thread.turns.slice(0, -1).slice(-12);
-    return turns.map((t) => `${t.role === "user" ? "User" : "Result"}: ${t.text}`).join("\n").slice(-3500);
+    // results list every step they took: keep the latest one longer, the older ones short
+    const lastResult = turns.map((t) => t.role).lastIndexOf("result");
+    const cut = (s, n) => (s.length > n ? `${s.slice(0, n)}…` : s);
+    return turns.map((t, i) => (t.role === "user" ? `User: ${t.text}` : `Result: ${cut(t.text, i === lastResult ? 700 : 260)}`)).join("\n").slice(-3500);
   }
 
   async _followUp(text) {

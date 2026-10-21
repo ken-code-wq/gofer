@@ -47,7 +47,8 @@ const hostOf = (u) => {
 };
 
 async function screenshot(page) {
-  return page.screenshot({ type: "jpeg", quality: 60, timeout: 5000 }).catch(() => null);
+  // CSS pixels, not the Retina double size: a quarter of the pixels, and of the image tokens
+  return page.screenshot({ type: "jpeg", quality: 60, timeout: 5000, scale: "css" }).catch(() => null);
 }
 
 /**
@@ -372,7 +373,10 @@ const STEP_SCHEMA = {
   required: ["status", "summary", "description", "risky"],
 };
 
-const GOAL_SYSTEM =
+// The goal agent's instructions: a core sent every step, and parts sent only when they apply (a video
+// on the page, a form, several items, a follow-up, web search). Every step sends them again, and
+// Groq's free tier allows 8,000 tokens a minute per model, so what doesn't apply is left out.
+const GOAL_CORE =
   "You are the agent inside Gofer and you control the user's real browser: you can open, switch and close tabs, " +
   "navigate, click, type, scroll and take screenshots that are sent to the user. Never say you are an AI that cannot see, " +
   "act or take screenshots; use the actions. " +
@@ -388,47 +392,76 @@ const GOAL_SYSTEM =
   "You are not limited to the current tab: open a new tab (new_tab, with a url to load in it), switch to any open tab " +
   "(switch_tab with its number) or close the current tab (close_tab) whenever the goal calls for it. Opening a new tab " +
   "leaves the user's other tabs untouched, so prefer it when asked for a new tab. " +
-  "When the user wants to see something ('send me a screenshot', 'show me', 'screenshot the results'), get the page into the " +
-  "right state, then use the screenshot action (it is sent to them in the chat); after taking it you can finish. " +
-  "For a video or audio on the page (seek back/forward, jump to a time, play, pause, speed) use video_control: it's exact " +
-  "and tells you where the video is afterwards. Each step on a page with a video reports its state ('video: 1:13 / 10:02, " +
-  "playing'), so you can see whether it worked. Keyboard shortcuts (press_key) are often the most reliable control for " +
-  "everything else on media sites; site notes list a site's shortcuts. If site notes are given, they are " +
-  "tips learned on earlier visits to that site: follow them when they fit, but trust the current page. " +
+  "If site notes are given, they are tips learned on earlier visits to that site: follow them when they fit, but trust the current page. " +
   "If an action didn't change the page (the step says 'page unchanged'), don't repeat it: try a different control, " +
   "a shortcut or a direct link. " +
-  "Stop as soon as the goal is achieved and return 'done': never take extra steps 'to make sure' (each extra 'next' skips " +
-  "another item). Don't press play/pause unless asked; a video that just opened is already playing. If the goal is achieved, return status 'done' " +
+  "Stop as soon as the goal is achieved and return 'done': never take extra steps 'to make sure'. If the goal is achieved, return status 'done' " +
   "with a short summary of what was done; if it can't be achieved on this site, return 'impossible' and say why. " +
   "If you hit something only the user can do (a login or password you don't have, a captcha, two-factor code, a payment " +
   "confirmation), return status 'need_user' with a one-sentence summary of what they need to do; they'll hand control back " +
   "when done and you continue. Never guess passwords. " +
-  "When the goal covers several items (three people, several videos, a list of bills), do them one after another and keep " +
-  "count: name the item in each step's description (e.g. 'Kevin Hart: add to queue'), check the steps taken to see which items " +
-  "are already done, never redo one, and finish once every item is done. Some steps succeed without changing the URL " +
-  "(adding to a queue or list): look for the confirmation the page showed ('the page said: …'). " +
-  "When a form is visible, prefer ONE fill_form action with all the values instead of typing field by field. " +
-  "When asked for dummy, test or sample data, invent realistic, plausible values (names, amounts, dates in the near future, " +
-  "valid-looking emails/phones) and pick sensible options from dropdowns. " +
-  "Filling a form does NOT save it: afterwards you must click its save/submit button. Only return 'done' when the CURRENT page " +
-  "shows evidence the goal is complete (e.g. the new item appears in a list, or a success message) — never because of steps you merely planned. " +
-  "If a conversation is given, the goal is a follow-up. Resolve references like 'them', 'the first 2', 'those' or 'that bill' " +
-  "to the items the earlier requests created or touched (named in the conversation), in the order they were created — " +
-  "not to whatever happens to be first on the page. Leave items the conversation never mentioned alone. " +
+  "Only return 'done' when the CURRENT page shows evidence the goal is complete (e.g. the new item appears in a list, or a " +
+  "success message) — never because of steps you merely planned. " +
   "Never invent ids. Mark risky=true for anything that submits, pays, sends, approves, deletes or can't be undone, " +
   "unless the user's goal explicitly asks for exactly that action. " +
-  "You can also search the web (web_search) and read any web page (read_url) in the background, without opening a tab or " +
-  "disturbing the user's tabs; use web_search rather than opening a search engine in a tab, but when you're already on the " +
-  "site that has what you need (YouTube, a shop, the app you're working in), use that site's own search box instead. Use them to find facts, identify something the user half-remembers, or find the right page; " +
-  "then navigate only if the user wants to go there or something must be done on that site. If the goal is just to find out " +
-  "something, answer it from what you found and finish. Don't search for things the current page already shows. " +
-  "If a search doesn't find it, don't keep searching with similar words: read the most promising result (read_url), or change the words (drop quotes, add the era, 'TV ad', 'commercial', 'song', " +
-  "the place) or read a promising result. Once the searches point to an answer, finish with it (say how sure you are if " +
-  "it's a best guess) rather than giving up. Never name an answer that no search result or page you read supports: if " +
-  "nothing was found, say so and what you did find. " +
   "If the message needs no browser action (a greeting, thanks, or something you can simply answer), return 'done' right away " +
-  "with your reply in summary. If the goal asks for a different result than before ('another one'), pick one that the conversation " +
-  "hasn't already used. Never say you did something the steps taken don't show.";
+  "with your reply in summary. Never say you did something the steps taken don't show.";
+
+const GOAL_PARTS = {
+  screenshot:
+    "When the user wants to see something ('send me a screenshot', 'show me', 'screenshot the results'), get the page into the " +
+    "right state, then use the screenshot action (it is sent to them in the chat); after taking it you can finish.",
+  media:
+    "For a video or audio on the page (seek back/forward, jump to a time, play, pause, speed) use video_control: it's exact " +
+    "and tells you where the video is afterwards. Each step on a page with a video reports its state ('video: 1:13 / 10:02, " +
+    "playing'), so you can see whether it worked. Keyboard shortcuts (press_key) are often the most reliable control for " +
+    "everything else on media sites; site notes list a site's shortcuts. Each extra 'next' skips another item, so stop once " +
+    "it's done. Don't press play/pause unless asked; a video that just opened is already playing.",
+  items:
+    "When the goal covers several items (three people, several videos, a list of bills), do them one after another and keep " +
+    "count: name the item in each step's description (e.g. 'Kevin Hart: add to queue'), check the steps taken to see which items " +
+    "are already done, never redo one, and finish once every item is done. Some steps succeed without changing the URL " +
+    "(adding to a queue or list): look for the confirmation the page showed ('the page said: …').",
+  form:
+    "When a form is visible, prefer ONE fill_form action with all the values instead of typing field by field. " +
+    "When asked for dummy, test or sample data, invent realistic, plausible values (names, amounts, dates in the near future, " +
+    "valid-looking emails/phones) and pick sensible options from dropdowns. " +
+    "Filling a form does NOT save it: afterwards you must click its save/submit button. Checkboxes show [checked] or [not checked]: " +
+    "click one only to change it.",
+  followUp:
+    "A conversation is given: the goal is a follow-up. Resolve references like 'them', 'the first 2', 'those' or 'that bill' " +
+    "to the items the earlier requests created or touched (named in the conversation), in the order they were created — " +
+    "not to whatever happens to be first on the page. Leave items the conversation never mentioned alone. " +
+    "If the goal asks for a different result than before ('another one'), pick one that the conversation hasn't already used.",
+  research:
+    "You can search the web (web_search) and read any page (read_url) in the background, without opening a tab. Use web_search " +
+    "instead of opening a search engine in a tab, but on a site that has what you need (YouTube, a shop, the app you're working in) " +
+    "use its own search box. Use them to find facts, identify something the user half-remembers or find the right page; navigate " +
+    "only if the user wants to go there or something must be done there. If the goal is only to find something out, answer from " +
+    "what you found and finish. Don't search for what the page already shows, and don't repeat a search with similar words: read " +
+    "the most promising result (read_url) or change the words (drop quotes; add the era, the place, 'TV ad', 'song'). Once results " +
+    "point to an answer, finish with it (say how sure you are if it's a best guess) rather than giving up. Never name an answer no " +
+    "result or page you read supports; if nothing was found, say so and what you did find.",
+};
+
+/** The instructions for this step: the core, plus the parts that apply. */
+export function goalSystem({ screenshot = false, media = false, items = false, form = false, followUp = false, research = false } = {}) {
+  const on = { screenshot, media, items, form, followUp, research };
+  return [GOAL_CORE, ...Object.keys(GOAL_PARTS).filter((k) => on[k]).map((k) => GOAL_PARTS[k])].join(" ");
+}
+
+/** Which parts apply, from the goal, the page and the conversation. */
+function goalParts({ goal, context, snap, items, canResearch, hasMedia }) {
+  const fields = (snap?.elements || []).filter((e) => ["textbox", "combobox", "select", "checkbox", "radio", "searchbox"].includes(e.role)).length;
+  return {
+    screenshot: /\b(?:screen\s?shots?|show me|picture|photo)\b/i.test(goal),
+    media: hasMedia || /\b(?:video|song|music|audio|play(?:list|ing)?|pause|watch|listen|track|queue|seek|rewind|skip)\b/i.test(goal),
+    items: items.length > 0 || mayHaveItems(goal),
+    form: fields >= 2 || /\b(?:fill|form|sign ?up|register|create|add|enter|dummy|sample|test data)\b/i.test(goal),
+    followUp: Boolean(context),
+    research: canResearch,
+  };
+}
 
 // ── the goal agent's tools (native tool calls; STEP_SCHEMA is the JSON fallback) ─────────
 
@@ -527,8 +560,11 @@ function historyText(done) {
   if (!done.length) return "(none yet)";
   const research = done.map((d, i) => (d.research ? i : -1)).filter((i) => i >= 0);
   const keepFull = new Set(research.slice(-3));
+  // the last steps in full; earlier ones in short (every step is sent again each turn, so they add up)
+  const recent = done.length - 8;
+  const short = (s, n) => (s.length > n ? `${s.slice(0, n)}…` : s);
   return done
-    .map((d, i) => `${i + 1}. ${d.description} → ${d.research && !keepFull.has(i) ? `${d.outcome.slice(0, 300)}…` : d.outcome}`)
+    .map((d, i) => `${i + 1}. ${d.description} → ${d.research ? (keepFull.has(i) ? d.outcome : short(d.outcome, 300)) : i < recent ? short(d.outcome, 90) : d.outcome}`)
     .join("\n");
 }
 
@@ -711,9 +747,12 @@ export async function nextGoalStep(controller, goal, done, note = "", context = 
   const tabs = await goalTabs(controller.browser).catch(() => []);
   const tabLines = tabs.map((t) => `  ${t.n}. ${(t.title || "(untitled)").slice(0, 80)} (${t.url.slice(0, 120)})${t.current ? " ← current" : ""}${t.shown ? " (user is looking at this)" : ""}`);
   const notes = siteNotes(controller, ctx.snap.url, goal);
+  // a video or audio on the page: the media instructions and tool apply
+  const hasMedia = Boolean(await Promise.race([(controller.browser.page?.evaluate(() => Boolean(document.querySelector("video, audio"))) ?? Promise.resolve(false)).catch(() => false), new Promise((r) => setTimeout(() => r(false), 800))]));
   const models = [];
   let ms = 0;
   for (let round = 0; ; round++) {
+    let system = "";
     const researched = done.filter((d) => d.research).length;
     // repeats and failed lookups count against it too: a model stuck on one query gets moved on
     const wasted = done.filter((d) => d.research && d.outcome.startsWith("already done")).length;
@@ -723,7 +762,11 @@ export async function nextGoalStep(controller, goal, done, note = "", context = 
     let steps;
     let calls;
     try {
-      const r = await askTools({ system: `${GOAL_SYSTEM} ${today()}`, text, images: ctx.images, tools: [...BROWSER_TOOLS, ...(canResearch ? RESEARCH_TOOLS : []), ...(items.length ? [ITEM_DONE_TOOL] : []), FINISH_TOOL] });
+      const parts = goalParts({ goal, context, snap: ctx.snap, items, canResearch, hasMedia });
+      system = `${goalSystem(parts)} ${today()}`;
+      // tools that can't apply aren't offered either (their descriptions are sent every step too)
+      const browserTools = BROWSER_TOOLS.filter((t) => (t.name !== "video_control" || parts.media) && (t.name !== "fill_form" || parts.form));
+      const r = await askTools({ system, text, images: ctx.images, tools: [...browserTools, ...(canResearch ? RESEARCH_TOOLS : []), ...(items.length ? [ITEM_DONE_TOOL] : []), FINISH_TOOL] });
       models.push(r.modelLabel || r.model);
       ms += r.ms;
       steps = r.calls.map(stepFromCall);
@@ -732,7 +775,7 @@ export async function nextGoalStep(controller, goal, done, note = "", context = 
       if (err instanceof LimitError || err?.name === "AbortError") throw err;
       // no model could do tool calls: the JSON step format
       controller._log?.("debug", `tool calls failed (${err.message || err}); asking for a JSON step`);
-      const r = await ask({ system: `${GOAL_SYSTEM} ${today()}`, text, images: ctx.images, schema: STEP_SCHEMA });
+      const r = await ask({ system: system || `${goalSystem({ research: canResearch, followUp: Boolean(context), form: true, media: hasMedia, items: items.length > 0 })} ${today()}`, text, images: ctx.images, schema: STEP_SCHEMA });
       models.push(r.modelLabel || r.model);
       ms += r.ms;
       steps = [r.data];

@@ -147,6 +147,11 @@ function rest(id, ms, reason) {
   resting.set(id, { until: Date.now() + ms, reason });
 }
 const isResting = (id) => (resting.get(id)?.until || 0) > Date.now();
+/** "in 15 min", "in 40 s", "soon" */
+const backIn = (until) => {
+  const s = Math.round((until - Date.now()) / 1000);
+  return s >= 90 ? `in ${Math.round(s / 60)} min` : s >= 5 ? `in ${s} s` : "soon";
+};
 
 /**
  * Models to try for one request, best first. Fast models (Groq, under a second) come before slow
@@ -175,7 +180,7 @@ export function listModels() {
     providerId: c.provider,
     vision: Boolean(c.vision),
     fast: Boolean(c.fast),
-    resting: isResting(c.id) ? resting.get(c.id).reason : null,
+    resting: isResting(c.id) ? `${resting.get(c.id).reason}, back ${backIn(resting.get(c.id).until)}` : null,
   }));
   const missing = Object.entries(PROVIDERS)
     .filter(([, p]) => !process.env[p.env])
@@ -315,13 +320,17 @@ async function tryModels({ images = [], signal }, attempt) {
     }
     if (r.error) {
       lastErr = new BrainError(`${c.id}: ${r.status} ${r.error}`);
-      console.warn(`brain: ${c.id} ${r.status} after ${Date.now() - t0}ms: ${String(r.error).slice(0, 160)}${r.retryAfter ? ` (retry in ${Math.round(r.retryAfter / 1000)}s)` : ""}`);
+      console.warn(`brain: ${c.id} ${r.status} after ${Date.now() - t0}ms: ${String(r.error).slice(0, 400)}${r.retryAfter ? ` (retry in ${Math.round(r.retryAfter / 1000)}s)` : ""}`);
       if (r.status === 429 || r.status === 402) {
         quota = true;
-        rest(c.id, r.retryAfter ?? (r.status === 402 ? 30 * 60_000 : 30_000), r.status === 402 ? "out of credit" : "rate limited");
+        // Groq says which limit: tokens or requests per minute, or per day (a rolling 24 hours)
+        const daily = /per day|\b(?:TPD|RPD)\b/i.test(r.error || "");
+        rest(c.id, r.retryAfter ?? (r.status === 402 ? 30 * 60_000 : daily ? 15 * 60_000 : 30_000), r.status === 402 ? "out of credit" : daily ? "daily limit reached" : "busy this minute");
       } else if (r.status === 401 || r.status === 403) rest(c.id, 30 * 60_000, "key not accepted");
       else if (r.status === 404) rest(c.id, 30 * 60_000, "model not available");
-      else if (r.status === 413 || (r.status === 400 && /too large|context|tokens/i.test(r.error))) rest(c.id, 60_000, "request too large"); // over its per-minute size
+      // this request is bigger than the model takes (Groq's free tier: 8,000 tokens a minute): the model is
+      // fine for smaller ones, so it isn't put aside; the next model takes this one
+      else if (r.status === 413 || (r.status === 400 && /too large|context|tokens/i.test(r.error))) continue;
       else if (r.status >= 500) rest(c.id, 60_000, "provider busy");
       // anything else (e.g. Groq's "Tool choice is none, but model called a tool") is usually a
       // one-off quirk of that model's reply: let the next model answer instead of failing the task
