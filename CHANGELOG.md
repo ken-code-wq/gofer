@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 — 2026-10-21
 
 ### Added
 - **Live view.** The eye button in the header shows a live picture of the agent's tab (it follows the agent to
