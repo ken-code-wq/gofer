@@ -111,7 +111,7 @@ export async function startServer(opts = {}) {
   controller.on("chain", (p) => broadcast("chain", p));
   controller.on("gaveup", (p) => broadcast("gaveup", p));
   controller.on("expanded", (p) => broadcast("expanded", p));
-  for (const ev of ["goal", "goal-confirm", "answer", "utility", "table", "fill", "smart-error", "tab-switched", "tab-error", "resolved", "stopped", "task-undo"]) controller.on(ev, (p) => broadcast(ev, p));
+  for (const ev of ["goal", "goal-confirm", "answer", "utility", "table", "smart-error", "tab-switched", "tab-error", "resolved", "stopped", "task-undo"]) controller.on(ev, (p) => broadcast(ev, p));
   // running task, queued messages, take over, background tab, undo (see src/tasks.js)
   controller.tasks.on("change", (s) => broadcast("queue", s));
 

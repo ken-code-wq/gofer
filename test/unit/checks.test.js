@@ -44,9 +44,8 @@ test("smart routing: questions, goals, forms; ordinary commands untouched", () =
   assert.equal(routeSmart("summarize this article").kind, "ask");
   assert.deepEqual(routeSmart("goal: approve all pending requests under $500"), { kind: "goal", goal: "approve all pending requests under $500" });
   assert.equal(routeSmart("help me find the cheapest flight").kind, "goal");
-  assert.deepEqual(routeSmart("fill the form with name Alex, role admin"), { kind: "fill", spec: "name Alex, role admin" });
-  // no values given, or more to do than filling: a task for the agent, not the one-shot fill
-  for (const t of ["fill the form and submit for approval", "fill the form", "fill in the form with dummy data", "fill out this form with name Alex then save"])
+  // forms are a task for the agent (fill_form tool, dropdowns, submitting)
+  for (const t of ["fill the form with name Alex, role admin", "fill the form and submit for approval", "fill the form", "fill in the form with dummy data"])
     assert.deepEqual(routeSmart(t), { kind: "goal", goal: t }, t);
   for (const t of ["go to wikipedia", "click the first result", "search for what is love", "open youtube, theo t3.gg's channel"]) assert.equal(routeSmart(t), null, t);
 });

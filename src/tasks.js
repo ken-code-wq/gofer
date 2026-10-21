@@ -28,7 +28,7 @@ import { hasBrain } from "./brain.js";
 import { CANDIDATE_TTL_MS } from "./constants.js";
 
 /** Controller events that can end a task. */
-export const RESULT_EVENTS = ["goal", "chain", "answer", "utility", "table", "fill", "smart-error", "tab-error", "gaveup", "tab-switched", "action", "decision", "stopped"];
+export const RESULT_EVENTS = ["goal", "chain", "answer", "utility", "table", "smart-error", "tab-error", "gaveup", "tab-switched", "action", "decision", "stopped"];
 
 /**
  * Does this controller event finish the running task? -> "done" | "failed" | "stopped" | null.
@@ -43,7 +43,6 @@ export function resultOf(type, p = {}, { goal = null, chain = null } = {}) {
     case "answer":
     case "utility":
     case "table":
-    case "fill":
       return "done";
     case "smart-error":
     case "tab-error":

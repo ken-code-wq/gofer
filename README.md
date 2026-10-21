@@ -60,11 +60,11 @@ The panel has two modes (<kbd>Tab</kbd> switches):
 | **Your tabs stay yours** | The header shows the tab the agent is working in. When a task would take the tab you're looking at to another site, it opens a background tab instead (**Show** brings it forward). **Go back to where I was** undoes the tab changes a request made. |
 | **Queue & take over** | Messages sent while a task runs wait their turn; questions are answered alongside it. **Take over** pauses the task so you can log in or solve a captcha, then **Hand back**. |
 | **Web search** | The agent can search the web and read pages or PDFs without opening a tab. It uses Tavily or Brave keys if you add them, then Brave's public results, then Gemini's or Groq's search. |
-| **Video** | "go back 10 seconds and play", "pause", "speed 1.5x" act on the page's video directly, with no AI. |
+| **Video** | "go back 10 seconds and play", "pause", "speed 1.5x". In Direct mode they act on the page's video at once, with no AI; in Chat the agent does it, knowing the conversation. |
 | **Site notes** | Short per-site know-how, learned after tasks or taught ("remember that on workbook bills are under sales"). |
 | **Voice** | Hold <kbd>⌥ Option</kbd> or click the mic and speak. Replies to spoken requests are read aloud. |
 | **Several AI providers** | Groq, Gemini, Z.ai, DeepSeek and OpenRouter. **Auto** routes each request to the fastest suitable model and moves on when one is rate-limited. |
-| **Forms** | `fill the form with …` fills text fields, dropdowns, dates and checkboxes in one go, and never submits by itself. |
+| **Forms** | `fill the form with …` is a task: the agent fills text fields, dropdowns, dates and checkboxes, and submits only if you ask (and only after **Allow**). |
 | **Safe by default** | Anything that saves, pays, sends or deletes asks **Allow / Stop / Allow the rest**. Passwords live in the macOS Keychain as `{{name}}` and never reach a model. |
 | **Saved requests** | Save a finished request and run it again with no AI, changing its values (`new-bill Globex, 99`). |
 
@@ -129,7 +129,7 @@ Gofer lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd> shows 
 | `goal: …` · `create a new bill with dummy data` · `help me …` | a task (multi-step, model-planned); in Chat every message is one |
 | `… ?` · `what's the total due?` · `summarize this` | a question about the current page, the web, or general knowledge (the reply says which) |
 | `which of my tabs has the cheapest flight?` · `@[Tab A] @[Tab B] compare the prices` | a question across all open tabs, or the tabs you mention |
-| `fill the form with …` | fill every matching field, without submitting |
+| `fill the form with …` · `fill the form and submit for approval` | a task: fill the form (values made up if you give none), then submit if asked |
 | `in @[Tab] …` · `go to @[Tab] and …` | switch to that tab first |
 | `in the current tab, …` · `… in the active tab` · `here, …` | run it in the tab you're on in the browser |
 | `send me a screenshot` · `screenshot the whole page` | the image in the chat, and a PNG in Downloads (no model) |
@@ -137,7 +137,7 @@ Gofer lives in the menu bar. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd> shows 
 | `copy url` · `copy title` | copy the current page's address or title to the clipboard |
 | `copy the table` · `export the table as csv` | the page's own table to the clipboard (and a CSV in Downloads), no model |
 | `copy all invoice numbers as a table` · `copy all vendors with open bills` | the AI pulls those items out of the page as a table |
-| `go back 10 seconds and play` · `pause` · `skip ahead 1 minute` · `speed 1.5x` · `mute` | control the page's video directly, no AI |
+| `go back 10 seconds and play` · `pause` · `skip ahead 1 minute` · `speed 1.5x` · `mute` | control the page's video (Direct mode: at once, no AI; Chat: through the agent) |
 | `who won the match last night?` · `find the official site and open it` | search the web and read results without opening tabs |
 
 ### Voice

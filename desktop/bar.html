@@ -1392,16 +1392,6 @@
           finish("ok", payload.answer);
         }
         break;
-      case "fill": {
-        const ok = payload.filled.filter((f) => !f.error);
-        const bad = payload.filled.filter((f) => f.error).map((f) => f.label);
-        let msg = `Filled ${ok.length} field${ok.length === 1 ? "" : "s"}: ${ok.map((f) => `${f.label} ${f.value}`).join(", ")}.`;
-        if (bad.length) msg += ` Couldn't fill ${bad.join(", ")}.`;
-        if (payload.missing?.length) msg += ` No field for ${payload.missing.join(", ")}.`;
-        msg += " Not submitted yet: review it, then say “submit it”.";
-        if (current) finish(ok.length ? "ok" : "fail", msg);
-        break;
-      }
       case "goal": {
         if (!current) break;
         current.steps = payload.steps.map((s) => ({ text: s.text, status: s.status, detail: s.detail }));

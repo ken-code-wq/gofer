@@ -52,9 +52,6 @@ test("video commands run without the AI; anything else goes to the agent", async
   assert.deepEqual(parseMedia("speed 1.5x"), [{ op: "speed", rate: 1.5 }]);
   assert.deepEqual(parseMedia("go back 10 seconds, then pause"), [{ op: "seek_by", seconds: -10 }, { op: "pause" }]);
   for (const t of ["play the next video", "move back to the previous page", "skip this ad", "play despacito"]) assert.equal(parseMedia(t), null, t);
-  // Chat: bare words belong to the conversation ("continue" after a stopped task), not the video
-  for (const t of ["continue", "Continue.", "stop", "play", "resume", "pause", "please continue"]) assert.equal(parseMedia(t, { strict: true }), null, t);
-  for (const t of ["go back 10 seconds", "go to 2:15", "speed 1.5x", "pause the video", "continue playing the song", "mute"]) assert.ok(parseMedia(t, { strict: true }), t);
   assert.deepEqual(parseMedia("continue"), [{ op: "play" }], "Direct mode keeps the short form");
   assert.equal(stateText({ time: 73, duration: 602, paused: false, rate: 1, muted: false }), "1:13 / 10:02, playing");
   assert.deepEqual(toAction(stepFromCall({ name: "video_control", args: { op: "seek_by", seconds: -10 } })).action, { type: "media", actions: [{ op: "seek_by", seconds: -10 }], label: "video back 10s" });

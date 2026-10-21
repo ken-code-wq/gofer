@@ -13,10 +13,10 @@ import { planChain } from "./chain.js";
 import { parseCheck } from "./checks.js";
 import { resolveSaved } from "./store.js";
 import { loadChats, saveChats, listFacts, rememberFact, forgetFacts, parseMemoryCommand } from "./memory.js";
-import { routeSmart, answerQuestion, fillForm, nextGoalStep, verifyGoal, resolveFollowUp, toAction, MAX_GOAL_STEPS, CHECKPOINT_STEPS, stuckOn, mayHaveItems, goalItems } from "./smart.js";
+import { routeSmart, answerQuestion, nextGoalStep, verifyGoal, resolveFollowUp, toAction, MAX_GOAL_STEPS, CHECKPOINT_STEPS, stuckOn, mayHaveItems, goalItems } from "./smart.js";
 import { hasBrain, ask as brainAsk } from "./brain.js";
 import { parseSiteCommand, resolveSite, siteKey, addNote, notesFor, learnFromGoal, markUsed } from "./sitenotes.js";
-import { parseUtility, runUtility, copyToClipboard, wantsScreenshot } from "./utility.js";
+import { parseUtility, runUtility, copyToClipboard } from "./utility.js";
 import { parseTableRequest, domTable, toTSV, saveCSV } from "./table.js";
 import { extractTable, replayFill, answerAcrossTabs, isTabsQuestion } from "./smart.js";
 import { compareTabs, isCompareRequest } from "./compare.js";
@@ -192,10 +192,10 @@ export class Controller extends EventEmitter {
     // "screenshot", "copy url": instant, no model.
     const util = parseUtility(text);
     if (util) return this._utility(util);
-    // "move back 10 seconds and play", "pause", "speed 1.5x": the video itself, instantly, no model
-    // In Chat only unmistakable ones ("go back 10 s", "pause the video"); "continue", "stop" go to the AI with
-    // the conversation. No video on the page: the AI gets the request after all.
-    const media = !opts.noMedia && parseMedia(text, { strict: Boolean(opts.chat) });
+    // Direct mode: "move back 10 seconds and play", "pause", "speed 1.5x" work the video instantly,
+    // no model. Chat sends them to the AI with the conversation (it has a video tool). No video on the
+    // page: the AI gets the request after all.
+    const media = !opts.noMedia && !opts.chat && parseMedia(text);
     if (media) return this._media(media, text, () => this.handleCommand(text, { ...opts, inner: true, noMedia: true }));
     // "copy the table", "copy all invoice numbers as a table"
     const tableReq = parseTableRequest(text);
@@ -225,7 +225,6 @@ export class Controller extends EventEmitter {
         return;
       }
       if (smart.kind === "ask") return this._ask(smart.question);
-      if (smart.kind === "fill") return this._fill(smart.spec);
       return this._startGoal(smart.goal);
     }
 
@@ -344,7 +343,6 @@ export class Controller extends EventEmitter {
     const smart = routeSmart(text) || { kind: "goal", goal: text };
     this._log("info", `follow-up (${smart.kind}) with ${t.turns.length - 1} earlier turn(s)`);
     if (smart.kind === "ask") return this._ask(smart.question, context);
-    if (smart.kind === "fill") return this._fill(smart.spec, context);
     let goal = smart.goal;
     try {
       goal = await resolveFollowUp(context, smart.goal);
@@ -378,8 +376,6 @@ export class Controller extends EventEmitter {
       return this._chat(t.lastAsk);
     }
     if (t) t.lastAsk = text;
-    const shot = wantsScreenshot(text);
-    if (shot) return this._utility(shot);
     if (!hasBrain()) {
       return this.emit("smart-error", { kind: "goal", text, error: "Chat needs an AI model in .env (BRAIN_PROVIDER + BRAIN_API_KEY, or a free GEMINI_API_KEY). Direct mode works without one." });
     }
@@ -402,7 +398,6 @@ export class Controller extends EventEmitter {
       if (t) Object.assign(t, { base: smart.question, baseKind: "ask", avoid: [] });
       return this._ask(smart.question, context);
     }
-    if (smart.kind === "fill") return this._fill(smart.spec, context);
     let goal = smart.goal;
     // "another one" / "a different one": the earlier request again, avoiding every result so far
     if (earlier && t.base && t.baseKind === "goal" && isAnotherOne(text)) {
@@ -417,7 +412,7 @@ export class Controller extends EventEmitter {
         if (goal !== smart.goal) {
           this._log("info", `understood as: ${goal}`);
           this.emit("resolved", { text: smart.goal, goal });
-          const shot2 = parseUtility(goal) || wantsScreenshot(goal);
+          const shot2 = parseUtility(goal);
           if (shot2) return this._utility(shot2);
         }
       } catch (err) {
@@ -637,28 +632,6 @@ export class Controller extends EventEmitter {
     } catch (err) {
       this._log("error", `question failed: ${err.message || err}`);
       this.emit("smart-error", { kind: "ask", text: question, error: String(err.message || err) });
-    }
-  }
-
-  async _fill(spec, context = "") {
-    this._log("info", `fill form: ${spec}`);
-    const thread = this.thread;
-    try {
-      const r = await fillForm(this, spec, context);
-      if (r.error) throw new Error(r.error);
-      // nothing fitted the one-shot fill (custom dropdowns, search boxes…): let the agent do it step by step
-      if (!r.filled.some((f) => !f.error)) {
-        this._log("info", "form fill matched no field: handing it to the agent");
-        return this._startGoal(`fill the form with ${spec}`, context);
-      }
-      this._note(thread, `filled form (not submitted): ${r.filled.map((f) => `${f.label}=${f.value}`).join(", ")}`);
-      this._log("act", `filled ${r.filled.length} field(s)${r.missing.length ? `; no field for: ${r.missing.join(", ")}` : ""}`);
-      this.emit("fill", { spec, ...r });
-    } catch (err) {
-      this._log("error", `form fill failed: ${err.message || err}`);
-      this.emit("smart-error", { kind: "fill", text: spec, error: String(err.message || err) });
-    } finally {
-      await this.refreshSnapshot().catch(() => {});
     }
   }
 

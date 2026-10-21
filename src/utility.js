@@ -11,20 +11,6 @@ import path from "node:path";
 const SHOT = /^(?:(?:please|can you|could you|would you)\s+)?(?:(?:take|send|show|give|get)\s+(?:me\s+)?)?(?:a\s+)?(full[\s-]?page\s+)?screen\s?shot(?:\s+(?:it|this|that))?(?:\s+(?:of\s+)?(?:the\s+|this\s+|my\s+)?(?:(full|whole|entire)\s+)?(?:page|tab|site|screen))?(?:\s+(full[\s-]?page))?(?:\s+please)?$/i;
 const COPY = /^copy\s+(?:the\s+)?(?:(?:page|tab)(?:'s)?\s+)?(url|link|address|title|name)(?:\s+of\s+(?:the|this)\s+(?:page|tab))?$/i;
 
-/**
- * A short chat message that's about getting a screenshot, worded any way ("can I get a screenshot",
- * "try to send me a screenshot of the page again", "send me a pic of the page"). Not when it also
- * asks for something else first ("open youtube and send me a screenshot" is a task).
- */
-export function wantsScreenshot(text) {
-  const t = String(text || "").trim();
-  if (t.split(/\s+/).length > 14) return null;
-  if (/^(?:what|how|why|when|where|who|which)\b/i.test(t)) return null; // a question about screenshots
-  if (!/\b(?:screen\s?shot|screen\s?cap|screen\s?grab|snapshot|(?:pic|picture|image|photo)\s+of\s+(?:the|this|my)\s+(?:page|screen|tab|site))\b/i.test(t)) return null;
-  if (/\b(?:open|go to|navigate|search|find|look up|click|play|log ?in|sign ?in|fill|create|add|delete|scroll|switch)\b/i.test(t)) return null;
-  return { kind: "screenshot", fullPage: /\b(?:full|whole|entire)\b/i.test(t) };
-}
-
 export function parseUtility(text) {
   const t = String(text || "").trim().replace(/[.!?]+$/, "");
   const shot = t.match(SHOT);

@@ -2,7 +2,6 @@
  * Smart commands, powered by the brain (brain.js) rather than SubQ Snap:
  *   goal: approve all pending requests under $500   -> look, act, repeat until done (max 15 steps)
  *   how many requests are pending?                    -> answer from the page text + screenshot
- *   fill the form with name Alex, role admin, ...   -> every field in one go (never submits)
  *
  * The brain only ever sees {{secret}} placeholders; values are filled in when typing.
  */
@@ -44,17 +43,8 @@ export function routeSmart(text) {
   if ((m = t.match(/^(?:figure out how to|try to|help me|find a way to)\s+(.+)$/is))) return { kind: "goal", goal: m[1].trim() };
   // Multi-step tasks phrased as an outcome: "create a new bill with dummy data", "add a supplier called Acme"
   if (/^(?:please\s+)?(?:create|add|make|register|set up|draft|invite|record|log|book|duplicate)\s+(?:a|an|the|new|another|some|\d+)\b/i.test(t)) return { kind: "goal", goal: t };
-  // The one-shot form fill only when you give the values and ask for nothing more. "fill the form",
-  // "fill the form and submit it", "fill it with dummy data" are tasks: the agent looks at the form,
-  // makes up what's needed, picks from dropdowns, and goes on to submit.
-  if ((m = t.match(/^fill(?:\s+(?:in|out))?\s+(?:the\s+|this\s+)?form\b(?:\s+(?:with|using))?[\s:,]*(.*)$/is))) {
-    const spec = m[1].trim();
-    const more =
-      !spec ||
-      /^(?:and|then|&)\b/i.test(spec) ||
-      /\b(?:submit|save|send|approv\w*|post|publish|create|confirm|dummy|sample|fake|test data|random|anything|whatever|made[- ]up|realistic)\b/i.test(spec);
-    return more ? { kind: "goal", goal: t } : { kind: "fill", spec };
-  }
+  // forms are filled by the agent (its fill_form tool), which can also pick from dropdowns and submit
+  if (/^fill(?:\s+(?:in|out))?\s+(?:the\s+|this\s+|that\s+|a\s+)?form\b/i.test(t)) return { kind: "goal", goal: t };
   if ((m = t.match(/^(?:ask|q)\s*:\s*(.+)$/is))) return { kind: "ask", question: m[1].trim() };
   if (
     /\?\s*$/.test(t) ||

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- **Fewer shortcuts in Chat; the AI decides, with the conversation.** Removed:
+  - the one-shot form fill. "fill the form and submit for approval" was caught by it, filled nothing on a form of
+    search-and-select dropdowns ("Filled 0 fields") and never reached the AI. `fill the form …` is now always a
+    task, and the agent fills the form with its own fill-form tool, picks from dropdowns and submits if asked;
+  - video words in Chat ("pause", "go back 10 seconds", "next"). The agent has the same video controls as a tool,
+    so it acts on them knowing what came before. Direct mode keeps them instant, with no AI;
+  - the loose screenshot match ("can I get a screenshot of the pricing", "send me a pic of the page"). Only a bare
+    `screenshot` / `send me a screenshot of the page` is still instant; anything more goes to the agent.
+
 ## 0.6.0 — 2026-10-21
 
 ### Added
