@@ -28,6 +28,7 @@ import { TaskRunner } from "./tasks.js";
 import { HANDBACK_NOTE } from "./takeover.js";
 import { logLine, TaskTrace } from "./tracelog.js";
 import { parseMedia, runMedia, mediaState, stateText } from "./media.js";
+import { forbiddenClicks, isForbidden, forbidNote, DISCARDS } from "./forbid.js";
 import { botCheckInPage, classifyBlock, noteBlocked, blockedSites, isBlocked, namedIn, blockNote, blockedHint } from "./blocked.js";
 
 /**
@@ -644,6 +645,11 @@ export class Controller extends EventEmitter {
     g.trace = new TaskTrace(goal, { context, startUrl: start?.url || "" });
     // sites that blocked us lately are skipped, unless the request names them
     g.hint = blockedHint(blockedSites().filter((s) => !namedIn(`${goal} ${context}`, s))) || null;
+    // "DO NOT CLICK AUTOFILL", "don't press any save button": refused in code, said every step. Earlier
+    // messages in the chat count too, unless this one names the thing again.
+    const earlier = String(context).split("\n").filter((l) => l.startsWith("User: ")).flatMap((l) => forbiddenClicks(l.slice(6)));
+    g.forbidden = [...new Set([...forbiddenClicks(goal), ...earlier.filter((f) => !goal.toLowerCase().includes(f))])];
+    if (g.forbidden.length) this._log("info", `not to click: ${g.forbidden.join(", ")}`);
     this._log("info", `goal: ${goal}`);
     this._emitGoal(g, "running");
     this._goalLoop(g);
@@ -807,6 +813,8 @@ export class Controller extends EventEmitter {
           note = note ? `${note} ${g.hint}` : g.hint;
           g.hint = null;
         }
+        const rules = forbidNote(g.forbidden);
+        if (rules) note = note ? `${note} ${rules}` : rules;
         r = await nextGoalStep(this, g.goal, g.done, note, g.context, {
           items: g.items,
           itemsDone: g.itemsDone,
@@ -924,6 +932,15 @@ export class Controller extends EventEmitter {
       if (!error && picked && /\b(?:check\s?box|tick|radio|toggle|switch)\b/i.test(step.description || "") && !["checkbox", "radio", "switch", "menuitemcheckbox", "menuitemradio"].includes(picked.role)) {
         error = `${picked.id} is ${picked.role} "${picked.text}", not a checkbox. Pick the checkbox from the element list by its label; if it isn't there, scroll to it`;
       }
+      const no = !error && isForbidden(picked, g.forbidden);
+      if (no) {
+        g.trace?.add("forbidden", { element: picked.id, text: picked.text, rule: no });
+        g.steps.push({ text: step.description || `click ${picked.text}`, status: "fail", detail: `refused: you said not to click "${no}"` });
+        this._emitGoal(g, "running");
+        if (++g.invalid > 2) return this._endGoal(g, "failed", `the model kept trying to click "${picked.text}", which you said not to click`);
+        note = `Refused: the user said not to click "${no}", and ${picked.id} is ${picked.role} "${picked.text}". Never click it; fill the fields yourself.`;
+        continue;
+      }
       action = this.tasks.place(action); // never navigate the tab you're looking at away
       if (error) {
         g.trace?.add("invalid", { error });
@@ -958,6 +975,8 @@ export class Controller extends EventEmitter {
         continue;
       }
       g.steps.push(entry);
+      // "Close anyway", "Discard": throws away what was typed, so it asks even when the model thought it safe
+      if (picked && DISCARDS.test(picked.text || "")) step.risky = true;
       if (step.risky && !g.autoApprove) {
         g.awaiting = action;
         entry.status = "awaiting";

@@ -1,6 +1,6 @@
 {
   "name": "gofer",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "type": "module",
   "description": "Gofer: tell your browser what to do. A macOS chat panel that drives Dia, Arc, Chrome or Chromium — tasks, page and web questions, forms and follow-ups.",

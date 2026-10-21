@@ -1,6 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.6.1 — 2026-10-21
+
+### Fixed
+- **"Don't click X" is enforced.** "fully fill the waybill manually, DO NOT CLICK AUTOFILL" still clicked Autofill:
+  a small model (Gemini Flash-Lite) ignored it. Now what you say not to click ("don't click Autofill",
+  "no autofill", "don't press any save button") is refused in code. The model is told so on every step, and a
+  refused click shows in the steps. Earlier messages in the same chat count too, unless the new one names the
+  thing again.
+- **Buttons that throw away what was typed always ask first** ("Close anyway", "Discard", "Leave without
+  saving"), even when the model thinks they're safe. The waybill task closed the form with "Close anyway" and
+  lost everything it had filled.
 
 ### Changed
 - **Fewer shortcuts in Chat; the AI decides, with the conversation.** Removed:

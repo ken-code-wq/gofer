@@ -1,7 +1,7 @@
 {
   "name": "gofer-desktop",
   "productName": "Gofer",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "description": "Gofer chat panel",
   "main": "main.cjs",
