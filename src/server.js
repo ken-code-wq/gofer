@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import { WebSocketServer } from "ws";
 import { BrowserManager } from "./browser.js";
+import { LiveView } from "./live.js";
 import { Controller } from "./controller.js";
 import { hasApiKey } from "./jev.js";
 import { MODEL, PROVIDER, QUESTIONS, T } from "./constants.js";
@@ -122,9 +123,17 @@ export async function startServer(opts = {}) {
   siteNoteEvents.on("change", () => broadcast("sitenotes", siteNotes()));
   controller.on("sitenotes-learned", (p) => broadcast("sitenotes-learned", p));
 
+  let liveSlots = 0;
   wss.on("connection", (ws) => {
     const reply = (type, payload) => ws.readyState === 1 && ws.send(JSON.stringify({ type, payload }));
     ws.send(JSON.stringify({ type: "hello", payload: controller.uiState() }));
+    // live view of a tab for this window; frames are dropped while the window is behind on reading them
+    const live = new LiveView(
+      browser,
+      (type, payload) => (type === "live-frame" && ws.bufferedAmount > 2_000_000 ? false : reply(type, payload)),
+      `ws${++liveSlots}`,
+    );
+    ws.on("close", () => live.stop().catch(() => {}));
     reply("queue", controller.tasks.state());
     reply("commands", listCommands());
     reply("usage", usageSummary());
@@ -185,6 +194,15 @@ export async function startServer(opts = {}) {
         case "chat:delete":
           controller.threads.delete(String(msg.thread || ""));
           deleteChat(String(msg.thread || ""));
+          break;
+        case "live:start":
+          await live.start({ index: Number.isInteger(msg.index) ? msg.index : null }).catch((err) => console.error("live view:", err.message));
+          break;
+        case "live:stop":
+          await live.stop().catch(() => {});
+          break;
+        case "live:show": // bring the watched tab to the front; the agent keeps working where it is
+          if (live.page && !live.page.isClosed()) await browser.show(live.page).catch(() => {});
           break;
         case "tab:select":
           await controller.selectTab(Number(msg.index), { show: Boolean(msg.show) }).catch(() => {});

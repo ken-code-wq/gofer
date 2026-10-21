@@ -164,8 +164,34 @@ export class BrowserManager {
     if (this.active === page) {
       if (this._renderingPage && this._renderingPage !== page) this._left = { page: this._renderingPage, until: Date.now() + 400 };
       this._renderingPage = page;
+      this._emuSince(page);
       this.proxy.keepRendering(id);
     }
+  }
+
+  /**
+   * A tab watched live in the panel keeps rendering too, even in the background (`slot`: one per
+   * panel window; `page` null stops). The built-in Chromium renders every tab anyway.
+   */
+  async watchRendering(slot, page) {
+    this.watched ??= new Map();
+    const prev = this.watched.get(slot);
+    if (page) this.watched.set(slot, page);
+    else this.watched.delete(slot);
+    if (!this.proxy) return;
+    if (prev && prev !== page && !this._emulated(prev)) this._left = { page: prev, until: Date.now() + 400 };
+    if (page && page !== prev) this._emuSince(page);
+    const id = page && !page.isClosed() ? await this._targetId(page) : null;
+    this.proxy.keepRendering(id, `live:${slot}`);
+  }
+
+  _emuSince(page) {
+    (this._emuStart ??= new WeakMap()).set(page, Date.now());
+  }
+
+  /** Is this tab kept rendering (the agent's tab, or one watched live)? It then looks focused on its own. */
+  _emulated(page) {
+    return page === this._renderingPage || [...(this.watched?.values() || [])].includes(page);
   }
 
   /** DevTools target id of a page (cached). */
@@ -190,9 +216,11 @@ export class BrowserManager {
     // Moving the "keep rendering" emulation off a tab makes it fire focus/visibility events itself;
     // ignore that tab for a moment so two tabs can't keep handing it back and forth.
     if (page === this._left?.page && Date.now() < this._left.until) return;
-    // The agent's background tab is kept "focused" by emulation and can report focus on its own;
-    // only a click in it or it becoming visible means you're actually looking at it.
-    const emulated = page === this._renderingPage && page !== this.shown && kind === "focus";
+    // The agent's background tab (and a tab watched live) is kept "focused" by emulation and can
+    // report focus on its own; only a click in it or it becoming visible means you're looking at it.
+    // Turning the emulation on makes the tab look visible for a moment too.
+    const fresh = Date.now() - (this._emuStart?.get(page) || 0) < 1500;
+    const emulated = this._emulated(page) && page !== this.shown && (kind === "focus" || (kind === "visibilitychange" && fresh));
     let changed = false;
     if (!emulated && this.shown !== page) (this.shown = page), (changed = true);
     if (page !== this.active && !emulated && !(this.canFollow && !this.canFollow())) (this.active = page), (changed = true);
@@ -243,7 +271,7 @@ export class BrowserManager {
       const states = await Promise.all(
         live.map((p) => within(p.evaluate(() => document.visibilityState === "visible" && document.hasFocus()), 500, false)),
       );
-      next = live.find((p, i) => p !== this.active && states[i]);
+      next = live.find((p, i) => p !== this.active && !this._emulated(p) && states[i]);
     }
     return next || null;
   }

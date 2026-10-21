@@ -28,6 +28,7 @@ import { TaskRunner } from "./tasks.js";
 import { HANDBACK_NOTE } from "./takeover.js";
 import { logLine, TaskTrace } from "./tracelog.js";
 import { parseMedia, runMedia, mediaState, stateText } from "./media.js";
+import { botCheckInPage, classifyBlock, noteBlocked, blockedSites, isBlocked, namedIn, blockNote, blockedHint } from "./blocked.js";
 
 /**
  * Runs in the page: a short fingerprint of what's on screen (visible buttons, links, menu items,
@@ -469,7 +470,9 @@ export class Controller extends EventEmitter {
   /** After a goal, in the background: keep 0–2 lessons about the sites it used (never delays the reply). */
   _learn(g, status) {
     if (!this.persist || g.replay || !g.sites?.size || !hasBrain()) return;
-    const sites = [...g.sites].filter(Boolean);
+    // a site that only showed a bot check taught nothing (its lessons would be guesses)
+    const sites = [...g.sites].filter((s) => s && !g.blocked?.has(s));
+    if (!sites.length) return;
     markUsed(sites);
     learnFromGoal({ goal: g.goal, status, done: g.done, sites, typed: g.typed || [], ask: brainAsk })
       .then((notes) => {
@@ -642,6 +645,8 @@ export class Controller extends EventEmitter {
     const g = { goal, context, another, start, thread: this.thread, steps: [], done: [], recipe: [], awaiting: null, cancelled: false, autoApprove: false, invalid: 0, at: Date.now() };
     this.goal = g;
     g.trace = new TaskTrace(goal, { context, startUrl: start?.url || "" });
+    // sites that blocked us lately are skipped, unless the request names them
+    g.hint = blockedHint(blockedSites().filter((s) => !namedIn(`${goal} ${context}`, s))) || null;
     this._log("info", `goal: ${goal}`);
     this._emitGoal(g, "running");
     this._goalLoop(g);
@@ -781,6 +786,8 @@ export class Controller extends EventEmitter {
       if (turn?.cancelled || g.cancelled) return;
       if (turn) note = note ? `${note} ${HANDBACK_NOTE}` : HANDBACK_NOTE;
       if (g.done.filter((d) => !d.research).length >= MAX_GOAL_STEPS) return this._endGoal(g, "failed", `stopped after ${MAX_GOAL_STEPS} steps without finishing`);
+      const blocked = await this._botCheck(g);
+      if (blocked) note = note ? `${note} ${blocked}` : blocked;
       let r;
       try {
         if (g.hint) {
@@ -845,6 +852,12 @@ export class Controller extends EventEmitter {
         }
         return this._endGoal(g, "done", step.summary);
       }
+      if (step.status === "impossible" && g.blocked?.size && !g.blockNudged && g.done.some((d) => d.research && !/^(?:not run|already done|failed)/.test(d.outcome || ""))) {
+        // a site blocked us, but the searches already found things: answer from them rather than give up
+        g.blockNudged = true;
+        note = `Don't give up because ${[...g.blocked].join(" and ")} blocked you: your web searches above found results. Answer from them now (name where they came from), or try a different site or search.`;
+        continue;
+      }
       if (step.status === "impossible") {
         // models sometimes claim they can't take screenshots; the app can, so do it instead of failing
         if (/\bscreen\s?shots?\b/i.test(g.goal) && !g.images?.length) {
@@ -883,6 +896,13 @@ export class Controller extends EventEmitter {
         g.trace?.add("repeat", { sig, n: g.repeat.n });
         if (g.repeat.n >= 5) return this._endGoal(g, "failed", `kept repeating "${step.description || action?.label}"`);
         note = `You've now chosen "${step.description || action?.label}" ${g.repeat.n} times in a row without moving on. If it opened a menu, the menu's items are in the element list: pick one. Otherwise do something else.`;
+        continue;
+      }
+      if (!error && ["navigate_url", "open_new_tab"].includes(action?.type) && isBlocked(action.url) && !namedIn(`${g.goal} ${g.context}`, siteKey(action.url))) {
+        // don't keep knocking on a site that blocked us: that's how a block gets longer
+        g.trace?.add("skipped", { url: action.url, why: "blocked site" });
+        if ((g.blockedTries = (g.blockedTries || 0) + 1) > 3) return this._endGoal(g, "failed", `the sites that have what you asked for are blocking automated browsing right now (${siteKey(action.url)})`);
+        note = `Not opened: ${siteKey(action.url)} blocked automated browsing from this computer recently. Use web_search (its snippets often have the answer) or a different site.`;
         continue;
       }
       action = this.tasks.place(action); // never navigate the tab you're looking at away
@@ -928,6 +948,26 @@ export class Controller extends EventEmitter {
       this._emitGoal(g, "running");
       await this._runGoalStep(g, entry, action);
     }
+  }
+
+  /**
+   * Is the agent's tab showing a bot check ("You have been blocked", a captcha)? Then remember the
+   * site for a few hours and return what to tell the model; "" otherwise.
+   */
+  async _botCheck(g) {
+    const page = this.browser.active;
+    if (!page || page.isClosed()) return "";
+    const b = classifyBlock({ ...(await evalIn(page, botCheckInPage, null)), url: page.url() });
+    if (!b) return "";
+    if (!g.blocked?.has(b.site)) {
+      (g.blocked ||= new Set()).add(b.site);
+      noteBlocked(b.site, b.kind);
+      this._log("warn", `${b.site} showed a bot check (${b.kind}${b.said ? `: "${b.said}"` : ""}); skipping it for a few hours`);
+      g.trace?.add("bot-check", b);
+      g.steps.push({ text: `${b.site} blocked automated browsing`, status: "fail", detail: b.said?.slice(0, 80) });
+      this._emitGoal(g, "running");
+    }
+    return blockNote(b);
   }
 
   /** One goal step, with a watchdog: a step that hangs (a frozen page) fails after 45 s instead of blocking everything. */

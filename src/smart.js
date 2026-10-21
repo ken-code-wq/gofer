@@ -8,6 +8,7 @@
  */
 import { ask, askTools } from "./brain.js";
 import { webSearch, searchText, readUrl } from "./websearch.js";
+import { isBlocked } from "./blocked.js";
 import { LimitError } from "./usage.js";
 import { encodeElement } from "./jev.js";
 import { toHttpUrl } from "./spans.js";
@@ -750,7 +751,7 @@ export async function nextGoalStep(controller, goal, done, note = "", context = 
         // "site:youtube.com …" while on YouTube: the site's own search is quicker and gives clickable results
         const here = hostOf(ctx.snap.url);
         const site = String(x.action.query || "").match(/\bsite:([^\s/]+)/i)?.[1]?.replace(/^www\./, "");
-        if (x.action.type === "web_search" && here && site && (here === site || here.endsWith(`.${site}`))) {
+        if (x.action.type === "web_search" && here && site && (here === site || here.endsWith(`.${site}`)) && !isBlocked(ctx.snap.url)) {
           return { ok: false, key: k, description: `search the web: ${x.action.query}`, outcome: `not run: you're already on ${here}; use its own search box instead.`, detail: "already done" };
         }
         if (doneKeys.has(k)) return { ok: false, key: k, description: x.action.type === "web_search" ? `search again: ${x.action.query}` : `read again: ${x.action.url}`, outcome: "already done above, with the results shown there. Use different words, read a result, or finish with what you found.", detail: "already done" };

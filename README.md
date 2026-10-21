@@ -168,6 +168,22 @@ there instead, so what you were reading stays put. While it runs, the header sho
 **Show** to bring it forward, and a finished background task says so, with **Show it**. After a request
 that changed your tabs, **Go back to where I was** puts them back.
 
+### Live view
+
+The eye button in the header opens a live picture of the agent's tab, so you can watch it work in a
+background tab without switching to it. It follows the agent from tab to tab; click the tab name to
+watch any other open tab instead (the agent keeps working where it is). Click the picture or **Show** to
+bring that tab to the front, and the arrows to make it bigger. It only streams while the panel is open,
+a few frames a second, and only when the page changes.
+
+### Sites that block automated browsing
+
+Some sites (Yelp, TripAdvisor, and others behind DataDome or Cloudflare checks) show "You have been
+blocked" or a captcha instead of their content when they think a robot is browsing. The agent notices at
+once, doesn't retry or scroll the block page, and gets the answer another way: from web search results, or
+another site. It skips that site for the next 6 hours unless you ask for it by name ("on Yelp"); the list is
+in `~/.gofer/blocked.json`. If it's a captcha you can pass, it asks you to take over.
+
 ### Queue and take over
 
 Messages you send while a task runs wait their turn (the box says "Queue another request"); questions

@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Live view.** The eye button in the header shows a live picture of the agent's tab (it follows the agent to
+  other tabs), or any tab you pick, so you can watch a background task without switching to it. It streams with
+  the browser's own screencast, a few frames a second and only when the page changes, and only while the panel is
+  open. Click the picture or Show to bring that tab to the front.
+- **Bot checks are recognised.** "You have been blocked", "Access is temporarily restricted", "Verify you are human"
+  and Cloudflare's "Just a moment…" pages are spotted before the next step. The agent stops retrying the page and
+  answers from its web search results or another site, instead of saying it can't help. The site is skipped
+  for 6 hours unless a request names it (`~/.gofer/blocked.json`).
+
+### Fixed
+- Site notes are no longer "learned" from a site that only showed a block page (they were guesses).
+- A web search limited to the site you're on is allowed when that site is blocking you.
+
 ## 0.5.0 — 2026-10-21
 
 ### Added
