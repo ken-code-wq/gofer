@@ -44,7 +44,17 @@ export function routeSmart(text) {
   if ((m = t.match(/^(?:figure out how to|try to|help me|find a way to)\s+(.+)$/is))) return { kind: "goal", goal: m[1].trim() };
   // Multi-step tasks phrased as an outcome: "create a new bill with dummy data", "add a supplier called Acme"
   if (/^(?:please\s+)?(?:create|add|make|register|set up|draft|invite|record|log|book|duplicate)\s+(?:a|an|the|new|another|some|\d+)\b/i.test(t)) return { kind: "goal", goal: t };
-  if ((m = t.match(/^fill(?:\s+(?:in|out))?\s+(?:the\s+|this\s+)?form\b(?:\s+(?:with|using))?[\s:,]*(.*)$/is))) return { kind: "fill", spec: m[1].trim() };
+  // The one-shot form fill only when you give the values and ask for nothing more. "fill the form",
+  // "fill the form and submit it", "fill it with dummy data" are tasks: the agent looks at the form,
+  // makes up what's needed, picks from dropdowns, and goes on to submit.
+  if ((m = t.match(/^fill(?:\s+(?:in|out))?\s+(?:the\s+|this\s+)?form\b(?:\s+(?:with|using))?[\s:,]*(.*)$/is))) {
+    const spec = m[1].trim();
+    const more =
+      !spec ||
+      /^(?:and|then|&)\b/i.test(spec) ||
+      /\b(?:submit|save|send|approv\w*|post|publish|create|confirm|dummy|sample|fake|test data|random|anything|whatever|made[- ]up|realistic)\b/i.test(spec);
+    return more ? { kind: "goal", goal: t } : { kind: "fill", spec };
+  }
   if ((m = t.match(/^(?:ask|q)\s*:\s*(.+)$/is))) return { kind: "ask", question: m[1].trim() };
   if (
     /\?\s*$/.test(t) ||

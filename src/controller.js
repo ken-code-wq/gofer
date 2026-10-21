@@ -646,6 +646,11 @@ export class Controller extends EventEmitter {
     try {
       const r = await fillForm(this, spec, context);
       if (r.error) throw new Error(r.error);
+      // nothing fitted the one-shot fill (custom dropdowns, search boxes…): let the agent do it step by step
+      if (!r.filled.some((f) => !f.error)) {
+        this._log("info", "form fill matched no field: handing it to the agent");
+        return this._startGoal(`fill the form with ${spec}`, context);
+      }
       this._note(thread, `filled form (not submitted): ${r.filled.map((f) => `${f.label}=${f.value}`).join(", ")}`);
       this._log("act", `filled ${r.filled.length} field(s)${r.missing.length ? `; no field for: ${r.missing.join(", ")}` : ""}`);
       this.emit("fill", { spec, ...r });
