@@ -23,6 +23,8 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      - name: Headless Chromium (one test attaches to a real browser)
+        run: npx playwright install --with-deps --only-shell chromium
       - name: Unit tests (no network, no keys)
         run: npm test
       - name: Check desktop app scripts parse
