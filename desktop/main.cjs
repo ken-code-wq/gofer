@@ -27,10 +27,13 @@ const ROOT = projectRoot();
 const PACKAGED = ROOT === path.join(process.resourcesPath || "", "server");
 const DATA_DIR = path.join(require("node:os").homedir(), ".gofer");
 // The app was called Voice Browser: move its data folder and its window settings / chats (Electron's
-// userData) over once, before anything reads them.
+// userData) over once, before anything reads them. Electron creates an empty userData folder before
+// this file runs, so an empty folder counts as not there yet.
 function moveLegacy(from, to) {
   try {
-    if (fs.existsSync(from) && !fs.existsSync(to)) fs.renameSync(from, to);
+    if (!fs.existsSync(from)) return;
+    if (fs.existsSync(to) && fs.readdirSync(to).length === 0) fs.rmdirSync(to);
+    if (!fs.existsSync(to)) fs.renameSync(from, to);
   } catch (err) {
     console.warn(`Couldn't move ${from} to ${to}: ${err.message}`);
   }
