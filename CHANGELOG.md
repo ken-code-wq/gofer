@@ -13,6 +13,11 @@
   for 6 hours unless a request names it (`~/.gofer/blocked.json`).
 
 ### Fixed
+- **"continue", "stop", "play", "resume" and "pause" in Chat go to the AI with the conversation.** The video
+  shortcut used to take them, so "continue" after a stopped task answered "There's no video or audio playing on
+  this page." In Chat, the shortcut now only takes requests that can only mean the video ("go back 10 seconds",
+  "go to 2:15", "speed 1.5x", "pause the video"), and even those go to the AI when the page has no video.
+  Direct mode keeps the short forms.
 - Site notes are no longer "learned" from a site that only showed a block page (they were guesses).
 - A web search limited to the site you're on is allowed when that site is blocking you.
 - Pages in your browser kept dark mode only until Gofer attached: Playwright forced every page to light mode.

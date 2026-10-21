@@ -36,11 +36,25 @@ function parseClause(c) {
   return null;
 }
 
+// Names the video or song, so "play" or "stop" can only mean the player.
+const NAMES_MEDIA = /\b(?:video|song|music|track|audio|playback|player|clip)\b/i;
+const UNAMBIGUOUS = new Set(["seek_by", "seek_to", "speed", "mute", "unmute"]);
+
 /**
  * A whole request -> [actions], or null if any part isn't a media control (then the agent handles
  * it). "move back 10 seconds and play" -> [{ seek_by -10 }, { play }].
+ *
+ * `strict` (Chat mode): only requests that can't mean anything else. A bare "continue", "play",
+ * "stop" or "resume" usually refers to the conversation ("continue" after a stopped task), so
+ * those go to the AI, which sees the conversation and has the same controls as a tool.
  */
-export function parseMedia(text) {
+export function parseMedia(text, { strict = false } = {}) {
+  const actions = parseMediaAll(text);
+  if (!actions || !strict) return actions;
+  return actions.some((a) => UNAMBIGUOUS.has(a.op)) || NAMES_MEDIA.test(String(text)) ? actions : null;
+}
+
+function parseMediaAll(text) {
   const t = String(text || "")
     .trim()
     .replace(/[.!?]+$/, "")

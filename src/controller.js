@@ -181,8 +181,10 @@ export class Controller extends EventEmitter {
     const util = parseUtility(text);
     if (util) return this._utility(util);
     // "move back 10 seconds and play", "pause", "speed 1.5x": the video itself, instantly, no model
-    const media = parseMedia(text);
-    if (media) return this._media(media, text);
+    // In Chat only unmistakable ones ("go back 10 s", "pause the video"); "continue", "stop" go to the AI with
+    // the conversation. No video on the page: the AI gets the request after all.
+    const media = !opts.noMedia && parseMedia(text, { strict: Boolean(opts.chat) });
+    if (media) return this._media(media, text, () => this.handleCommand(text, { ...opts, inner: true, noMedia: true }));
     // "copy the table", "copy all invoice numbers as a table"
     const tableReq = parseTableRequest(text);
     if (tableReq) return this._table(tableReq);
@@ -532,11 +534,13 @@ export class Controller extends EventEmitter {
     }
   }
 
-  async _media(actions, text) {
+  async _media(actions, text, otherwise = null) {
     const thread = this.thread;
     try {
       const page = this.browser.page;
       if (!page) throw new Error("No tab is open");
+      // it only looked like a video command: let the AI work out what was meant
+      if (otherwise && !(await evalIn(page, mediaState, null))) return otherwise();
       const r = await runMedia(page, actions);
       if (!r.ok) throw new Error(r.detail);
       this._note(thread, `${text} → ${r.detail}`);
