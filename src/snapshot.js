@@ -51,18 +51,35 @@ export function collectElementsInPage() {
 
   const clean = (s) => (s || "").replace(/\s+/g, " ").trim();
 
-  for (const el of nodes) {
+  const tagged = new Set();
+  for (const input of nodes) {
     // keep looking for on-screen elements after the off-screen ones fill up (big pages)
     if (inView.length >= 400 || ++looked > 4000) break;
+    let el = input;
     let rect;
     try {
       rect = el.getBoundingClientRect();
     } catch {
       continue;
     }
-    if (!rect || rect.width < 2 || rect.height < 2) continue;
-    const style = win.getComputedStyle(el);
-    if (style.visibility === "hidden" || style.display === "none" || Number(style.opacity) === 0) continue;
+    if (!rect) continue;
+    let style = win.getComputedStyle(el);
+    // Styled checkboxes and radios (Material UI, Bootstrap, Tailwind forms…) keep the real input but make it
+    // invisible: see-through on top of a drawn box, or shrunk to nothing beside its label. It's still the
+    // control: keep it, and when it has no size, its label stands in (clicking the label ticks it).
+    const toggle = el.tagName === "INPUT" && /^(?:checkbox|radio)$/i.test(el.type);
+    const tiny = rect.width < 2 || rect.height < 2;
+    if (toggle && tiny && style.display !== "none") {
+      const label = (el.labels && el.labels[0]) || el.closest("label");
+      const r = label && label.getBoundingClientRect();
+      if (!label || !r || r.width < 2 || r.height < 2 || tagged.has(label)) continue;
+      el = label;
+      rect = r;
+      style = win.getComputedStyle(el);
+    } else if (tiny) continue;
+    if (tagged.has(el)) continue;
+    tagged.add(el);
+    if (style.visibility === "hidden" || style.display === "none" || (Number(style.opacity) === 0 && !toggle)) continue;
     if (el.getAttribute("aria-hidden") === "true") continue;
     if (typeof el.checkVisibility === "function" && !el.checkVisibility()) continue;
 
@@ -72,9 +89,9 @@ export function collectElementsInPage() {
       el.setAttribute("data-vb-id", id);
     }
 
-    const tag = el.tagName.toLowerCase();
-    const type = (el.getAttribute("type") || "").toLowerCase();
-    let role = el.getAttribute("role") || "";
+    const tag = input.tagName.toLowerCase();
+    const type = (input.getAttribute("type") || "").toLowerCase();
+    let role = input.getAttribute("role") || "";
     if (!role) {
       if (tag === "a") role = "link";
       else if (tag === "button" || type === "submit" || type === "button" || type === "reset") role = "button";
@@ -93,10 +110,13 @@ export function collectElementsInPage() {
     const img = el.querySelector && el.querySelector("img[alt]");
     // A password field's value must never reach the model, the UI or the logs.
     const secret = type === "password";
-    const labelText = el.labels && el.labels.length ? clean(el.labels[0].innerText) : "";
+    const labelText = input.labels && input.labels.length ? clean(input.labels[0].innerText) : el.tagName === "LABEL" ? clean(el.innerText) : "";
+    // a checkbox without a <label for>: the text right next to it ("I sell this Product")
+    const besideText = toggle && !labelText ? clean((input.closest("label") || input.parentElement?.parentElement)?.innerText || "").slice(0, 80) : "";
     let name =
-      clean(el.getAttribute("aria-label")) ||
+      clean(input.getAttribute("aria-label")) ||
       labelText ||
+      besideText ||
       clean(el.innerText) ||
       (secret ? "" : clean(el.value)) ||
       clean(el.getAttribute("placeholder")) ||
@@ -120,7 +140,10 @@ export function collectElementsInPage() {
     const inViewport = rect.bottom > 0 && rect.top < vh && rect.right > 0 && rect.left < vw;
     const popup = popupNodes.has(el);
     if (!inViewport && !popup && offView.length >= 400) continue;
-    const inputName = clean(el.getAttribute("name")) || clean(el.getAttribute("id"));
+    const inputName = clean(input.getAttribute("name")) || clean(input.getAttribute("id"));
+    // ticked or not, so the model doesn't click a checkbox it already ticked
+    const aria = input.getAttribute("aria-checked");
+    const checked = toggle ? input.checked : /^(?:checkbox|radio|switch|menuitemcheckbox|menuitemradio)$/.test(role) && aria ? aria === "true" : undefined;
 
     (inViewport || popup ? inView : offView).push({
       id,
@@ -131,6 +154,7 @@ export function collectElementsInPage() {
       href,
       type,
       inputName,
+      ...(checked === undefined ? {} : { checked }),
       inViewport,
       popup,
       top: Math.round(rect.top + win.scrollY),
@@ -223,6 +247,7 @@ export function compactElements(rawElements, opts = {}) {
     if (e.href) rec.href = truncate(e.href, 50);
     if (!e.inViewport) rec.below_fold = true;
     if (e.popup) rec.in_menu = true;
+    if (typeof e.checked === "boolean") rec.checked = e.checked;
     out.push(rec);
     if (out.length >= maxElements) break;
   }

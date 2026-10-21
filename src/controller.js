@@ -909,6 +909,11 @@ export class Controller extends EventEmitter {
         note = `Not opened: ${siteKey(action.url)} blocked automated browsing from this computer recently. Use web_search (its snippets often have the answer) or a different site.`;
         continue;
       }
+      // "click the I sell checkbox" on an element that isn't one: the model picked a neighbour by mistake
+      const picked = action?.type === "click_element" ? r.snap?.elements?.find((e) => e.id === action.targetId) : null;
+      if (!error && picked && /\b(?:check\s?box|tick|radio|toggle|switch)\b/i.test(step.description || "") && !["checkbox", "radio", "switch", "menuitemcheckbox", "menuitemradio"].includes(picked.role)) {
+        error = `${picked.id} is ${picked.role} "${picked.text}", not a checkbox. Pick the checkbox from the element list by its label; if it isn't there, scroll to it`;
+      }
       action = this.tasks.place(action); // never navigate the tab you're looking at away
       if (error) {
         g.trace?.add("invalid", { error });

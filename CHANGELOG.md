@@ -13,6 +13,11 @@
   for 6 hours unless a request names it (`~/.gofer/blocked.json`).
 
 ### Fixed
+- **Styled checkboxes were invisible to the agent.** Material UI and similar libraries make the real checkbox
+  see-through (or shrink it beside its label), and the page scan dropped anything see-through. So on forms like
+  Built POS, "I sell this Product" never reached the model, and it clicked a nearby "Product" option instead.
+  They're listed now, by their label, with whether they're ticked ("[checked]" / "[not checked]"). A step that
+  says "checkbox" but picks something else is sent back to the model.
 - **"continue", "stop", "play", "resume" and "pause" in Chat go to the AI with the conversation.** The video
   shortcut used to take them, so "continue" after a stopped task answered "There's no video or audio playing on
   this page." In Chat, the shortcut now only takes requests that can only mean the video ("go back 10 seconds",

@@ -66,6 +66,7 @@ export function encodeElement(el, pageHost = "") {
     const host = el.href.split("/")[0];
     if (host && host !== pageHost) s += ` → ${host}`;
   }
+  if (typeof el.checked === "boolean") s += el.checked ? " [checked]" : " [not checked]";
   if (el.below_fold) s += " [below fold]";
   if (el.in_menu) s += " [in open menu]";
   return s;
