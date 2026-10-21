@@ -5,8 +5,8 @@ Thanks for helping! Bug reports, ideas and pull requests are all welcome.
 ## Getting set up
 
 ```bash
-git clone https://github.com/ken-code-wq/voice-browser.git
-cd voice-browser
+git clone https://github.com/ken-code-wq/gofer.git
+cd gofer
 npm install
 npx playwright install chromium
 cp .env.example .env        # add your own keys; never commit this file

@@ -11,12 +11,12 @@
 </p>
 
 <p align="center">
-  <a href="https://ken-code-wq.github.io/voice-browser/"><b>Website</b></a> ·
-  <a href="https://github.com/ken-code-wq/voice-browser/releases/latest"><b>Download</b></a>
+  <a href="https://ken-code-wq.github.io/gofer/"><b>Website</b></a> ·
+  <a href="https://github.com/ken-code-wq/gofer/releases/latest"><b>Download</b></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/ken-code-wq/voice-browser/actions/workflows/ci.yml"><img src="https://github.com/ken-code-wq/voice-browser/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/ken-code-wq/gofer/actions/workflows/ci.yml"><img src="https://github.com/ken-code-wq/gofer/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" /></a>
   <img src="https://img.shields.io/badge/platform-macOS-lightgrey.svg" alt="macOS" />
   <img src="https://img.shields.io/badge/node-%E2%89%A522-339933.svg" alt="Node 22+" />
@@ -83,8 +83,8 @@ The panel has two modes (<kbd>Tab</kbd> switches):
 for at least one model (see [Configuration](#configuration)).
 
 ```bash
-git clone https://github.com/ken-code-wq/voice-browser.git
-cd voice-browser
+git clone https://github.com/ken-code-wq/gofer.git
+cd gofer
 npm install
 npx playwright install chromium
 cp .env.example .env            # then add your keys — .env is git-ignored and never leaves your Mac

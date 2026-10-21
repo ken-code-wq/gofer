@@ -4,7 +4,7 @@ name: Website
 on:
   push:
     branches: [main]
-    paths: ["marketing/**", "desktop/bar.html", ".github/workflows/pages.yml"]
+    paths: ["marketing/**", "desktop/bar.html", "desktop/package.json", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:

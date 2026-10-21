@@ -6,7 +6,7 @@ take security reports seriously.
 ## Reporting a vulnerability
 
 Please **don't open a public issue** for security problems. Instead, use
-[GitHub's private vulnerability reporting](https://github.com/ken-code-wq/voice-browser/security/advisories/new)
+[GitHub's private vulnerability reporting](https://github.com/ken-code-wq/gofer/security/advisories/new)
 for this repository. Include steps to reproduce and the impact you expect. You'll get a reply as soon as
 possible; please give us a reasonable time to fix it before disclosing publicly.
 

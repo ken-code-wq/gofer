@@ -1,6 +1,6 @@
 {
   "name": "gofer",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "description": "Gofer: tell your browser what to do. A macOS chat panel that drives Dia, Arc, Chrome or Chromium \u2014 tasks, page and web questions, forms and follow-ups.",
@@ -26,11 +26,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ken-code-wq/voice-browser.git"
+    "url": "https://github.com/ken-code-wq/gofer.git"
   },
-  "homepage": "https://github.com/ken-code-wq/voice-browser#readme",
+  "homepage": "https://github.com/ken-code-wq/gofer#readme",
   "bugs": {
-    "url": "https://github.com/ken-code-wq/voice-browser/issues"
+    "url": "https://github.com/ken-code-wq/gofer/issues"
   },
   "author": "Kenneth Ben-Boulo",
   "contributors": [

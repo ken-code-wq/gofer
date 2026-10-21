@@ -64,7 +64,7 @@ const TABS = [
   { title: "Flights to Lisbon · KAYAK", url: "https://www.kayak.com/flights/LON-LIS/2026-11-14", icon: ICONS.kayak },
   { title: "Lisbon flights - Google Flights", url: "https://www.google.com/travel/flights", icon: ICONS.google },
   { title: "The Prince of Egypt - Wikipedia", url: "https://en.wikipedia.org/wiki/The_Prince_of_Egypt", icon: ICONS.wiki },
-  { title: "ken-code-wq/voice-browser", url: "https://github.com/ken-code-wq/voice-browser", icon: ICONS.github },
+  { title: "ken-code-wq/gofer", url: "https://github.com/ken-code-wq/gofer", icon: ICONS.github },
 ].map((t, index) => ({ index, active: false, shown: false, ...t }));
 
 const MODELS = {

@@ -7,7 +7,7 @@ here). Speak in short, natural commands; pause ~1 s between commands.
 ## Before recording
 
 ```bash
-cd voice-browser
+cd gofer
 ./run.sh                       # server + controlled window (starts on example.com)
 ```
 

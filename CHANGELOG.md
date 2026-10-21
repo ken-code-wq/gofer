@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 — 2026-10-21
+
+### Added
+- **A website**, https://ken-code-wq.github.io/gofer/, with the real panel running beside a scripted task.
 
 ### Changed
 - **Voice Browser is now Gofer**, with a new icon: a white pointer with a black outline on an indigo gradient that fades to black. The app installs as
@@ -10,6 +13,7 @@
   macOS asks again for microphone access and for permission to control your browser, and *Start at login*
   needs turning on again from the menu-bar icon.
 - Screenshots are saved as `Gofer <date>.png`.
+- The GitHub repository is now `ken-code-wq/gofer` (old links redirect), and downloads are named `Gofer-<version>-…`.
 
 ## 0.4.0 — 2026-10-20
 

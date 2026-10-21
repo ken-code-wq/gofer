@@ -2,7 +2,8 @@
 /**
  * index.src.html -> index.html: inlines the panel's own icons and provider logos (taken from
  * desktop/bar.html, so the site always matches the app) wherever the source says %icon:name%,
- * %logo:name%, %mic%, %dl%, %pointer% or %cursor%.
+ * %logo:name%, %mic%, %dl%, %pointer% or %cursor%, and %version% (the desktop app's version, which the
+ * download links use).
  *
  * desktop/bar.html -> panel.html: the real panel for the hero, always in dark mode, with
  * panel-shim.js standing in for the Electron shell and the server.
@@ -27,6 +28,7 @@ const object = (name) => {
   }
   return JSON.parse(bar.slice(start, i + 1));
 };
+const version = JSON.parse(fs.readFileSync(path.join(here, "..", "desktop", "package.json"), "utf8")).version;
 const ICON = object("ICON");
 const LOGO = object("LOGO");
 const extra = {
@@ -39,7 +41,7 @@ const extra = {
 };
 
 let missing = [];
-const out = fs.readFileSync(path.join(here, "index.src.html"), "utf8").replace(/%(icon|logo):(\w+)%|%(mic|dl|pointer|cursor)%/g, (m, kind, name, x) => {
+const out = fs.readFileSync(path.join(here, "index.src.html"), "utf8").replaceAll("%version%", version).replace(/%(icon|logo):(\w+)%|%(mic|dl|pointer|cursor)%/g, (m, kind, name, x) => {
   const svg = x ? extra[x] : (kind === "icon" ? ICON : LOGO)[name];
   if (!svg) missing.push(m);
   // logos carry a <title>; the text next to them already names the provider
