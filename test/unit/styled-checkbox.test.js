@@ -50,3 +50,33 @@ test("see-through and hidden checkboxes are listed with their label and ticked s
     await browser.close();
   }
 });
+
+test("a goal step reports what was really clicked, and whether a checkbox is ticked now", { timeout: 60000 }, async () => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  process.env.VB_DATA_DIR ||= fs.mkdtempSync(path.join(os.tmpdir(), "vb-step-"));
+  const { BrowserManager } = await import("../../src/browser.js");
+  const { Controller } = await import("../../src/controller.js");
+  const b = new BrowserManager();
+  await b.launch({ headless: true, profileDir: fs.mkdtempSync(path.join(os.tmpdir(), "vb-prof-")), startUrl: "about:blank" });
+  try {
+    const c = new Controller({ browser: b, persist: false });
+    c._emitGoal = () => {};
+    await b.page.setContent(`<div role="listbox"><div role="option" onclick="">Product</div></div>
+      <label><span style="position:relative;display:inline-block;width:20px;height:20px"><input type="checkbox" style="position:absolute;inset:0;opacity:0;margin:0;width:100%;height:100%"></span> I sell this Product</label>`);
+    const snap = await b.snapshot();
+    const g = { goal: "x", steps: [], done: [], recipe: [] };
+    const run = async (el) => {
+      const entry = { text: "Click I sell this Product checkbox", status: "running" };
+      await c._runGoalStep(g, entry, { type: "click_element", targetId: el.id, label: `${el.role} "${el.text}"` });
+      return entry.detail;
+    };
+    // the model said "checkbox" but picked the option: the step says what was clicked
+    assert.equal(await run(snap.elements.find((e) => e.role === "option")), 'clicked option "Product"');
+    assert.equal(await run(snap.elements.find((e) => e.role === "checkbox")), 'clicked checkbox "I sell this Product" (now checked)');
+    assert.match(g.done.at(-1).outcome, /now checked\); done \(now at/, "ticking counts as a change");
+  } finally {
+    await b.close();
+  }
+});

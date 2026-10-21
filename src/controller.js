@@ -35,14 +35,16 @@ import { botCheckInPage, classifyBlock, noteBlocked, blockedSites, isBlocked, na
  * dialogs, alerts and toasts), so a step that only opens a menu or shows a toast still counts as a change.
  */
 function pageSignature() {
-  const sel = 'button, a[href], [role="menuitem"], [role="option"], [role="dialog"], [role="alert"], [role="status"], [aria-expanded="true"], dialog[open], input, select, textarea';
+  const sel = 'button, a[href], [role="menuitem"], [role="option"], [role="dialog"], [role="alert"], [role="status"], [aria-expanded="true"], [aria-checked], dialog[open], input, select, textarea';
   const out = [];
   for (const el of document.querySelectorAll(sel)) {
     if (out.length > 400) break;
     if (el.closest('[class*="__vb"]')) continue;
     const r = el.getBoundingClientRect();
     if (!r.width || !r.height || r.bottom < 0 || r.top > innerHeight) continue;
-    out.push(`${el.getAttribute("role") || el.tagName}:${(el.getAttribute("aria-label") || el.textContent || el.value || "").trim().slice(0, 40)}:${el.getAttribute("aria-expanded") || ""}:${el.getAttribute("aria-pressed") || ""}`);
+    // ticked or not counts too: ticking a checkbox changes the page even though nothing else moves
+    const ticked = el.type === "checkbox" || el.type === "radio" ? String(el.checked) : el.getAttribute("aria-checked") || "";
+    out.push(`${el.getAttribute("role") || el.tagName}:${(el.getAttribute("aria-label") || el.textContent || el.value || "").trim().slice(0, 40)}:${el.getAttribute("aria-expanded") || ""}:${el.getAttribute("aria-pressed") || ""}:${ticked}`);
   }
   let h = 0;
   const str = out.join("|");
@@ -53,6 +55,16 @@ function pageSignature() {
 /** page.evaluate that gives up after `ms` (a busy or frozen page must never hang a task). */
 const evalIn = (page, fn, fallback, ms = 1500) =>
   Promise.race([page.evaluate(fn).catch(() => fallback), new Promise((r) => setTimeout(() => r(fallback), ms))]);
+
+/** Runs in the page: is this element (a checkbox, its label, an ARIA checkbox) ticked? null if it can't tell. */
+function checkedState(id) {
+  const el = document.querySelector(`[data-vb-id="${id}"]`);
+  if (!el) return null;
+  const input = el.tagName === "INPUT" ? el : el.control || el.querySelector?.("input[type=checkbox], input[type=radio]");
+  if (input && "checked" in input) return input.checked;
+  const aria = el.getAttribute("aria-checked");
+  return aria ? aria === "true" : null;
+}
 
 /** Runs in the page: the text of visible messages (toasts, alerts, status lines), e.g. "Added to queue". */
 function pageMessages() {
@@ -1028,14 +1040,21 @@ export class Controller extends EventEmitter {
     if (ok && res.image) (g.images ||= []).push({ image: res.image, path: res.path });
     const url = this.browser.currentUrl?.() || "";
     entry.status = ok ? "ok" : "fail";
-    entry.detail = ok ? url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 80) : res.detail;
+    // what was really clicked, next to what the model said it was clicking: they don't always match
+    let clicked = action.type === "click_element" && action.label ? `clicked ${action.label}` : "";
+    // a checkbox: say whether it's ticked now, so a click that didn't take shows up
+    if (ok && clicked && /^(?:checkbox|radio|switch|menuitemcheckbox)\b/.test(action.label) && after && !after.isClosed()) {
+      const ticked = await Promise.race([after.evaluate(checkedState, action.targetId).catch(() => null), new Promise((r) => setTimeout(() => r(null), 1500))]);
+      if (typeof ticked === "boolean") clicked += ticked ? " (now checked)" : " (now not checked)";
+    }
+    entry.detail = ok ? clicked.slice(0, 80) || url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 80) : res.detail;
     const title = ok ? await this.browser.page?.title().catch(() => "") : "";
     g.trace?.add("step", { action: { ...action, page: undefined }, ok, unchanged, url, title, said: said.length ? said : undefined, detail: ok ? undefined : res.detail });
     // on a page with a video, where it is now: shows whether a seek / play / "next video" worked
     const media = ok && after && !after.isClosed() ? await evalIn(after, mediaState, null) : null;
     const message = `${said.length ? `; the page said: ${said.map((t) => `"${t}"`).join(", ")}` : ""}${media ? `; video: ${stateText(media)}` : ""}`;
-    g.done.push({ description: entry.text, outcome: ok ? (unchanged ? `done, but the page unchanged (still ${url.slice(0, 120)})${message}` : `done (now at ${url.slice(0, 120)}${title ? ` "${title.slice(0, 80)}"` : ""}${message})`) : `failed: ${res.detail}` });
-    if (said.length) entry.detail = said[0].slice(0, 80);
+    g.done.push({ description: entry.text, outcome: ok ? (clicked ? `${clicked}; ` : "") + (unchanged ? `done, but the page unchanged (still ${url.slice(0, 120)})${message}` : `done (now at ${url.slice(0, 120)}${title ? ` "${title.slice(0, 80)}"` : ""}${message})`) : `failed: ${res.detail}` });
+    if (said.length) entry.detail = `${clicked ? `${clicked} · ` : ""}${said[0]}`.slice(0, 100);
     if (unchanged) {
       const key = `${action.type}:${action.label || action.key || action.targetId || ""}`;
       g.noEffect = { key, n: g.noEffect?.key === key ? g.noEffect.n + 1 : 1 };
