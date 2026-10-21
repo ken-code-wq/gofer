@@ -16,7 +16,24 @@ import { resolveSecrets } from "./secrets.js";
 import { notesForPrompt } from "./sitenotes.js";
 import { readPage, readingText, citeHint, citeNote, readTabs, tabsText, kindName } from "./pagetext.js";
 
-export const MAX_GOAL_STEPS = 25; // browser steps (web searches and page reads don't count)
+// Browser steps (web searches and page reads don't count). There's no fixed limit while a task makes
+// progress: it checks in with you every CHECKPOINT_STEPS steps, stops if it goes round in circles
+// (see stuckOn), and never goes past MAX_GOAL_STEPS.
+export const CHECKPOINT_STEPS = 40;
+export const MAX_GOAL_STEPS = 200;
+const STUCK_WINDOW = 12;
+
+/**
+ * Going round in circles? `sigs`: what each browser step did (action, target, text typed), oldest first.
+ * The last STUCK_WINDOW steps using 4 or fewer different actions, with no checklist item ticked off
+ * meanwhile, is a loop (type the price → error → OK → type the price…). Real work like adding
+ * products one after another types different names, so it varies. -> the repeated steps, or null.
+ */
+export function stuckOn(sigs, { tickedAt = -1 } = {}) {
+  if (sigs.length < STUCK_WINDOW || tickedAt >= sigs.length - STUCK_WINDOW) return null;
+  const distinct = [...new Set(sigs.slice(-STUCK_WINDOW))];
+  return distinct.length <= 4 ? distinct : null;
+}
 const PAGE_TEXT_CHARS = 30000;
 
 /** Which smart feature a typed command asks for, if any. Runs before chain splitting (forms have commas). */

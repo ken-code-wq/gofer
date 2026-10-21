@@ -59,3 +59,22 @@ test("video commands run without the AI; anything else goes to the agent", async
   assert.equal(stateText({ time: 73, duration: 602, paused: false, rate: 1, muted: false }), "1:13 / 10:02, playing");
   assert.deepEqual(toAction(stepFromCall({ name: "video_control", args: { op: "seek_by", seconds: -10 } })).action, { type: "media", actions: [{ op: "seek_by", seconds: -10 }], label: "video back 10s" });
 });
+
+test("no fixed step limit: a task stops when it goes round in circles, not while it makes progress", async () => {
+  const { stuckOn, CHECKPOINT_STEPS, MAX_GOAL_STEPS } = await import("../../src/smart.js");
+  assert.ok(CHECKPOINT_STEPS >= 40 && MAX_GOAL_STEPS >= 200);
+  // adding products one after another: the same buttons, but different names typed
+  const products = ["Power Bank", "USB Hub", "USB-C Cable", "Mouse", "Keyboard"].flatMap((n) => [
+    'click_element|button "New Item"|',
+    `type_into_field|textbox "Name"|${n}`,
+    'click_element|checkbox "I sell this Product"|',
+    'type_into_field|textbox "Selling price"|10.00',
+    'click_element|button "Save"|',
+  ]);
+  for (let i = 1; i <= products.length; i++) assert.equal(stuckOn(products.slice(0, i)), null, `step ${i}`);
+  // an error the model can't get past
+  const loop = [...products.slice(0, 10), ...Array.from({ length: 12 }, (_, i) => (i % 2 ? 'click_element|button "Okay"|' : 'type_into_field|textbox "Selling price"|10.00'))];
+  assert.deepEqual(stuckOn(loop), ['type_into_field|textbox "Selling price"|10.00', 'click_element|button "Okay"|']);
+  // a checklist item ticked off in the window counts as progress
+  assert.equal(stuckOn(loop, { tickedAt: loop.length - 3 }), null);
+});

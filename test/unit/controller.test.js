@@ -336,3 +336,40 @@ test("Ask mode: anything typed is a question, never a browser action", async () 
   if (saved.gemini) process.env.GEMINI_API_KEY = saved.gemini;
   if (saved.brain) process.env.BRAIN_PROVIDER = saved.brain;
 });
+
+test("long tasks check in every 40 steps (keep going / stop / don't ask again) and stop when going round in circles", async () => {
+  const c = new Controller({ browser: fakeBrowser(), decideFn: async () => ({}), executeFn: async () => ({ ok: true }), persist: false });
+  const goals = [];
+  let confirm = null;
+  c.on("goal", (g) => goals.push(g));
+  c.on("goal-confirm", (p) => (confirm = p));
+  const goal = (extra = {}) => ({ goal: "add 30 products", context: "", steps: [], done: Array.from({ length: 40 }, (_, i) => ({ description: `step ${i}`, outcome: "done" })), recipe: [], items: [], itemsDone: [], invalid: 0, ...extra });
+
+  let g = goal();
+  c.goal = g;
+  await c._goalLoop(g);
+  assert.equal(confirm?.kind, "checkpoint");
+  assert.match(confirm.description, /40 steps so far.*Keep going\?/);
+  await c.goalAnswer(false);
+  assert.equal(goals.at(-1).status, "cancelled");
+  assert.match(goals.at(-1).summary, /stopped it after 40 steps/);
+
+  // "Don't ask again": goes on without asking (the loop is cancelled here before it asks a model)
+  g = goal();
+  c.goal = g;
+  confirm = null;
+  await c._goalLoop(g);
+  g.cancelled = true;
+  await c.goalAnswer(true, true);
+  assert.equal(g.noCheckpoint, true);
+  assert.equal(g.autoApprove, undefined, "risky steps still ask");
+
+  // the same few steps over and over: stopped, saying what it kept doing
+  const sigs = Array.from({ length: 12 }, (_, i) => (i % 2 ? 'click_element|button "Okay"|' : 'type_into_field|textbox "Price"|10'));
+  g = goal({ done: [], sigs });
+  c.goal = g;
+  await c._goalLoop(g);
+  assert.equal(goals.at(-1).status, "failed");
+  assert.match(goals.at(-1).summary, /round in circles: textbox "Price" 10 → button "Okay"/);
+  await c.close();
+});

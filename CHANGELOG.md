@@ -13,6 +13,14 @@
   for 6 hours unless a request names it (`~/.gofer/blocked.json`).
 
 ### Changed
+- **No fixed limit on task steps.** Tasks used to stop at 25 steps ("Stopped after 25 steps without finishing"), even
+  when they were going fine; a task like adding 10 products takes about 5 steps each. Now a task keeps going while
+  it makes progress:
+  - every 40 steps it checks in: "I've taken 40 steps so far. Keep going?" (Keep going / Stop / Don't ask again),
+    so a long task can't use up your AI quota without you knowing;
+  - it stops if its last 12 steps are the same few actions over and over (type the price → error → OK → …),
+    and says what it kept doing;
+  - 200 steps is the most one task may take.
 - **Each task step uses far fewer tokens**, so Groq's free tier (8,000 tokens a minute per model, and a daily cap
   over a rolling 24 hours) lasts much longer before Auto falls back to Gemini Flash-Lite:
   - Screenshots for the model are taken at normal size instead of Retina double size: a quarter of the pixels.

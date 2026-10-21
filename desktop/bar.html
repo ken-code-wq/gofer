@@ -1420,6 +1420,15 @@
         break;
       }
       case "goal-confirm":
+        // a long task checking in: keep going, stop, or don't ask again
+        if (payload.kind === "checkpoint") {
+          ask(payload.description, [
+            { label: "Keep going", kbd: "↵", primary: true, action: answer(() => { send({ type: "goal:answer", ok: true }); setProgress("Continuing"); }) },
+            { label: "Stop", kbd: "esc", cancel: true, action: answer(() => send({ type: "goal:answer", ok: false })) },
+            { label: "Don't ask again", link: true, action: answer(() => { send({ type: "goal:answer", ok: true, all: true }); setProgress("Continuing without asking again"); }) },
+          ]);
+          break;
+        }
         ask(`Allow this step? ${capital(payload.description)}.`, [
           { label: "Allow", kbd: "↵", primary: true, action: answer(() => { send({ type: "goal:answer", ok: true }); setProgress("Continuing"); }) },
           { label: "Stop", kbd: "esc", cancel: true, action: answer(() => send({ type: "goal:answer", ok: false })) },

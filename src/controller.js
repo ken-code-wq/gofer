@@ -13,7 +13,7 @@ import { planChain } from "./chain.js";
 import { parseCheck } from "./checks.js";
 import { resolveSaved } from "./store.js";
 import { loadChats, saveChats, listFacts, rememberFact, forgetFacts, parseMemoryCommand } from "./memory.js";
-import { routeSmart, answerQuestion, fillForm, nextGoalStep, verifyGoal, resolveFollowUp, toAction, MAX_GOAL_STEPS, mayHaveItems, goalItems } from "./smart.js";
+import { routeSmart, answerQuestion, fillForm, nextGoalStep, verifyGoal, resolveFollowUp, toAction, MAX_GOAL_STEPS, CHECKPOINT_STEPS, stuckOn, mayHaveItems, goalItems } from "./smart.js";
 import { hasBrain, ask as brainAsk } from "./brain.js";
 import { parseSiteCommand, resolveSite, siteKey, addNote, notesFor, learnFromGoal, markUsed } from "./sitenotes.js";
 import { parseUtility, runUtility, copyToClipboard, wantsScreenshot } from "./utility.js";
@@ -804,7 +804,23 @@ export class Controller extends EventEmitter {
       const turn = await this.tasks.pauseIfWanted(g);
       if (turn?.cancelled || g.cancelled) return;
       if (turn) note = note ? `${note} ${HANDBACK_NOTE}` : HANDBACK_NOTE;
-      if (g.done.filter((d) => !d.research).length >= MAX_GOAL_STEPS) return this._endGoal(g, "failed", `stopped after ${MAX_GOAL_STEPS} steps without finishing`);
+      const stepsDone = g.done.filter((d) => !d.research).length;
+      if (stepsDone >= MAX_GOAL_STEPS) return this._endGoal(g, "failed", `stopped after ${MAX_GOAL_STEPS} steps, the most one task may take`);
+      // going round in circles: stop and say what it kept doing
+      const loop = stuckOn(g.sigs || [], { tickedAt: g.tickedAt ?? -1 });
+      if (loop) {
+        g.trace?.add("stuck", { steps: loop });
+        return this._endGoal(g, "failed", `it kept going round in circles: ${loop.map((x) => x.split("|").filter(Boolean).slice(1).join(" ")).join(" → ").slice(0, 200)}`);
+      }
+      // a long task checks in now and then, so it can't use up your AI quota without you knowing
+      if (!g.noCheckpoint && stepsDone >= (g.checkpoint ??= CHECKPOINT_STEPS)) {
+        g.checkpoint = stepsDone + CHECKPOINT_STEPS;
+        g.awaiting = { type: "__checkpoint" };
+        const did = g.itemsDone?.length ? `; done: ${g.itemsDone.join(", ")}` : "";
+        this._emitGoal(g, "awaiting");
+        this.emit("goal-confirm", { goal: g.goal, kind: "checkpoint", steps: stepsDone, description: `I've taken ${stepsDone} steps so far${did}. Keep going?` });
+        return; // goalAnswer() resumes
+      }
       const blocked = await this._botCheck(g);
       if (blocked) note = note ? `${note} ${blocked}` : blocked;
       let r;
@@ -893,6 +909,7 @@ export class Controller extends EventEmitter {
         const item = g.items.find((x) => x.toLowerCase() === String(step.item || "").toLowerCase()) || g.items.find((x) => !g.itemsDone.includes(x) && String(step.item || "").toLowerCase().includes(x.toLowerCase().split(" ")[0]));
         if (item && !g.itemsDone.includes(item)) {
           g.itemsDone.push(item);
+          g.tickedAt = (g.sigs || []).length - 1; // progress: the loop check starts over
           g.steps.push({ text: `done: ${item}`, status: "ok" });
           this._emitGoal(g, "running");
         }
@@ -951,6 +968,7 @@ export class Controller extends EventEmitter {
           const rec = stepFromFill(r2.filled);
           if (rec) g.recipe.push(rec);
           entry.detail = ok.map((f) => `${f.label}: ${f.value}`).join(" · ").slice(0, 160);
+          (g.sigs ||= []).push(`fill|form|${fill}`);
           g.done.push({ description: entry.text, outcome: `filled ${ok.length} field(s): ${entry.detail}${r2.missing.length ? `; no field for ${r2.missing.join(", ")}` : ""}. NOT submitted yet` });
         } catch (err) {
           entry.status = "fail";
@@ -1041,6 +1059,8 @@ export class Controller extends EventEmitter {
       }
     }
     if (ok && res.image) (g.images ||= []).push({ image: res.image, path: res.path });
+    // what this step did, for spotting a task going round in circles (see stuckOn)
+    (g.sigs ||= []).push(`${action.type}|${action.label || ""}|${action.text ?? action.key ?? action.url ?? ""}`);
     const url = this.browser.currentUrl?.() || "";
     entry.status = ok ? "ok" : "fail";
     // what was really clicked, next to what the model said it was clicking: they don't always match
@@ -1088,9 +1108,16 @@ export class Controller extends EventEmitter {
   async goalAnswer(ok, all = false) {
     const g = this.goal;
     if (!g?.awaiting) return;
-    if (ok && all) g.autoApprove = true; // "Allow all" for the rest of this goal
     const action = g.awaiting;
     g.awaiting = null;
+    // "Keep going?" after many steps
+    if (action.type === "__checkpoint") {
+      if (!ok) return this._endGoal(g, "cancelled", `you stopped it after ${g.done.filter((d) => !d.research).length} steps`);
+      if (all) g.noCheckpoint = true; // "Don't ask again" for this task
+      this._emitGoal(g, "running");
+      return this._goalLoop(g);
+    }
+    if (ok && all) g.autoApprove = true; // "Allow all" for the rest of this goal
     const entry = g.steps[g.steps.length - 1];
     if (!ok) return this._endGoal(g, "cancelled", `you declined: ${entry.text}`);
     entry.status = "running";
